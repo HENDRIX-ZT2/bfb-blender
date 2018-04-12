@@ -84,6 +84,7 @@ def find_in_group(group, t, i):
 			return fcurve
 			
 def loop_fcurve_tangents():
+	print("starting loop_fcurve_tangents")
 	before = {}
 	after = {}
 	for action in bpy.data.actions:
@@ -325,7 +326,7 @@ def bake_and_clean(error = 0.25, exp_power = 2):
 			worked = True
 			print(success)
 		else:
-			reported_errors.append("Could not find an armature with constraints!")
+			reported_errors.append("Could not find an armature with constraints for baking!")
 	else:
 		reported_errors.append("There are no actions - are you really trying to export animations?")
 

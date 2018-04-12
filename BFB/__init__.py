@@ -113,6 +113,7 @@ class ImportBF(bpy.types.Operator, ImportHelper):
 	filename_ext = ".bf"
 	filter_glob = StringProperty(default="*.bf", options={'HIDDEN'})
 	files = CollectionProperty(type=bpy.types.PropertyGroup)
+	set_fps = BoolProperty(name="Adjust FPS", description="Set the scene to 30 frames per second to conform with the BFs.", default=True)
 	def execute(self, context):
 		from . import import_bf
 		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob"))
@@ -246,7 +247,7 @@ class ToggleIKLink(bpy.types.Operator):
 	bl_label = "Toggle IK link from Bip01 root"
 	bl_options = {'REGISTER', 'UNDO'}
 	root_name = StringProperty(name="Root bone name", description="The name of the root bone.", default="Bip01")
-	ik_names = StringProperty(name="Limb IK bone names", description="The names of the bones to (un)link.", default="IKH.L,IKH.R,IKF.L,IKF.R")
+	ik_names = StringProperty(name="Limb IK bone names", description="The names of the bones to (un)link.", default="*IKH.L,*IKH.R,*IKF.L,*IKF.R")
 	def execute(self, context):
 		from . import bone_tools
 		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "view_align"))

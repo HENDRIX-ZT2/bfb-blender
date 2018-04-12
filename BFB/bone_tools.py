@@ -12,8 +12,8 @@ def uniquify(seq):
        result.append(item)
    return result
    
-def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", ik_names = "IKH.L,IKH.R,IKF.L,IKF.R"):
-	print("start")
+def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", ik_names = "*IKH.L,*IKH.R,*IKF.L,*IKF.R"):
+	print("starting toggle_link_ik_controllers")
 	n_root = root_name
 	n_limbs = ik_names.split(",")
 	#when no object exists, or when we are in edit mode when script is run
@@ -37,6 +37,14 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 	p_limbs = [arm.pose.bones[x] for x in n_limbs if x in arm.pose.bones]
 	for action in bpy.data.actions:
 		arm.animation_data.action = action
+		
+		# #bpy.ops.anim.channels_setting_enable
+		# for group in action.groups:
+			# if group.name == n_root:
+				# #group.mute = False
+				# for fcu in group.channels:
+					# fcu.mute = False
+		
 		for group in action.groups:
 			
 			for p_bone in p_limbs:
@@ -49,7 +57,6 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 						
 						#inverted to change from free to linked
 						#matrix basis is relative to rest bone space
-						#p_bone.matrix = p_root.matrix_basis.inverted() * p_bone.matrix
 						if free_to_linked:
 							frames_matrix[f] = p_root.matrix_basis.inverted() * p_bone.matrix
 						else:
@@ -61,6 +68,12 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 						p_bone.matrix = frames_matrix[f]
 						p_bone.keyframe_insert("rotation_quaternion", -1, f, group.name)
 						p_bone.keyframe_insert("location", -1, f, group.name)
+					for fcu in group.channels:
+						m = fcu.modifiers
+						for mod in m:
+							if mod.type == "CYCLES":
+								mod.mode_after = "REPEAT_OFFSET"
+								mod.mode_before = "REPEAT_OFFSET"
 	loop_fcurve_tangents()
 	return {'FINISHED'}
 	
@@ -115,15 +128,6 @@ def reorient_bone(operator, context, fixed_items, layers=(), bone_name="Bip0", l
 	#call the tangent function
 	loop_fcurve_tangents()
 	return {'FINISHED'}
-	
-	#thylacine
-	
-	#rotate rest position by -60° X
-	
-	
-	#rotate pose position by 60° X?
-	
-	
 	
 	
 def add_correction_bone(operator, context, layers=(), location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):

@@ -6,10 +6,12 @@ from struct import iter_unpack, calcsize, unpack_from
 
 from .common_bfb import get_bfb_matrix, decompose_srt, bfbname_to_blendername, create_empty
 
-def load(operator, context, files = [], filepath = ""):
+def load(operator, context, files = [], filepath = "", set_fps=False):
 	starttime = time.clock()
-	scene = bpy.context.scene
-	fpms = scene.render.fps / 1000
+	if set_fps:
+		bpy.context.scene.render.fps = 30
+		print("Adjusted scene FPS!")
+	fpms = bpy.context.scene.render.fps / 1000
 	bones_data = {}
 	info = {1  : ("=H9h", "QUAD", "location", (1,2,3), 1000),
 			2  : ("=H3h", "LINEAR", "location", (1,2,3), 1000),

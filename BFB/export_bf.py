@@ -5,6 +5,9 @@ import mathutils
 from struct import pack, calcsize
 from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname
 
+#round a float to an integer
+def rint(f): return int(round(f))
+
 def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp_power = 2):
 	starttime = time.clock()
 	errors = []
@@ -16,9 +19,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 	
 	print('Exporting BF animations into',dirname,'...')
 	
-	scene = bpy.context.scene
-	fpms = scene.render.fps / 1000
-	fps = scene.render.fps
+	fps = bpy.context.scene.render.fps
+	fpms = fps / 1000
 	
 	bones_data = {}
 	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature and "*" not in ob.name]
@@ -56,7 +58,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 				if group.name in bones_data:
 					#do not export constraints etc.
 					if "*" in group.name: continue
-					
+					print(group.name)
 					#if it is a secondary anim, limit the baked channels to what was keyframed initially
 					if "*"+action.name in bpy.data.actions and "secondary_" in action.name.lower():
 						if group.name not in raw_action_groups: continue
@@ -65,32 +67,41 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 					key_bytes = []
 					num_mod_types = 0
 					
+					# TODO:
+					# add support for sparsely keyframed animations in a pre-processing step?
+					# currently, if a set is fully keyframed, the smallest amount of keys is used regardless of when they occur
+					# use eval()
+					
 					#report differing key lengths and missing channels
 					rotations = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("quaternion")]
 					if rotations:
-						# now more flexible but costly
-						# old:  num_keys = len(translations[0].keyframe_points)
-						num_keys = min([len(channel.keyframe_points) for channel in rotations])
-						num_mod_types += 1
-						key_bytes.append(pack('=4H', 14, num_keys, 8+num_keys*10, 0))
-						for i in range(0, num_keys):
-							frame = rotations[0].keyframe_points[i].co[0]
-							key = [fcurve.keyframe_points[i].co[1] for fcurve in rotations]
-							quat = rest_quat.cross(mathutils.Quaternion((key[0], key[2], -key[1], key[3])))
-							key_bytes.append(pack('=H4h',int((frame)/fpms), int(quat.x*10000), int(quat.y*10000), int(quat.z*10000), int(quat.w*10000)))
-															
+						if len(rotations) != 4:
+							errors.append("Incomplete ROT key set in bone "+group.name+" for action "+action.name)
+						else:
+							num_keys = min([len(channel.keyframe_points) for channel in rotations])
+							num_mod_types += 1
+							key_bytes.append(pack('=4H', 14, num_keys, 8+num_keys*10, 0))
+							for i in range(0, num_keys):
+								frame = rotations[0].keyframe_points[i].co[0]
+								key = [fcurve.keyframe_points[i].co[1] for fcurve in rotations]
+								quat = rest_quat.cross(mathutils.Quaternion((key[0], key[2], -key[1], key[3])))
+								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
+																
 					translations = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("location")]
 					if translations:
-						num_keys = min([len(channel.keyframe_points) for channel in translations])
-						num_mod_types += 1
-						key_bytes.append(pack('=4H', 2, num_keys, 8+num_keys*8, 0))
-						for i in range(0, num_keys):
-							frame = translations[0].keyframe_points[i].co[0]
-							key = [fcurve.keyframe_points[i].co[1] for fcurve in translations]
-							blender_loc = mathutils.Vector((key[1], -key[0], key[2]))
-							trans = rest_rot * blender_loc + rest_trans
-							key_bytes.append(pack('=H3h',int((frame)/fpms), int(trans.x * 1000), int(trans.y * 1000), int(trans.z * 1000)))
-						
+						if len(translations) != 3:
+							errors.append("Incomplete LOC key set in bone "+group.name+" for action "+action.name)
+						else:
+							num_keys = min([len(channel.keyframe_points) for channel in translations])
+							num_mod_types += 1
+							key_bytes.append(pack('=4H', 2, num_keys, 8+num_keys*8, 0))
+							for i in range(0, num_keys):
+								frame = translations[0].keyframe_points[i].co[0]
+								key = [fcurve.keyframe_points[i].co[1] for fcurve in translations]
+								blender_loc = mathutils.Vector((key[1], -key[0], key[2]))
+								trans = rest_rot * blender_loc + rest_trans
+								key_bytes.append(pack('=H3h', rint((frame)/fpms), rint(trans.x * 1000), rint(trans.y * 1000), rint(trans.z * 1000)))
+							
 					scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
 					if scales:
 						num_keys = min([len(channel.keyframe_points) for channel in scales])
@@ -99,8 +110,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							key_bytes.append(pack('=4H', 17, num_keys, 8+num_keys*3, 0))
 							for i in range(0, num_keys):
 								frame = scales[0].keyframe_points[i].co[0]
-								scale = max(0, min(255, int(scales[0].keyframe_points[i].co[1] * 50)))
-								key_bytes.append(pack('=HB',int((frame)/fpms), scale))
+								scale = max(0, min(255, rint(scales[0].keyframe_points[i].co[1] * 50)))
+								key_bytes.append(pack('=HB', rint((frame)/fpms), scale))
 					
 					key_bytes = b"".join(key_bytes)
 					nodes.append(pack('=32s H 2B H I 2B', blendername_to_bfbname(group.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)
@@ -118,7 +129,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 			
 				key_bytes = []
 				num_mod_types = 0
-				#we need to dicts to map all the info
+				#we need two dicts to map all the info
 				info = {"location"  : ("=H3h", (2,), 1000),
 						"rotation_euler"  : ("=H3h", (6,7,8), 1000),
 						"rotation_quaternion" : ("=H4h", (14,), 10000),
@@ -140,10 +151,10 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							num_mod_types += 1
 							key_bytes.append(pack("=4H", mod_id, num_keys, 8+num_keys*calcsize(fmt), 0))
 							for i in range(0, num_keys):
-								key = [int(fcurves[x].keyframe_points[i].co[1] * scale_fac) for x in key_i]
+								key = [rint(fcurves[x].keyframe_points[i].co[1] * scale_fac) for x in key_i]
 								#we are using quadratic keys here and thus we need to fake the tangents or whatever
 								if data_type == "rotation_euler": key.extend((0,0))
-								key_bytes.append(pack(fmt, int((fcurves[0].keyframe_points[i].co[0])/fpms), *key))
+								key_bytes.append(pack(fmt, rint((fcurves[0].keyframe_points[i].co[0])/fpms), *key))
 				key_bytes = b"".join(key_bytes)
 				nodes.append(pack('=32s H 2B H I 2B', blendername_to_bfbname(action.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)
 
