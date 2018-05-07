@@ -4,8 +4,7 @@ A toolset for blender allowing the import export of Zoo Tycoon 2 models and anim
 
 ### Installation
 - Click the `Clone or Download` button at the right, then `Download ZIP`.
-- Extract the ZIP you just downloaded and pack the _contents_ of the `bfb-blender-master` folder into a new ZIP file.
-- To install with the addon installer in Blender, click `File` > `User Preferences` > `Add-ons` > `Install Add-ons from File` and select your new ZIP file.
+- To install with the addon installer in Blender, click `File` > `User Preferences` > `Add-ons` > `Install Add-ons from File` and select the ZIP you just downloaded.
 
 ### How To Use
 #### Importing Models
