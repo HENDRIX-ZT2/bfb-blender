@@ -14,7 +14,7 @@ A toolset for blender allowing the import export of Zoo Tycoon 2 models and anim
 - `File` > `Export` > `Blue Fang Model (.bfb)`. The default settings should be fine. Sometimes you want to fiddle with / disable the LOD settings, eg. if you created custom / edited the generated LODs.
 
 ### Known Limitations
-- Animation import of translation keys is sometimes messed up. Animation export is not affected.
+- This version is NOT backwards compatible - this was required to properly fix animation import. Rigged models imported with the old version won't export correctly with this version, so export any WIPs you may have to BFB before upgrading. Then you can re-import them and resume work.
 
 ### Credits
 - Papapanda, Harlequinz Ego & Verdant Gregor for decoding the bulk of the file format
