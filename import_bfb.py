@@ -6,9 +6,6 @@ import mathutils
 import xml.etree.ElementTree as ET
 from struct import iter_unpack, unpack_from
 from .common_bfb import *
-from bpy_extras.io_utils import axis_conversion
-
-
 
 def vec_roll_to_mat3(vec, roll):
 	#port of the updated C function from armature.c

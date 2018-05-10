@@ -3,15 +3,19 @@ import time
 import bpy
 import mathutils
 from struct import pack, calcsize
-from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname
+from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
 import math
 
 #round a float to an integer
 def rint(f): return int(round(f))
 
+correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
+correction_local_inv = correction_local.inverted()
+def export_keymat(rest_rot, key_matrix):
+	key_matrix = correction_local_inv * key_matrix * correction_local
+	return rest_rot * key_matrix
+
 def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp_power = 2):
-	correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-	correction_local_inv = correction_local.inverted()
 	
 	starttime = time.clock()
 	errors = []
@@ -26,11 +30,9 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 	fps = bpy.context.scene.render.fps
 	fpms = fps / 1000
 	
-	bones_data = {}
-	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature and "*" not in ob.name]
-	if src_armatures:
-		armature = src_armatures[0]
-		bones = armature.data.bones
+	armature = get_armature()
+	if armature:
+		bones_data = {}
 		for bone in armature.data.bones:
 			bonerestmat = get_bfb_matrix(bone)
 			rest_scale, rest_rot, rest_trans = decompose_srt(bonerestmat)
@@ -62,7 +64,6 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 				if group.name in bones_data:
 					#do not export constraints etc.
 					if "*" in group.name: continue
-					#print(group.name)
 					#if it is a secondary anim, limit the baked channels to what was keyframed initially
 					if "*"+action.name in bpy.data.actions and "secondary_" in action.name.lower():
 						if group.name not in raw_action_groups: continue
@@ -111,10 +112,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							key_bytes.append(pack('=4H', 14, num_keys, 8+num_keys*10, 0))
 							for i in range(0, num_keys):
 								frame = rotations[0].keyframe_points[i].co[0]
-								key_matrix = mathutils.Quaternion([fcurve.keyframe_points[i].co[1] for fcurve in rotations]).to_matrix().to_4x4()
-								key_matrix = correction_local_inv * key_matrix * correction_local
-								key_matrix = rest_rot * key_matrix
-								quat = key_matrix.to_quaternion()
+								quat = export_keymat(rest_rot, mathutils.Quaternion([fcurve.keyframe_points[i].co[1] for fcurve in rotations]).to_matrix().to_4x4()).to_quaternion()
 								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
 					if translations:
@@ -126,10 +124,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							key_bytes.append(pack('=4H', 2, num_keys, 8+num_keys*8, 0))
 							for i in range(0, num_keys):
 								frame = translations[0].keyframe_points[i].co[0]
-								key_matrix = mathutils.Matrix.Translation( mathutils.Vector([fcurve.keyframe_points[i].co[1] for fcurve in translations]) )
-								key_matrix = correction_local_inv * key_matrix * correction_local
-								key_matrix = rest_rot * key_matrix
-								trans = key_matrix.to_translation() + rest_trans
+								trans = export_keymat(rest_rot, mathutils.Matrix.Translation( [fcurve.keyframe_points[i].co[1] for fcurve in translations] ) ).to_translation() + rest_trans
 								key_bytes.append(pack('=H3h', rint((frame)/fpms), rint(trans.x * 1000), rint(trans.y * 1000), rint(trans.z * 1000)))
 					
 					#report differing key lengths and missing channels
@@ -142,10 +137,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							key_bytes.append(pack('=4H', 14, num_keys, 8+num_keys*10, 0))
 							for i in range(0, num_keys):
 								frame = eulers[0].keyframe_points[i].co[0]
-								key_matrix = mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4()
-								key_matrix = correction_local_inv * key_matrix * correction_local
-								key_matrix = rest_rot * key_matrix
-								quat = key_matrix.to_quaternion()
+								quat = export_keymat(rest_rot, mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4() ).to_quaternion()
 								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
 					scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]

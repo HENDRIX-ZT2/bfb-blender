@@ -1,7 +1,6 @@
 import os
 import time
 import bpy
-#import bmesh
 import mathutils
 import xml.etree.ElementTree as ET
 from struct import pack

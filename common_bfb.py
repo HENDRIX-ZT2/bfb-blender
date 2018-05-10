@@ -3,10 +3,6 @@ import bpy
 import mathutils
 import os
 
-from bpy_extras.io_utils import axis_conversion
-from_x = axis_conversion(from_forward="X").to_4x4()
-to_x = axis_conversion(to_forward="X").to_4x4()
-	
 def select_layer(layer_nr): return tuple(i == layer_nr for i in range(0, 20))
 def load_config():
 	d={}
@@ -94,14 +90,9 @@ def create_empty(parent,name,matrix):
 	empty.empty_draw_type="ARROWS"
 	return empty
 
+correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
+correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
 def get_bfb_matrix(bone):
-	#armature space -> multiply with inverse parent matrix -> bonespace
-	# if bone.parent:
-		# return to_x * bone.matrix_local.transposed() * (to_x * bone.parent.matrix_local.transposed()).inverted()
-	# return to_x * bone.matrix_local.transposed()
-	
-	correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-	correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
 	bind = correction_global.inverted() *  correction_local.inverted() * bone.matrix_local *  correction_local
 	if bone.parent:
 		p_bind_restored = correction_global.inverted() *  correction_local.inverted() * bone.parent.matrix_local *  correction_local
@@ -109,7 +100,6 @@ def get_bfb_matrix(bone):
 		
 	return bind.transposed()
 	
-		
 def decompose_srt(mat):
 	mat.transpose()
 	b_scale = 1.0
@@ -137,13 +127,14 @@ def bfbname_to_blendername(s):
 		s+= ".R"
 	return s.title().replace(" R "," ").replace(" L "," ").replace("back","Back").replace("front","Front").replace("left","Left").replace("right","Right").replace("Nonaccum","NonAccum").replace("Upperarm","UpperArm").replace("Horselink","HorseLink")
 	
-def is_constrained_armature(ob):
-	#finds an armature either via name (first) or if it has constraints (slower fallback)
-	if type(ob.data) == bpy.types.Armature:
-		if ob.name.startswith("*"):
-				return True
-		for name, pbone in ob.pose.bones.items():
-			if pbone.constraints:
-				ob.name = "*"+ob.name
-				return True
-	return False
+def get_armature():
+	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature and "*" not in ob.name]
+	#do we have armatures?
+	if src_armatures:
+		#see if one of these is selected, and import anims for that one only
+		if len(src_armatures) > 1:
+			sel_armatures = [ob for ob in src_armatures if ob.select]
+			if sel_armatures:
+				return sel_armatures[0]
+		return src_armatures[0]
+	

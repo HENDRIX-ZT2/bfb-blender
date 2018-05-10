@@ -134,8 +134,6 @@ def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1)
 			except: print("NIF import didn't work")
 		else: continue
 		clear_scene()
-		#bpy.ops.wm.read_homefile(load_ui=False)
-
 	success = '\nFinished Batch LOD processing in %.2f seconds\n' %(time.clock()-starttime)
 	print(success)
 	return {'FINISHED'}
