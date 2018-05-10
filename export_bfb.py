@@ -54,7 +54,6 @@ def write_bfmat(ob, mat):
 				("ShadeMode","dword","2"),
 				("SpecularEnable","bool","false")]
 				
-			
 	print("Exporting BFMAT file for",mat.name)
 	matpath=os.path.join(dirname,"Materials")
 	if not os.path.exists(matpath):

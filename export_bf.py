@@ -6,6 +6,11 @@ from struct import pack, calcsize
 from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
 import math
 
+def write_nodes(dirname, action, nodes, fps):
+	stream = b''.join([pack('=I f I', 2, action.frame_range[1]/fps, len(nodes)), b"".join(nodes), pack('=f H 6s f H 12s', 0.0, 6, b"start", action.frame_range[1]/fps, 5, b"end ")])
+	with open(os.path.join(dirname, action.name+".bf"), 'wb') as f:
+		f.write(stream)
+	
 #round a float to an integer
 def rint(f): return int(round(f))
 
@@ -62,7 +67,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 			#these so called action groups are the bones, ie one group contains all fcurves of one bone
 			for group in action.groups:
 				if group.name in bones_data:
-					#do not export constraints etc.
+					#do not export constrained animations prior to baking
 					if "*" in group.name: continue
 					#if it is a secondary anim, limit the baked channels to what was keyframed initially
 					if "*"+action.name in bpy.data.actions and "secondary_" in action.name.lower():
@@ -113,7 +118,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = rotations[0].keyframe_points[i].co[0]
 								quat = export_keymat(rest_rot, mathutils.Quaternion([fcurve.keyframe_points[i].co[1] for fcurve in rotations]).to_matrix().to_4x4()).to_quaternion()
-								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
+								key_bytes.append(pack('=H4h', rint(frame/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
 					if translations:
 						if len(translations) != 3:
@@ -125,7 +130,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = translations[0].keyframe_points[i].co[0]
 								trans = export_keymat(rest_rot, mathutils.Matrix.Translation( [fcurve.keyframe_points[i].co[1] for fcurve in translations] ) ).to_translation() + rest_trans
-								key_bytes.append(pack('=H3h', rint((frame)/fpms), rint(trans.x * 1000), rint(trans.y * 1000), rint(trans.z * 1000)))
+								key_bytes.append(pack('=H3h', rint(frame/fpms), rint(trans.x * 1000), rint(trans.y * 1000), rint(trans.z * 1000)))
 					
 					#report differing key lengths and missing channels
 					if eulers:
@@ -138,7 +143,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = eulers[0].keyframe_points[i].co[0]
 								quat = export_keymat(rest_rot, mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4() ).to_quaternion()
-								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
+								key_bytes.append(pack('=H4h', rint(frame/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
 					scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
 					if scales:
@@ -149,14 +154,11 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = scales[0].keyframe_points[i].co[0]
 								scale = max(0, min(255, rint(scales[0].keyframe_points[i].co[1] * 50)))
-								key_bytes.append(pack('=HB', rint((frame)/fpms), scale))
+								key_bytes.append(pack('=HB', rint(frame/fpms), scale))
 					
 					key_bytes = b"".join(key_bytes)
 					nodes.append(pack('=32s H 2B H I 2B', blendername_to_bfbname(group.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)
-
-			stream = pack('=I f I', 2, action.frame_range[1]/fps, len(nodes)) + b"".join(nodes) + pack('=f H 6s f H 12s', 0.0, 6, b"start", action.frame_range[1]/fps, 5, b"end ")
-			with open(os.path.join(dirname, action.name+".bf"), 'wb') as f:
-				f.write(stream)
+			write_nodes(dirname, action, nodes, fps)
 	else:
 		print("There's no armature, but are there animations at all (docking)?")
 		for action in bpy.data.actions:
@@ -195,11 +197,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 								key_bytes.append(pack(fmt, rint((fcurves[0].keyframe_points[i].co[0])/fpms), *key))
 				key_bytes = b"".join(key_bytes)
 				nodes.append(pack('=32s H 2B H I 2B', blendername_to_bfbname(action.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)
-
-			stream = b''.join([pack('=I f I', 2, action.frame_range[1]/fps, len(nodes)), b"".join(nodes), pack('=f H 6s f H 12s', 0.0, 6, b"start", action.frame_range[1]/fps, 5, b"end ")])
-
-			with open(os.path.join(dirname, action.name+".bf"), 'wb') as f:
-				f.write(stream)
+			write_nodes(dirname, action, nodes, fps)
 	success = '\nFinished BF Export in %.2f seconds\n' %(time.clock()-starttime)
 	print(success)
 	return errors

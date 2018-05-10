@@ -28,6 +28,7 @@ def import_keymat(rest_rot_inv, key_matrix):
 	
 def load(operator, context, files = [], filepath = "", set_fps=False):
 	starttime = time.clock()
+	dirname = os.path.dirname(filepath)
 	if set_fps:
 		bpy.context.scene.render.fps = 30
 		print("Adjusted scene FPS!")
@@ -49,14 +50,14 @@ def load(operator, context, files = [], filepath = "", set_fps=False):
 			rest_scale, rest_rot, rest_trans = decompose_srt(get_bfb_matrix(bone))
 			bones_data[bone.name] = (rest_scale, rest_rot.inverted().to_4x4(), rest_trans)
 		for anim in files:
-			read_bf(os.path.dirname(filepath), anim.name, armature, bones_data, info, fpms)
+			read_bf(dirname, anim.name, armature, bones_data, info, fpms)
 		success = '\nFinished BF Import in %.2f seconds\n' %(time.clock()-starttime)
 		print(success)
 		return {'FINISHED'}
 	else:
 		print("The scene doesn't contain any armature! If you want to do skeletal anims, import a BFB file and try again!")
 		for anim in files:
-			read_bf_empties(os.path.dirname(filepath), anim.name, info, fpms)
+			read_bf_empties(dirname, anim.name, info, fpms)
 	return {'FINISHED'}
 
 def create_anim(ob, anim_name):
@@ -90,11 +91,7 @@ def read_bf_empties(dir, anim, info, fpms):
 			pos += 44
 			while pos < next_bone:
 				mod_identifier, num_keys, num_bytes = unpack_from('= 3h', datastream, pos)
-				try:
-					fmt, interp, data_type, key_i, scale_fac = info[mod_identifier]
-				except:
-					print("Unknown modifier identifier! Please report type",mod_identifier,"to HENDRIX.")
-					continue
+				fmt, interp, data_type, key_i, scale_fac = info[mod_identifier]
 				i_curves = range(0, len(key_i))
 				#eulers: only create once
 				if data_type == "rotation_euler":
@@ -122,16 +119,13 @@ def read_bf(dir, anim, armature, bones_data, info, fpms):
 	print("Reading",anim)
 	with open(os.path.join(dir, anim), 'rb') as f:
 		datastream = f.read()
-		
 		#we only want to get the anim set and anim eg. Stand_Idle so cull the stuff before, if there is any
 		filename = "_".join(anim[:-3].split("_")[-2:])
-		
 		action = create_anim(armature, filename)
-			
 		num_bones = unpack_from('= h', datastream, 8)[0]
 		pos = 12
 		#now go through all blocks of the BF file and extract the data
-		for bone in range(0,num_bones):
+		for bone in range(0, num_bones):
 			name = bfbname_to_blendername(datastream[pos:pos+32])
 			#figure out how many datablocks there are and which type
 			next_bone = unpack_from('= h', datastream, pos+36)[0] + pos
@@ -142,12 +136,7 @@ def read_bf(dir, anim, armature, bones_data, info, fpms):
 				pos += 44
 				while pos < next_bone:
 					mod_identifier, num_keys, num_bytes = unpack_from('= 3h', datastream, pos)
-					try:
-						fmt, interp, data_type, key_i, scale_fac = info[mod_identifier]
-					except:
-						pos += num_bytes
-						print("Unknown modifier identifier! Please report type",mod_identifier,"to HENDRIX.")
-						continue
+					fmt, interp, data_type, key_i, scale_fac = info[mod_identifier]
 					
 					#eulers: only create in the end
 					if data_type == "rotation_euler":
