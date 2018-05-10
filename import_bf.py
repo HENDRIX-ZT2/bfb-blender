@@ -114,7 +114,7 @@ def read_bf_empties(dir, anim, info, fpms):
 			
 def read_bf(dir, anim, armature, bones_data, info, fpms):
 	correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-	correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
+	correction_local_inv = correction_local.inverted()
 	print("Reading",anim)
 	with open(os.path.join(dir, anim), 'rb') as f:
 		datastream = f.read()
@@ -167,38 +167,37 @@ def read_bf(dir, anim, armature, bones_data, info, fpms):
 					#read the data and process it
 					for element in iter_unpack(fmt, datastream[8+pos : 8+pos+calcsize(fmt)*num_keys]):
 						if data_type == "rotation_euler":
+							#here we store the individual data into a list of lists to be remapped and imported later
 							eulers[i_curves[0]].append(element[1]/scale_fac)
-							print(element[1], element[2],element[3])
 							eulers[i_curves[0]+3].append(element[0]*fpms)
 						else:
+							#all the others can be imported on the fly
 							if data_type == "scale":
-								a = [element[x]/scale_fac for x in key_i]
+								key = [element[x]/scale_fac for x in key_i]
 							elif data_type == "location":
-								key_matrix = mathutils.Matrix.Identity(4)
-								key_matrix.translation = (mathutils.Vector([element[x]/scale_fac for x in key_i]) - rest_trans)
-								key_matrix = rest_rot_inv * key_matrix
-								key_matrix =  correction_local * key_matrix *correction_local.inverted()
-								a = key_matrix.to_translation()
+								key_matrix = rest_rot_inv * mathutils.Matrix.Translation(mathutils.Vector([element[x]/scale_fac for x in key_i]) - rest_trans)
+								key = (correction_local * key_matrix * correction_local_inv).to_translation()
 							elif data_type == "rotation_quaternion":
 								key_matrix = rest_rot_inv * mathutils.Quaternion([element[x]/scale_fac for x in key_i]).to_matrix().to_4x4()
-								key_matrix =  correction_local * key_matrix *correction_local.inverted()
-								a = key_matrix.to_quaternion()
+								key = (correction_local * key_matrix * correction_local_inv).to_quaternion()
 							#add the keys now
-							for fcurve, key in zip(fcurves, a):
-								fcurve.keyframe_points.insert(element[0]*fpms, key).interpolation = interp
+							for fcurve, k in zip(fcurves, key):
+								fcurve.keyframe_points.insert(element[0]*fpms, k).interpolation = interp
+					#Have we just read the Euler Z curve data?
 					if mod_identifier == 8:
 						#initialize the fcurves
+						fcurves = [action.fcurves.new(data_path = 'pose.bones["'+name+'"].'+data_type, index = i, action_group = name) for i in (0,1,2)]
+						#get all times and resample the keys
 						ts = sorted(set(eulers[3]+eulers[4]+eulers[5]))
 						x_r = interpolate(ts, eulers[3], eulers[0])
 						y_r = interpolate(ts, eulers[4], eulers[1])
 						z_r = interpolate(ts, eulers[5], eulers[2])
-						fcurves = [action.fcurves.new(data_path = 'pose.bones["'+name+'"].'+data_type, index = i, action_group = name) for i in (0,1,2)]
+						#add the keys
 						for x,y,z, t in zip(x_r, y_r, z_r, ts):
 							key_matrix = rest_rot_inv * mathutils.Euler((x,y,z)).to_matrix().to_4x4()
-							key_matrix =  correction_local * key_matrix *correction_local.inverted()
-							a = key_matrix.to_euler()
-							for fcurve, key in zip(fcurves, a):
-								fcurve.keyframe_points.insert(t, key).interpolation = interp
+							key = (correction_local * key_matrix * correction_local_inv).to_euler()
+							for fcurve, k in zip(fcurves, key):
+								fcurve.keyframe_points.insert(t, k).interpolation = interp
 					pos += num_bytes
 			pos = next_bone
 		

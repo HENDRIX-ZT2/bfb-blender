@@ -11,7 +11,7 @@ def rint(f): return int(round(f))
 
 def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp_power = 2):
 	correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-	correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
+	correction_local_inv = correction_local.inverted()
 	
 	starttime = time.clock()
 	errors = []
@@ -34,7 +34,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 		for bone in armature.data.bones:
 			bonerestmat = get_bfb_matrix(bone)
 			rest_scale, rest_rot, rest_trans = decompose_srt(bonerestmat)
-			bones_data[bone.name] = (rest_scale, rest_rot, rest_trans, rest_rot.to_quaternion())
+			bones_data[bone.name] = (rest_scale, rest_rot.to_4x4(), rest_trans)
 
 		for action in bpy.data.actions:
 			print("Exporting",action.name)
@@ -67,7 +67,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 					if "*"+action.name in bpy.data.actions and "secondary_" in action.name.lower():
 						if group.name not in raw_action_groups: continue
 					
-					rest_scale, rest_rot, rest_trans, rest_quat = bones_data[group.name]
+					rest_scale, rest_rot, rest_trans = bones_data[group.name]
 					key_bytes = []
 					num_mod_types = 0
 					
@@ -112,8 +112,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = rotations[0].keyframe_points[i].co[0]
 								key_matrix = mathutils.Quaternion([fcurve.keyframe_points[i].co[1] for fcurve in rotations]).to_matrix().to_4x4()
-								key_matrix = correction_local.inverted() * key_matrix * correction_local
-								key_matrix = rest_rot.to_4x4() * key_matrix
+								key_matrix = correction_local_inv * key_matrix * correction_local
+								key_matrix = rest_rot * key_matrix
 								quat = key_matrix.to_quaternion()
 								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
@@ -126,10 +126,9 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							key_bytes.append(pack('=4H', 2, num_keys, 8+num_keys*8, 0))
 							for i in range(0, num_keys):
 								frame = translations[0].keyframe_points[i].co[0]
-								key_matrix = mathutils.Matrix.Identity(4)
-								key_matrix.translation = mathutils.Vector([fcurve.keyframe_points[i].co[1] for fcurve in translations])
-								key_matrix = correction_local.inverted() * key_matrix * correction_local
-								key_matrix = rest_rot.to_4x4() * key_matrix
+								key_matrix = mathutils.Matrix.Translation( mathutils.Vector([fcurve.keyframe_points[i].co[1] for fcurve in translations]) )
+								key_matrix = correction_local_inv * key_matrix * correction_local
+								key_matrix = rest_rot * key_matrix
 								trans = key_matrix.to_translation() + rest_trans
 								key_bytes.append(pack('=H3h', rint((frame)/fpms), rint(trans.x * 1000), rint(trans.y * 1000), rint(trans.z * 1000)))
 					
@@ -144,8 +143,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 							for i in range(0, num_keys):
 								frame = eulers[0].keyframe_points[i].co[0]
 								key_matrix = mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4()
-								key_matrix = correction_local.inverted() * key_matrix * correction_local
-								key_matrix = rest_rot.to_4x4() * key_matrix
+								key_matrix = correction_local_inv * key_matrix * correction_local
+								key_matrix = rest_rot * key_matrix
 								quat = key_matrix.to_quaternion()
 								key_bytes.append(pack('=H4h', rint((frame)/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
