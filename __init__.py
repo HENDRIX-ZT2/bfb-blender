@@ -2,34 +2,17 @@ bl_info = {	"name": "Blue Fang BFB format (Zoo Tycoon 2)",
 			"author": "HENDRIX",
 			"blender": (2, 74, 0),
 			"location": "File > Import-Export",
-			"description": "Import-Export models, skeletons and animations, batch-process models to add LODs. Experimental map support.",
+			"description": "Import-Export models, skeletons and animations, batch-process models to add LODs. Experimental map & particle support.",
 			"warning": "",
-			"wiki_url": "http://z14.invisionfree.com/ZT2_Designing_Center/index.php?showtopic=4385&st=0#entry22010275",
+			"wiki_url": "https://github.com/HENDRIX-ZT2/bfb-blender",
 			"support": 'COMMUNITY',
-			"tracker_url": "http://z14.invisionfree.com/ZT2_Designing_Center/index.php?showtopic=4385&st=0#entry22010275",
+			"tracker_url": "https://github.com/HENDRIX-ZT2/bfb-blender/issues/new",
 			"category": "Import-Export"}
-#need this?
-if "bpy" in locals():
-	import importlib
-	if "import_bfb" in locals():
-		importlib.reload(import_bfb)
-	if "import_dat" in locals():
-		importlib.reload(import_dat)
-	if "export_bfb" in locals():
-		importlib.reload(export_bfb)
-	if "export_dat" in locals():
-		importlib.reload(export_dat)
-	if "batch_bfb" in locals():
-		importlib.reload(batch_bfb)
-	if "import_bf" in locals():
-		importlib.reload(import_bf)
-	if "export_bf" in locals():
-		importlib.reload(export_bf)
 
 import bpy
 from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, CollectionProperty
-from bpy_extras.io_utils import (ImportHelper, ExportHelper)
-from bpy_extras.object_utils import AddObjectHelper, object_data_add
+from bpy_extras.io_utils import ImportHelper, ExportHelper
+from bpy_extras.object_utils import AddObjectHelper
 import bpy.utils.previews
 preview_collection = bpy.utils.previews.new()
 
