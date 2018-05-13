@@ -321,10 +321,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 									armature.data.edit_bones.remove(e_bone)
 									print("Removed",bone.name,"because it is a superfluous root bone")
 							bpy.ops.object.mode_set(mode = 'OBJECT')
+							#update the bones list
+							bones = armature.data.bones.values()
 						else:
 							log_error(armature.name+" has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
 							return errors
-					bones = armature.data.bones.values()
 					for bone in bones:
 						boneid = bones.index(bone)+1
 						if bone.parent:
