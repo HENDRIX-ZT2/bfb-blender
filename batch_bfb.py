@@ -1,7 +1,4 @@
 import bpy
-import BFB
-try: import io_scene_nif.nif_import
-except: print("NIF scripts not found!")
 import os
 import mathutils
 import time
@@ -130,7 +127,7 @@ def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1)
 			try:
 				bpy.ops.import_scene.nif(filepath = os.path.join(dir, file.name), combine_vertices = True)
 				add_lods(numlods, rate)
-				bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name).replace(".nif",".bfb"), author_name="HENDRIX", export_materials = True)
+				bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name).replace(".nif",".bfb"), author_name="HENDRIX", export_materials = True, fix_root_bones = True)
 			except: print("NIF import didn't work")
 		else: continue
 		clear_scene()

@@ -209,7 +209,7 @@ def write_linked_list(ob, start):
 		#print(ob,blockend,nextblockstart)
 		return pack('= 4i', ob_2_id[ob], type_id, blockend, nextblockstart)+data
 	
-def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, numlods = 1, rate = 1):
+def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, fix_root_bones=False, numlods = 1, rate = 1):
 	
 	if create_lods:
 		print('Adding LODs...')
@@ -302,19 +302,36 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					bones = armature.data.bones.values()
 					#todo: calculate this value properly, refer values from other objects
 					lodgroup = -1
-					roots = []
+					root_bones = [bone for bone in bones if not bone.parent]
+					#fatal
+					if len(root_bones) > 1:
+						if fix_root_bones:
+							#determine the proper root
+							root_bone = root_bones[0]
+							for bone in root_bones:
+								if bone.name == "Bip01":
+									root_bone = bone
+									break
+							bpy.context.scene.objects.active = armature
+							bpy.ops.object.mode_set(mode = 'EDIT')
+							#delete the other root bones
+							for bone in root_bones:
+								if bone != root_bone:
+									e_bone = armature.data.edit_bones[bone.name]
+									armature.data.edit_bones.remove(e_bone)
+									print("Removed",bone.name,"because it is a superfluous root bone")
+							bpy.ops.object.mode_set(mode = 'OBJECT')
+						else:
+							log_error(armature.name+" has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
+							return errors
+					bones = armature.data.bones.values()
 					for bone in bones:
 						boneid = bones.index(bone)+1
 						if bone.parent:
 							parentid = bones.index(bone.parent)+1
 						else:
 							parentid = 0
-							roots.append(bone)
 						armature_bytes += pack('= bbb 64s', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8')) + export_matrix(get_bfb_matrix(bone))
-					#fatal
-					if len(roots) > 1:
-						log_error(armature.name+" has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
-						return errors
 				#remove unneeded modifiers
 				for mod in ob.modifiers:
 					if mod.type in ('ARMATURE','TRIANGULATE'):

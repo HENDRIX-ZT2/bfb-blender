@@ -192,6 +192,7 @@ class ExportBFB(bpy.types.Operator, ExportHelper):
 		author="somebody"
 	export_materials = BoolProperty(name="Export Materials", description="Should BFMAT materials be exported? Beware, they might not be identical to the existing material!", default=True)
 	author_name = StringProperty(name="Author", description="A signature included in the BFB file.", default=author)
+	fix_root_bones = BoolProperty(name="Fix Root Bones", description="Deletes surplus root bones automatically.", default=False)
 	create_lods = BoolProperty(name="Create LODs", description="Adds Levels of Detail - overwrites existing LODs!", default=True)
 	numlods = IntProperty(	name="Number of LODs",
 							description="Number of Levels Of Detail, including the original",

@@ -441,8 +441,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 						tail, roll = mat3_to_vec_roll(bind.to_3x3())
 						bone.head = bind.to_translation()
 						bone.tail = tail + bone.head
-						#for compatibility with the anims (for now!)
-						bone.roll = roll#+math.radians(90)
+						bone.roll = roll
 					#fix the bone length
 					for bone in armData.edit_bones:
 						#don't change Bip01
