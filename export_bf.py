@@ -86,7 +86,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 					for fcurves in (rotations, translations, eulers):
 						same_amount_of_keys = all(len(fcu.keyframe_points) == len(fcurves[0].keyframe_points) for fcu in fcurves)
 						if not same_amount_of_keys:
-							print(bone_name+" has differing keyframe numbers for each fcurve")
+							print(group.name+" has differing keyframe numbers for each fcurve")
+							times = []
 							#get all times
 							for fcu in fcurves:
 								for key in fcu.keyframe_points:
@@ -98,7 +99,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 								samples = [fcu.evaluate(key_time) for key_time in times]
 								fcu_dp, fcu_i = fcu.data_path, fcu.array_index
 								action.fcurves.remove(fcu)
-								fcu = action.fcurves.new(fcu_dp, index=fcu_i, action_group=bone_name)
+								fcu = action.fcurves.new(fcu_dp, index=fcu_i, action_group=group.name)
 								fcu.keyframe_points.add(count=len(times))
 								fcu.keyframe_points.foreach_set("co", [x for co in zip(times, samples) for x in co])
 								fcu.update()
