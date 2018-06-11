@@ -23,6 +23,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 			bpy.context.scene.objects.active = ob
 			bpy.ops.object.mode_set(mode='EDIT')
 			root = ob.data.edit_bones[n_root]
+			root_m_inv = root.matrix.inverted()
 			e_limbs = [ob.data.edit_bones[x] for x in n_limbs if x in ob.data.edit_bones]
 			for limb in e_limbs:
 				if limb.parent:
@@ -35,18 +36,10 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 	
 	p_root = arm.pose.bones[n_root]
 	p_limbs = [arm.pose.bones[x] for x in n_limbs if x in arm.pose.bones]
+	
 	for action in bpy.data.actions:
 		arm.animation_data.action = action
-		
-		# #bpy.ops.anim.channels_setting_enable
-		# for group in action.groups:
-			# if group.name == n_root:
-				# #group.mute = False
-				# for fcu in group.channels:
-					# fcu.mute = False
-		
 		for group in action.groups:
-			
 			for p_bone in p_limbs:
 				if group.name == p_bone.name:
 					frames = uniquify([v.co[0] for fcurve in group.channels for v in fcurve.keyframe_points])
@@ -56,11 +49,11 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 						bpy.context.scene.update()
 						
 						#inverted to change from free to linked
-						#matrix basis is relative to rest bone space
+						#update 6/18: use pose matrix and the inverse rest to get the root movement in armature space
 						if free_to_linked:
-							frames_matrix[f] = p_root.matrix_basis.inverted() * p_bone.matrix
+							frames_matrix[f] = (p_root.matrix*root_m_inv).inverted() * p_bone.matrix
 						else:
-							frames_matrix[f] = p_root.matrix_basis * p_bone.matrix
+							frames_matrix[f] = (p_root.matrix*root_m_inv) * p_bone.matrix
 						
 					for f in frames_matrix:
 						bpy.context.scene.frame_set(f)
@@ -76,8 +69,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 								mod.mode_before = "REPEAT_OFFSET"
 	loop_fcurve_tangents()
 	return {'FINISHED'}
-	
-						
+				
 def reorient_bone(operator, context, fixed_items, layers=(), bone_name="Bip0", location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):
 	qrn = rotation.to_quaternion().conjugated()
 	qe = rotation.to_quaternion()

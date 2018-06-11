@@ -266,6 +266,8 @@ def bake_and_clean(error = 0.25, exp_power = 2):
 				# Collect transformations
 				for f in frame_range:
 					bpy.context.scene.frame_set(f)
+					# for drivers, we need two updates!
+					bpy.context.scene.update()
 					bpy.context.scene.update()
 					pose_info.append(pose_frame_info(armature))
 
