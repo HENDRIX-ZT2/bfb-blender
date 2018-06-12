@@ -70,55 +70,53 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 	loop_fcurve_tangents()
 	return {'FINISHED'}
 				
-def reorient_bone(operator, context, fixed_items, layers=(), bone_name="Bip0", location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):
-	qrn = rotation.to_quaternion().conjugated()
-	qe = rotation.to_quaternion()
+def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):
+
+	#say we want to rotate 180° around Y in bone's local space, as if it was posed with this euler
+	rot_mat = rotation.to_matrix().to_4x4()
 	#when no object exists, or when we are in edit mode when script is run
-	for ob in bpy.context.scene.objects:
-		if type(ob.data) ==  bpy.types.Armature:
-			bpy.context.scene.objects.active = ob
-			bpy.ops.object.mode_set(mode='EDIT')
-			for bone in ob.data.edit_bones:
-				if bone.name == bone_name:
-					l =  mathutils.Vector(bone.head)
-					m =  rotation.to_matrix() * bone.matrix.to_3x3()
-					bone.head = mathutils.Vector((0,0,0))
-					bone.tail = mathutils.Vector((0,1,0))
-					bone.roll = 0
-					bone.transform(m)
-					bone.translate(l)
-			bpy.ops.object.mode_set(mode='POSE')
-			
-	for action in bpy.data.actions:
-		for group in action.groups:
-			if group.name == bone_name:
-				#rotate the translation so the movement of the bone remains identical
-				for t in ("location", "quaternion"):
-					curves = [fcurve for fcurve in group.channels if fcurve.data_path.endswith(t)]
-					if curves:
-						num_keys = len(curves[0].keyframe_points)
-						for i in range(0, num_keys):
-							frame = curves[0].keyframe_points[i].co[0]
-							key = [fcurve.keyframe_points[i].co[1] for fcurve in curves]
-							if len(curves) == 3:
-								key =  qrn * mathutils.Vector(key)
-							else:
-								#arbitrary rotations keeping the worldspace character of the rotation
-								if fixed_items == "0":
-									q = mathutils.Quaternion(key)
-									v, a = q.to_axis_angle()
-									v =  qrn * mathutils.Vector(v)
-									key = mathutils.Quaternion(v, a)
-									
-								#for the thylacine case - restore rotation around rest bone change
-								if fixed_items == "1":
-									key = mathutils.Quaternion(key) * qe
-							for a in range(0,len(curves)):
-								curves[a].keyframe_points[i].co[1] = key[a]
-						for fcurve in curves:	
-							fcurve.update()
-	#call the tangent function
-	loop_fcurve_tangents()
+	armature = get_armature()
+	if armature:
+		bpy.context.scene.objects.active = armature
+		bpy.ops.object.mode_set(mode='EDIT')
+		bone_names = [bone.name for bone in armature.data.edit_bones if bone.select]
+		print(bone_names)
+		for bone_name in bone_names:
+			b1 = armature.data.edit_bones[bone_name]
+			locally_rotated = b1.matrix * rot_mat
+			tail, roll = mat3_to_vec_roll(locally_rotated.to_3x3())
+			b1.head = locally_rotated.to_translation()
+			b1.tail = tail + b1.head
+			b1.roll = roll
+			fix_bone_length(b1)
+		bpy.ops.object.mode_set(mode='POSE')
+
+		for action in bpy.data.actions:
+			for group in action.groups:
+				if group.name in bone_names:
+					#rotate the translation so the movement of the bone remains identical
+					for data_type in ("location", "quaternion"):
+						curves = [fcurve for fcurve in group.channels if fcurve.data_path.endswith(data_type)]
+						if curves:
+							num_keys = len(curves[0].keyframe_points)
+							for i in range(0, num_keys):
+								frame = curves[0].keyframe_points[i].co[0]
+								key_in = [fcurve.keyframe_points[i].co[1] for fcurve in curves]
+								if data_type == "location":
+									mat =  mathutils.Matrix.Translation( key_in )
+									mat = rot_mat.inverted() * mat *rot_mat
+									key = mat.to_translation()
+								else:
+									mat = mathutils.Quaternion(key_in).to_matrix().to_4x4()
+									mat = rot_mat.inverted() * mat *rot_mat
+									key = mat.to_quaternion()
+								for a in range(0, len(curves)):
+									curves[a].keyframe_points[i].co[1] = key[a]
+			for fcurve in action.fcurves:
+				fcurve.update()
+		#call the tangent function
+		loop_fcurve_tangents()
+		bpy.context.scene.update()
 	return {'FINISHED'}
 	
 	

@@ -254,7 +254,7 @@ class ReorientBone(bpy.types.Operator, AddObjectHelper):
 	bl_idname = "bone.reorient_bone"
 	bl_label = "Reorient bone"
 	bl_options = {'REGISTER', 'UNDO'}
-	bone_name = StringProperty(name="Bone name", description="The bone you want to rotate.", default="Bip01")
+	# bone_name = StringProperty(name="Bone name", description="The bone you want to rotate.", default="Bip01")
 	fixed_items = bpy.props.EnumProperty(items= (('0', 'Worldspace', 'Keep the worldspace rotation intact.'),
 												 ('1', 'Bonespace', 'Correct against the changed restpose.')),
 												 name = "Anim Mode")  
@@ -319,7 +319,7 @@ def menu_func_add_objects(self, context):
 	
 def menu_func_armature(self, context):
 	self.layout.operator(AddCorrectionBone.bl_idname, text="Add Correction Bone", icon_value=preview_collection["zt2.png"].icon_id)
-	self.layout.operator(ReorientBone.bl_idname, text="Reorder Bone", icon_value=preview_collection["zt2.png"].icon_id)
+	self.layout.operator(ReorientBone.bl_idname, text="Reorient Bone", icon_value=preview_collection["zt2.png"].icon_id)
 	self.layout.operator(ToggleIKLink.bl_idname, text="Toggle IK Link", icon_value=preview_collection["zt2.png"].icon_id)
 	
 def menu_func_weights(self, context):

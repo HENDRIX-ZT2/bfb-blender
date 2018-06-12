@@ -81,6 +81,14 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 					rotations = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("quaternion")]
 					translations = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("location")]
 					eulers = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("euler")]
+					scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
+					
+					#force export of scale for Bip01
+					if not scales and group.name == "Bip01":
+						print("Adding scale curves for Bip01 in "+group.name)
+						scales = [action.fcurves.new(data_path = 'pose.bones["Bip01"].scale', index = i, action_group = "Bip01") for i in range(3)]
+						for fcurve in scales:
+							fcurve.keyframe_points.insert(0, 1)
 					
 					#sample sparse keying sets - treat rot and trans independently
 					for fcurves in (rotations, translations, eulers):
@@ -146,16 +154,16 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 								quat = export_keymat(rest_rot, mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4() ).to_quaternion()
 								key_bytes.append(pack('=H4h', rint(frame/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																
-					scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
 					if scales:
 						num_keys = min([len(channel.keyframe_points) for channel in scales])
-						if num_keys > 2:
-							num_mod_types += 1
-							key_bytes.append(pack('=4H', 17, num_keys, 8+num_keys*3, 0))
-							for i in range(0, num_keys):
-								frame = scales[0].keyframe_points[i].co[0]
-								scale = max(0, min(255, rint(scales[0].keyframe_points[i].co[1] * 50)))
-								key_bytes.append(pack('=HB', rint(frame/fpms), scale))
+						#if num_keys > 2:
+						num_mod_types += 1
+						key_bytes.append(pack('=4H', 17, num_keys, 8+num_keys*3, 0))
+						for i in range(0, num_keys):
+							frame = scales[0].keyframe_points[i].co[0]
+							scale = max(0, min(255, rint(scales[0].keyframe_points[i].co[1] * 50)))
+							key_bytes.append(pack('=HB', rint(frame/fpms), scale))
+				
 					
 					key_bytes = b"".join(key_bytes)
 					nodes.append(pack('=32s H 2B H I 2B', blendername_to_bfbname(group.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)

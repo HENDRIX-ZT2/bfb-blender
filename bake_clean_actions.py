@@ -121,9 +121,7 @@ def loop_fcurve_tangents():
 		#eventually also check for transitions, make sure they match up and interpolate tangents between anims
 
 		print("Looping",action.name)
-		#frame_range = range(int(action.frame_range[0]), int(action.frame_range[1]))
-		w = 0
-		e=0
+
 		#if they were not added in the first place, skip now
 		try:
 			bef = before[action]
@@ -132,12 +130,8 @@ def loop_fcurve_tangents():
 			continue
 		for group in action.groups:
 			#set or create the other groups
-			try:
-				bgroup = bef.groups[group.name]
-				w+=1
-			except:
-				bgroup = group
-				e+=1
+			try: bgroup = bef.groups[group.name]
+			except: bgroup = group
 			try: agroup = aft.groups[group.name]
 			except: agroup = group
 			
@@ -163,7 +157,6 @@ def loop_fcurve_tangents():
 				#current action
 				#get both tangents
 				if len(fkeys) > 1:
-					#handle = (fkeys[1].co - fkeys[0].co - fkeys[-2].co + fkeys[-1].co)/5
 					lfhandle = fkeys[1].co - fkeys[0].co
 					rfhandle = fkeys[-1].co - fkeys[-2].co
 					
@@ -185,14 +178,18 @@ def loop_fcurve_tangents():
 					#set the handle
 					fkeys[0].handle_right_type = "FREE"
 					fkeys[-1].handle_left_type = "FREE"
+					fac_r = fkeys[1].co[0] - fkeys[0].co[0]
+					fac_l = fkeys[-1].co[0] - fkeys[-2].co[0]
 					#interpolate with the main anim or with its own ends
 					if "_2" in action.name:
-						fkeys[0].handle_right = fkeys[0].co + (lfhandle + bhandle)/5
-						fkeys[-1].handle_left = fkeys[-1].co - (rfhandle + ahandle)/5
+						right_h = lfhandle + bhandle
+						left_h = rfhandle + ahandle
 					#only use the foreign handles for loops
 					else:
-						fkeys[0].handle_right = fkeys[0].co + (ahandle + bhandle)/5
-						fkeys[-1].handle_left = fkeys[-1].co - (ahandle + bhandle)/5
+						right_h = ahandle + bhandle
+						left_h = ahandle + bhandle
+					fkeys[0].handle_right = fkeys[0].co + right_h.normalized() * fac_r / 2
+					fkeys[-1].handle_left = fkeys[-1].co - left_h.normalized() * fac_l / 2
 
 def is_constrained_armature(ob):
 	#finds an armature either via name (first) or if it has constraints (slower fallback)
