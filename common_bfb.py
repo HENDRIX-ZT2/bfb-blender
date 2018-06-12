@@ -73,6 +73,7 @@ def mat3_to_vec_roll(mat):
 	return vec, roll
 	
 def select_layer(layer_nr): return tuple(i == layer_nr for i in range(0, 20))
+
 def load_config():
 	d={}
 	f = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"config_bfb.ini"), 'rb')
@@ -106,12 +107,17 @@ def config_to_str(config):
 		stream+=(key+"="+config[key]+"\n")
 	return stream
 
+def create_ob(ob_name, ob_data):
+	ob = bpy.data.objects.new(ob_name, ob_data)
+	bpy.context.scene.objects.link(ob)
+	bpy.context.scene.objects.active = ob
+	return ob
+	
 def mesh_from_data(name, verts, faces, wireframe = True):
 	me = bpy.data.meshes.new(name)
 	me.from_pydata(verts, [], faces)
 	me.update()
-	ob = bpy.data.objects.new(name, me)
-	bpy.context.scene.objects.link(ob)
+	ob = create_ob(name, me)
 	if wireframe:
 		ob.draw_type = 'WIRE'
 	return ob, me
@@ -150,9 +156,8 @@ def create_capsule(name, start, end, r):
 	ob.layers = select_layer(5)
 	return ob
 
-def create_empty(parent,name,matrix):
-	empty = bpy.data.objects.new(name, None)
-	bpy.context.scene.objects.link(empty)
+def create_empty(parent, name, matrix):
+	empty = create_ob(name, None)
 	if parent:
 		empty.parent = parent
 	empty.matrix_local = matrix
@@ -161,6 +166,7 @@ def create_empty(parent,name,matrix):
 
 correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
 correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
+
 def get_bfb_matrix(bone):
 	bind = correction_global.inverted() *  correction_local.inverted() * bone.matrix_local *  correction_local
 	if bone.parent:

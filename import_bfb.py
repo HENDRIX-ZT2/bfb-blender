@@ -17,7 +17,6 @@ def log_error(error):
 	global errors
 	errors.append(error)
 	
-
 def read_linked_list(pos,parent,level):
 	try:
 		blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
@@ -39,6 +38,7 @@ def read_linked_list(pos,parent,level):
 				if armature:
 					ob = armature
 					ob.name = name
+					ob.data.name = name
 					ob.matrix_local = matrix
 				else:
 					ob = create_empty(parent,name,matrix)
@@ -70,10 +70,9 @@ def read_linked_list(pos,parent,level):
 			global camera
 			if not camera:
 				camera_data = bpy.data.cameras.new("TrackingCameraData")
-				camera = bpy.data.objects.new("TrackingCamera", camera_data)
+				camera = create_ob("TrackingCamera", camera_data)
 				camera.location = (2,-2,2)
 				camera.rotation_euler = (1.047,0.0,0.785)
-				bpy.context.scene.objects.link(camera)
 			hasobj = getint(pos+157)
 			objID = getint(pos+185)
 			matname = getstring128(pos+189)
@@ -273,15 +272,14 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 	global id2data
 	armature = None
 	camera = None
-	dirname = os.path.dirname(filepath)
+	dirname, basename = os.path.split(filepath)
 	id2data = {}
 	#when no object exists, or when we are in edit mode when script is run
 	try: bpy.ops.object.mode_set(mode='OBJECT')
 	except: pass
-	print("\nImporting",os.path.basename(filepath))
-	f = open(filepath, 'rb')
-	datastream = f.read()
-	f.close()
+	print("\nImporting",basename)
+	with open(filepath, 'rb') as f:
+		datastream = f.read()
 	#used to access data from the BFB by ID
 	version, u_int, author, blockcount  = unpack_from("i i 64s i", datastream, 8)
 	if version != 131073: log_error("Unsupported BFB version: "+str(version))
@@ -353,13 +351,11 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 				pos += 129
 				if not armature:
 					#create the armature
-					armData = bpy.data.armatures.new("DUMMY Scene Root Armature")
+					armData = bpy.data.armatures.new(basename[:-4])
 					armData.show_axes = True
 					armData.draw_type = 'STICK'
-					armature = bpy.data.objects.new("DUMMY Scene Root", armData)
+					armature = create_ob(basename[:-4], armData)
 					armature.show_x_ray = True
-					bpy.context.scene.objects.link(armature)
-					bpy.context.scene.objects.active = armature
 					bpy.ops.object.mode_set(mode = 'EDIT')
 					#read the armature block
 					mat_storage = {}
@@ -393,8 +389,6 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 					mesh["we"].append([(bonenames[id], weight) for id, weight in vert if id > 0])
 			ob, me = mesh_from_data(name, mesh["ver"], mesh["tri"], False)
 			id2data[blockid] = ob
-			#so ugly, working with context and operators - perhaps there is a better solution
-			bpy.context.scene.objects.active = ob
 			if mesh["we"]:
 				for i, vert	in enumerate(mesh["we"]):
 					for bonename, weight in vert:
@@ -432,13 +426,13 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			bpy.ops.object.mode_set(mode = 'EDIT')
 			if mirror_mesh and mesh["we"]:
 				bpy.ops.mesh.bisect(plane_co=(0,0,0), plane_no=(1,0,0), clear_inner=True)
+				bpy.ops.mesh.select_all(action='SELECT')
 				mod = ob.modifiers.new('Mirror', 'MIRROR')
 				mod.use_clip = True
 				mod.use_mirror_merge = True
 				mod.use_mirror_vertex_groups = True
 				mod.use_x = True
 				mod.merge_threshold = 0.001
-				bpy.ops.mesh.select_all(action='SELECT')
 			#implement a custom remove doubles algorithm
 			#see which verts can be removed, find their indices and then make a new custom normals list
 			if not use_custom_normals:
@@ -462,7 +456,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 	
 	#Now comes the linked list part, it starts with the root block.
 	print("\nReading object hierarchy and creating blender objects...")
-	maxlod = read_linked_list(pos,None,0)
+	maxlod = read_linked_list(pos, None, 0)
 	
 	#set the visible layers for this scene
 	bools = []
