@@ -10,12 +10,13 @@ def fix_bone_length(edit_bone):
 			childheads = mathutils.Vector()
 			for child in edit_bone.children:
 				childheads += child.head
-			edit_bone.length = (edit_bone.head - childheads/len(edit_bone.children)).length
-			if edit_bone.length < 0.01:
-				edit_bone.length = 0.25
+			bone_length = (edit_bone.head - childheads/len(edit_bone.children)).length
+			if bone_length < 0.01:
+				bone_length = 0.25
 		# end of a chain
 		else:
-			edit_bone.length = edit_bone.parent.length
+			bone_length = edit_bone.parent.length
+		edit_bone.length = bone_length
 								
 def vec_roll_to_mat3(vec, roll):
 	#port of the updated C function from armature.c
