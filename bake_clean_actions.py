@@ -88,38 +88,31 @@ def loop_fcurve_tangents():
 	before = {}
 	after = {}
 	for action in bpy.data.actions:
-		#eventually also check for transitions, make sure they match up and interpolate tangents between anims
-		#print(action.name)
-		if "_" in action.name:
-			if "_2" not in action.name:
-				main = action.name.split("_")[0]+"_"
-				for act in bpy.data.actions:
-					if any(x in act.name and main in act.name for x in ("Idle", "Ahead")):
-						#print("before+after",act.name)
-						before[action] = act
-						after[action] = act
-						break
-			if "_2" in action.name:
-				b, a = action.name.split("_2")
-				b += "_"
-				a += "_"
-				for act in bpy.data.actions:
-					if any(x in act.name and b in act.name for x in ("Idle", "Ahead")):
-						#print("before",act.name)
-						before[action] = act
-						break
-				for act in bpy.data.actions:
-					if any(x in act.name and a in act.name for x in ("Idle", "Ahead")):
-						#print("after",act.name)
-						after[action] = act
-						break
-		# might not want to do this
-		#else:
-		#	before[action] = action
-		#	after[action] = action
+		for subtype in ("Idle", "Ahead"):
+			#this anim follows the naming convention
+			if "_" in action.name:
+				#this is not a transition anim
+				if "_2" not in action.name:
+					main = action.name.split("_")[0]
+					act_name = main+"_"+subtype
+					if act_name in bpy.data.actions:
+						before[action] = bpy.data.actions[act_name]
+						after[action] = bpy.data.actions[act_name]
+				if "_2" in action.name:
+					main_before, main_after = action.name.split("_2")
+					name_before = main_before+"_"+subtype
+					if name_before in bpy.data.actions:
+						before[action] = bpy.data.actions[name_before]
+					name_after = main_after+"_"+subtype
+					if name_after in bpy.data.actions:
+						before[action] = bpy.data.actions[name_after]
+			else:
+				print(action.name,"does not follow the naming convention 'ANIMGROUP_ANIM' or for transitions 'ANIMGROUP_2ANIMGROUP'")
+				
+	#eventually also check for transitions, make sure they match up and interpolate tangents between anims
 	for action in bpy.data.actions:
-		#eventually also check for transitions, make sure they match up and interpolate tangents between anims
-
+		
+		matches=True
 		print("Looping",action.name)
 
 		#if they were not added in the first place, skip now
@@ -137,7 +130,6 @@ def loop_fcurve_tangents():
 			
 			#go through all fcurves of that bone
 			for fcurve in group.channels:
-				#print(fcurve.data_path)
 				
 				#equivalent curves from before and after anims
 				try: bcurve = find_in_group(bgroup, fcurve.data_path, fcurve.array_index)
@@ -147,39 +139,38 @@ def loop_fcurve_tangents():
 				
 				#the keys
 				try:
-					bkeys = bcurve.keyframe_points
-					fkeys = fcurve.keyframe_points
-					akeys = acurve.keyframe_points
+					keys_before = bcurve.keyframe_points
+					keys_this = fcurve.keyframe_points
+					keys_after = acurve.keyframe_points
 				except:
 					print("An fcurve is missing")
 					break
 					
-				#current action
 				#get both tangents
-				if len(fkeys) > 1:
-					lfhandle = fkeys[1].co - fkeys[0].co
-					rfhandle = fkeys[-1].co - fkeys[-2].co
+				if len(keys_this) > 1:
+					lfhandle = keys_this[1].co - keys_this[0].co
+					rfhandle = keys_this[-1].co - keys_this[-2].co
 					
-					#the action before this action
-					#get the last tangent
-					if len(bkeys) > 1:
-						bhandle = bkeys[-1].co - bkeys[-2].co
+					#get the last tangent of the preceding anim
+					if len(keys_before) > 1:
+						bhandle = keys_before[-1].co - keys_before[-2].co
 					#then cycle
 					else:
 						bhandle = rfhandle
-					#the action after this action
-					#get the first tangent
-					if len(akeys) > 1:
-						ahandle = akeys[1].co - akeys[0].co
+					#get the first tangent of the following anim
+					if len(keys_after) > 1:
+						ahandle = keys_after[1].co - keys_after[0].co
 					#then cycle
 					else:
 						ahandle = lfhandle
 					
 					#set the handle
-					fkeys[0].handle_right_type = "FREE"
-					fkeys[-1].handle_left_type = "FREE"
-					fac_r = fkeys[1].co[0] - fkeys[0].co[0]
-					fac_l = fkeys[-1].co[0] - fkeys[-2].co[0]
+					keys_this[0].handle_right_type = "FREE"
+					keys_this[-1].handle_left_type = "FREE"
+					fac_r = keys_this[1].co[0] - keys_this[0].co[0]
+					fac_l = keys_this[-1].co[0] - keys_this[-2].co[0]
+					
+					#TODO: is this the right way to do this?
 					#interpolate with the main anim or with its own ends
 					if "_2" in action.name:
 						right_h = lfhandle + bhandle
@@ -188,8 +179,15 @@ def loop_fcurve_tangents():
 					else:
 						right_h = ahandle + bhandle
 						left_h = ahandle + bhandle
-					fkeys[0].handle_right = fkeys[0].co + right_h.normalized() * fac_r / 2
-					fkeys[-1].handle_left = fkeys[-1].co - left_h.normalized() * fac_l / 2
+					keys_this[0].handle_right = keys_this[0].co + right_h.normalized() * fac_r / 2
+					keys_this[-1].handle_left = keys_this[-1].co - left_h.normalized() * fac_l / 2
+				if group.name not in ("Bip01", ) and "*" not in group.name:
+					for a, b in ((keys_before[-1].co[1], keys_this[0].co[1]), (keys_this[-1].co[1], keys_after[0].co[1])):
+						close = math.isclose(a, b, rel_tol=0.0000000002, abs_tol=0.000000000001)
+						if not close:
+							matches = False
+		if not matches:
+			print("transition does not line up!",action.name)
 
 def is_constrained_armature(ob):
 	#finds an armature either via name (first) or if it has constraints (slower fallback)

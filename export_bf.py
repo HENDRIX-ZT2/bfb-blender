@@ -44,7 +44,6 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 			bones_data[bone.name] = (rest_scale, rest_rot.to_4x4(), rest_trans)
 
 		for action in bpy.data.actions:
-			print("Exporting",action.name)
 			
 			#make sure it starts precisely at frame 0
 			anim_start = action.frame_range[0]
@@ -56,6 +55,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 			
 			#skip IKed / unbaked versions
 			if "*" in action.name: continue
+			print("Exporting",action.name)
 			
 			#does an unbaked version exist, then store it
 			if "*"+action.name in bpy.data.actions and "secondary_" in action.name.lower():
