@@ -284,17 +284,29 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 		ob_2_id[ob]=ID
 		if type(ob.data) == bpy.types.Mesh:
 			blockcount+=1
+			#fix meshes parented to a bone by adding vgroups
+			if ob.parent_type == "BONE" and not ob.name.startswith('capsule'):
+				log_error(ob.name+" was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
+				bonename = ob.parent_bone
+				ob.vertex_groups.new(bonename)
+				try: m = ob.parent.data.bones[bonename].matrix_local
+				except: m = mathutils.Matrix()
+				for i, vert in enumerate(ob.data.vertices):
+					ob.vertex_groups[bonename].add([i], 1.0, 'REPLACE')
+					vert.co = m * vert.co
+				ob.parent_type = "OBJECT"
+				bpy.context.scene.update()
 
 	print('Gathering mesh data...')
 	#get all objects, meshData, meshes + skeletons and collisions
 	for ob in bpy.context.scene.objects:
 		if type(ob.data) == bpy.types.Mesh:
-			if ob.name.startswith('sphere'):
+			if ob.name.startswith('capsule'):
+				stream+=export_capsule(ob, 88+len(stream))
+			elif ob.name.startswith('sphere'):
 				stream+=export_sphere(ob, 88+len(stream))
 			elif ob.name.startswith('orientedbox'):
 				stream+=export_bounding_box(ob, 88+len(stream))
-			elif ob.name.startswith('capsule'):
-				stream+=export_capsule(ob, 88+len(stream))
 			else:
 				armature = ob.find_armature()
 				#export the armature if not already done for a previous mesh
