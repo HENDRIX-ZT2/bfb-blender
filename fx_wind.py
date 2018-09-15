@@ -1,6 +1,5 @@
 import bpy
 import mathutils
-from bpy.props import FloatProperty, IntProperty, FloatVectorProperty, EnumProperty
 
 def make_interpolater(left_min, left_max, right_min, right_max): 
     # Figure out how 'wide' each range is  
