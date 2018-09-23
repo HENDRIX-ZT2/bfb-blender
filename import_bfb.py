@@ -123,7 +123,12 @@ def read_linked_list(pos,parent,level):
 		log_error("Read error at position "+str(pos)+" in "+name+"'s children.")
 		
 	return level
-		
+
+def get_tex_slot(mat, i):
+	while not mat.texture_slots[i]:
+		mtex = mat.texture_slots.add()
+	return mat.texture_slots[i]
+	
 def create_material(ob,matname):
 	
 	recursiveDepth = 5
@@ -150,10 +155,6 @@ def create_material(ob,matname):
 			log_error("Could not find Materials/"+matname+".BFMAT!")
 			return
 		
-		#mat.diffuse_shader = 'LAMBERT' 
-		#mat.diffuse_intensity = 1.0 
-		#mat.specular_color = specular
-		#mat.specular_shader = 'COOKTORR'
 		mat.specular_intensity = 0.0
 		mat.ambient = 1
 		mat.use_transparency = True
@@ -164,7 +165,7 @@ def create_material(ob,matname):
 		for param in material:
 			name = param.attrib["name"]
 			if "type" in param.attrib:
-				if param.attrib["type"] == "vector4":
+				if param.attrib["type"] in ("vector4", "matrix"):
 					text = param.text.split(", ")
 				else:
 					text = param.text
@@ -178,15 +179,15 @@ def create_material(ob,matname):
 			
 			#new and experimental
 			if param.tag == "animate":
-				fps = 25
+				fps = bpy.context.scene.render.fps
 				for i in range(0,2):
 					if name == "TextureTransform"+str(i):
 						for key in param.find("./offsetu"):
-							mat.texture_slots[i].offset[0] = float(key.attrib["value"])
-							mat.texture_slots[i].keyframe_insert("offset", index = 0, frame = int(float(key.attrib["time"])*fps))
+							get_tex_slot(mat, i).offset[0] = float(key.attrib["value"])
+							get_tex_slot(mat, i).keyframe_insert("offset", index = 0, frame = int(float(key.attrib["time"])*fps))
 						for key in param.find("./offsetv"):
-							mat.texture_slots[i].offset[1] = float(key.attrib["value"])
-							mat.texture_slots[i].keyframe_insert("offset", index = 1, frame = int(float(key.attrib["time"])*fps))
+							get_tex_slot(mat, i).offset[1] = float(key.attrib["value"])
+							get_tex_slot(mat, i).keyframe_insert("offset", index = 1, frame = int(float(key.attrib["time"])*fps))
 			#multi-textures
 			for i in range(0,2):
 				if name == "Texture"+str(i):
@@ -210,7 +211,7 @@ def create_material(ob,matname):
 							tex.image = img
 						else: tex = bpy.data.textures[text]
 						#now create the slot in the material for the texture
-						mtex = mat.texture_slots.add()
+						mtex = get_tex_slot(mat, i)
 						mtex.texture = tex
 						mtex.texture_coords = 'UV'
 						mtex.use_map_color_diffuse = True 
@@ -243,6 +244,16 @@ def create_material(ob,matname):
 						if i > 0: mat.use_textures[i] = False
 					except:
 						log_error(name+" in Materials/"+matname+".BFMAT has no image reference! Add the image name in the .BFMAT to fix!")
+
+			#texture tranform
+			for i in range(0,2):
+				if name == "TextureTransform"+str(i):
+					if param.attrib["type"] == "matrix":
+						m4x4 = [float(t) for t in text]
+						matrix_4x4 = mathutils.Matrix([m4x4[i:i+4] for i in range(0,16,4)])
+						get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
+						get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
+						
 	else: mat = bpy.data.materials[matname]
 	
 	#now finally set all the textures we have in the mesh
