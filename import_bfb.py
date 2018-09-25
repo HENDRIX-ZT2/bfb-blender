@@ -2,9 +2,9 @@ import os
 import time
 import bpy
 import mathutils
-import xml.etree.ElementTree as ET
 from struct import iter_unpack, unpack_from
 from .common_bfb import *
+from .bfmat import bfmat
 
 def getstring128(x): return datastream[x:x+128].rstrip(b"\x00").decode("utf-8")
 def getint(x): return unpack_from('i',datastream, x)[0]
@@ -18,242 +18,193 @@ def log_error(error):
 	errors.append(error)
 	
 def read_linked_list(pos,parent,level):
-	try:
-		blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
-		name = name.rstrip(b"\x00").decode("utf-8")
-		matrix = get_matrix(pos+81)
-		matrix.transpose()
-		#ordinary node, node with collision or lod level
-		if typeid == 1:
-			print("NODE:",name)
-			if parent:
-				ob = create_empty(parent,name,matrix)
-				#if this is a lod level, move it to its respective layer
-				if parent.name.startswith("lodgroup"):
-					ob.layers = select_layer(level)
-				#a dock node, a collision node, but nothing with a model, so move it to layer 6
-				else:
-					ob.layers = parent.layers
-			else:
-				if armature:
-					ob = armature
-					ob.name = name
-					ob.data.name = name
-					ob.matrix_local = matrix
-				else:
-					ob = create_empty(parent,name,matrix)
-				ob.layers = select_layer(5)
-			hascollision = getint(pos+153)
-			if hascollision == 1:
-				id2data[getint(pos+157)].parent = ob
-				if name.startswith("paint_"):
-					ob.layers = select_layer(5)
-		#lod group
-		elif typeid == 2:
-			print("LOD GROUP:",name)
-			ob = create_empty(parent,"lodgroup",matrix)
-			ob.layers = select_layer(5)
-		#mesh linker
-		elif typeid == 3:
-			print("MESH LINK:",name)
-			objID = getint(pos+161)
-			matname = getstring128(pos+169)
-			ob = id2data[objID]
-			ob.name = name
-			if parent:
-				ob.parent = parent
-			ob.matrix_local = matrix
-			create_material(ob,matname)
-			ob.layers = select_layer(level)
-		elif typeid == 4:
-			print("BILLBOARD:",name)
-			global camera
-			if not camera:
-				camera_data = bpy.data.cameras.new("TrackingCameraData")
-				camera = create_ob("TrackingCamera", camera_data)
-				camera.location = (2,-2,2)
-				camera.rotation_euler = (1.047,0.0,0.785)
-			hasobj = getint(pos+157)
-			objID = getint(pos+185)
-			matname = getstring128(pos+189)
-			ob = id2data[objID]
-			ob.name = name
-			ob.matrix_local = matrix
-			ob.parent = parent
-			create_material(ob,matname)
-			ob.layers = select_layer(level)
-			const = ob.constraints.new('COPY_ROTATION')
-			const.use_x = False
-			const.use_y = False
-			const.use_z = True
-			const.target = camera
-		#capsule collider link, only in actor meshes
-		elif typeid == 5:
-			collisionid = getint(pos+157)
-			#case-sensitive name
-			bone_name = bfbname_to_blendername(datastream[pos+161:pos+161+64])
-			ob = id2data[collisionid]
-			ob.parent = armature
-			ob.parent_bone = bone_name
-			ob.parent_type = 'BONE'
-			try:
-				ob.location.y = -armature.data.bones[bone_name].length
-			except:
-				ob.parent_bone = "Bip01"
-				log_error("Capsule collider "+name+" has no parent bone, set to Bip01!")
-			print("CAPSULE COLLIDER:",bone_name)
-		else:
-			print("Unknown type ID",typeid,"in block links!")
-		#if we have children, the newly created empty is their parent
-		if childstart!= 0:
-			pos = childstart
-			level = read_linked_list(pos,ob,level)
+	# try:
+	blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
+	name = name.rstrip(b"\x00").decode("utf-8")
+	matrix = get_matrix(pos+81)
+	matrix.transpose()
+	#ordinary node, node with collision or lod level
+	if typeid == 1:
+		print("NODE:",name)
 		if parent:
+			ob = create_empty(parent,name,matrix)
 			#if this is a lod level, move it to its respective layer
 			if parent.name.startswith("lodgroup"):
-				level+= 1
-		#for the next block, the old empty is the parent
-		if nextblockstart!= 0:
-			pos = nextblockstart
-			level = read_linked_list(pos,parent,level)
+				ob.layers = select_layer(level)
+			#a dock node, a collision node, but nothing with a model, so move it to layer 6
+			else:
+				ob.layers = parent.layers
+		else:
+			if armature:
+				ob = armature
+				ob.name = name
+				ob.data.name = name
+				ob.matrix_local = matrix
+			else:
+				ob = create_empty(parent,name,matrix)
+			ob.layers = select_layer(5)
+		hascollision = getint(pos+153)
+		if hascollision == 1:
+			id2data[getint(pos+157)].parent = ob
+			if name.startswith("paint_"):
+				ob.layers = select_layer(5)
+	#lod group
+	elif typeid == 2:
+		print("LOD GROUP:",name)
+		ob = create_empty(parent,"lodgroup",matrix)
+		ob.layers = select_layer(5)
+	#mesh linker
+	elif typeid == 3:
+		print("MESH LINK:",name)
+		objID = getint(pos+161)
+		matname = getstring128(pos+169)
+		ob = id2data[objID]
+		ob.name = name
+		if parent:
+			ob.parent = parent
+		ob.matrix_local = matrix
+		create_material(ob,matname)
+		ob.layers = select_layer(level)
+	elif typeid == 4:
+		print("BILLBOARD:",name)
+		global camera
+		if not camera:
+			camera_data = bpy.data.cameras.new("TrackingCameraData")
+			camera = create_ob("TrackingCamera", camera_data)
+			camera.location = (2,-2,2)
+			camera.rotation_euler = (1.047,0.0,0.785)
+		hasobj = getint(pos+157)
+		objID = getint(pos+185)
+		matname = getstring128(pos+189)
+		ob = id2data[objID]
+		ob.name = name
+		ob.matrix_local = matrix
+		ob.parent = parent
+		create_material(ob,matname)
+		ob.layers = select_layer(level)
+		const = ob.constraints.new('COPY_ROTATION')
+		const.use_x = False
+		const.use_y = False
+		const.use_z = True
+		const.target = camera
+	#capsule collider link, only in actor meshes
+	elif typeid == 5:
+		collisionid = getint(pos+157)
+		#case-sensitive name
+		bone_name = bfbname_to_blendername(datastream[pos+161:pos+161+64])
+		ob = id2data[collisionid]
+		ob.parent = armature
+		ob.parent_bone = bone_name
+		ob.parent_type = 'BONE'
+		try:
+			ob.location.y = -armature.data.bones[bone_name].length
+		except:
+			ob.parent_bone = "Bip01"
+			log_error("Capsule collider "+name+" has no parent bone, set to Bip01!")
+		print("CAPSULE COLLIDER:",bone_name)
+	else:
+		print("Unknown type ID",typeid,"in block links!")
+	#if we have children, the newly created empty is their parent
+	if childstart!= 0:
+		pos = childstart
+		level = read_linked_list(pos,ob,level)
+	if parent:
+		#if this is a lod level, move it to its respective layer
+		if parent.name.startswith("lodgroup"):
+			level+= 1
+	#for the next block, the old empty is the parent
+	if nextblockstart!= 0:
+		pos = nextblockstart
+		level = read_linked_list(pos,parent,level)
 			
-	except:
-		if parent: name = parent.name
-		else: name = "EMPTY"
-		log_error("Read error at position "+str(pos)+" in "+name+"'s children.")
+	# except:
+		# if parent: name = parent.name
+		# else: name = "EMPTY"
+		# log_error("Read error at position "+str(pos)+" in "+name+"'s children.")
 		
 	return level
 
 def get_tex_slot(mat, i):
-	while not mat.texture_slots[i]:
-		mtex = mat.texture_slots.add()
+	while not mat.texture_slots[i]: mat.texture_slots.add()
 	return mat.texture_slots[i]
 	
 def create_material(ob,matname):
-	
-	recursiveDepth = 5
-	
+
+	material = bfmat(dirname, matname+".bfmat")
+	fx = material.fx
+	cull_mode = material.CullMode
+	fps = bpy.context.scene.render.fps
 	print("MATERIAL:",matname)
 	#only create the material if we haven't already created it, then just grab it
 	if matname not in bpy.data.materials:
 		mat = bpy.data.materials.new(matname)
-		mat_dir = dirname
-		for dirLevel in range(0,recursiveDepth):
-			mat_file = os.path.join(mat_dir, "Materials", matname+".bfmat")
-			if os.path.exists(mat_file): break
-			mat_file = os.path.join(mat_dir, "shared", "Materials", matname+".bfmat")
-			if os.path.exists(mat_file): break
-			mat_dir = os.path.dirname(mat_dir)
-
-		if os.path.exists(mat_file):
-			try:
-				tree = ET.parse(mat_file)
-			except:
-				log_error("Materials/"+matname+".BFMAT cannot be parsed, likely due to an XML syntax error!")
-				return
-		else:
-			log_error("Could not find Materials/"+matname+".BFMAT!")
-			return
-		
 		mat.specular_intensity = 0.0
 		mat.ambient = 1
 		mat.use_transparency = True
-		
-		material = tree.getroot()
-		fx = material.attrib["fx"]
-		print("FX SHADER:",fx)
-		for param in material:
-			name = param.attrib["name"]
-			if "type" in param.attrib:
-				if param.attrib["type"] in ("vector4", "matrix"):
-					text = param.text.split(", ")
-				else:
-					text = param.text
-			#set stuff on the material
-			if name == "MaterialAmbient":
-				mat.diffuse_color=float(text[0]),float(text[1]),float(text[2])#
-				#always put to 0
-				mat.alpha=0
-			if name == "MaterialPower":
-				mat.diffuse_intensity=float(text)
-			
-			#new and experimental
-			if param.tag == "animate":
-				fps = bpy.context.scene.render.fps
-				for i in range(0,2):
-					if name == "TextureTransform"+str(i):
-						for key in param.find("./offsetu"):
-							get_tex_slot(mat, i).offset[0] = float(key.attrib["value"])
-							get_tex_slot(mat, i).keyframe_insert("offset", index = 0, frame = int(float(key.attrib["time"])*fps))
-						for key in param.find("./offsetv"):
-							get_tex_slot(mat, i).offset[1] = float(key.attrib["value"])
-							get_tex_slot(mat, i).keyframe_insert("offset", index = 1, frame = int(float(key.attrib["time"])*fps))
-			#multi-textures
-			for i in range(0,2):
-				if name == "Texture"+str(i):
-					#only import the image and texture if we haven't already imported it!
-					#we may use the same texture in different materials!
+		if material.MaterialAmbient:
+			mat.diffuse_color = material.MaterialAmbient[0:3]
+			mat.alpha=0
+		if material.MaterialPower:
+			mat.diffuse_intensity= material.MaterialPower
+		if material.TextureTransform:
+			for i, tex_transform in enumerate(material.TextureTransform):
+				if tex_transform is not None:
+					matrix_4x4 = mathutils.Matrix(tex_transform)
+					get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
+					get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
+		for i, texture in enumerate(material.Texture):
+			if texture is not None:
+				if texture not in bpy.data.textures:
+					tex = bpy.data.textures.new(texture, type = 'IMAGE')
 					try:
-						if text not in bpy.data.textures:
-							tex = bpy.data.textures.new(text, type = 'IMAGE')
-							tex_dir = dirname
-							for dirLevel in range(0,recursiveDepth):
-								tex_file = os.path.join(tex_dir,text+".dds")
-								if os.path.exists(tex_file): break
-								tex_file = os.path.join(tex_dir,"shared",text+".dds")
-								if os.path.exists(tex_file): break
-								tex_dir = os.path.dirname(tex_dir)
-							try:
-								img = bpy.data.images.load(tex_file)
-							except:
-								print("Could not find image "+text+".dds, generating blank image!")
-								img = bpy.data.images.new(text+".dds",1,1)
-							tex.image = img
-						else: tex = bpy.data.textures[text]
-						#now create the slot in the material for the texture
-						mtex = get_tex_slot(mat, i)
-						mtex.texture = tex
-						mtex.texture_coords = 'UV'
-						mtex.use_map_color_diffuse = True 
-						mtex.use_map_color_emission = True 
-						mtex.emission_color_factor = 0.5
-						mtex.use_map_density = True 
-						mtex.mapping = 'FLAT'
-						#mtex.use_stencil = True
-						#RR reflection effect
-						if (fx == "BaseReflectRR" and i == 1) or (fx == "BaseDecalReflectRR" and i == 2):
-							mtex.blend_type = 'OVERLAY'
-							mtex.texture_coords = 'REFLECTION'
-						if (fx == "BaseDetail" and i == 1):
-							mtex.blend_type = 'OVERLAY'
-						#TO DO: cull mode -> african violets
-						
-						#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
-						mtex.uv_layer = str(i)
-						for param in material:
-							if param.attrib["name"] == "TexCoordIndex"+str(i):
-								mtex.uv_layer = param.text
-								break
-						
-						#for the icon renderer
-						tex.use_mipmap = False
-						tex.use_interpolation = False
-						tex.filter_type = "BOX"
-						tex.filter_size = 0.1
-						# we only want to render default tex for icons
-						if i > 0: mat.use_textures[i] = False
+						img = bpy.data.images.load(material.find_recursive(texture+".dds"))
 					except:
-						log_error(name+" in Materials/"+matname+".BFMAT has no image reference! Add the image name in the .BFMAT to fix!")
-
-			#texture tranform
-			for i in range(0,2):
-				if name == "TextureTransform"+str(i):
-					if param.attrib["type"] == "matrix":
-						m4x4 = [float(t) for t in text]
-						matrix_4x4 = mathutils.Matrix([m4x4[i:i+4] for i in range(0,16,4)])
-						get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
-						get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
-						
+						print("Could not find image "+texture+".dds, generating blank image!")
+						img = bpy.data.images.new(texture+".dds",1,1)
+					tex.image = img
+				else: tex = bpy.data.textures[texture]
+				#now create the slot in the material for the texture
+				mtex = get_tex_slot(mat, i)
+				mtex.texture = tex
+				mtex.texture_coords = 'UV'
+				mtex.use_map_color_diffuse = True 
+				mtex.use_map_color_emission = True 
+				mtex.emission_color_factor = 0.5
+				mtex.use_map_density = True 
+				mtex.mapping = 'FLAT'
+				#mtex.use_stencil = True
+				#RR reflection effect
+				if (fx == "BaseReflectRR" and i == 1) or (fx == "BaseDecalReflectRR" and i == 2):
+					mtex.blend_type = 'OVERLAY'
+					mtex.texture_coords = 'REFLECTION'
+				if (fx == "BaseDetail" and i == 1):
+					mtex.blend_type = 'OVERLAY'
+			
+				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
+				tex_index = material.TexCoordIndex[i]
+				mtex.uv_layer = tex_index if tex_index is not None else str(i)
+				
+				#for the icon renderer
+				tex.use_mipmap = False
+				tex.use_interpolation = False
+				tex.filter_type = "BOX"
+				tex.filter_size = 0.1
+				#eg. African violets, but only in rendered view
+				tex.extension = "CLIP" if cull_mode == "2" else "REPEAT"
+				# we only want to render default tex for icons
+				if i > 0: mat.use_textures[i] = False
+		for i, tex_transform in enumerate(material.TextureTransform):
+			if tex_transform is not None:
+				matrix_4x4 = mathutils.Matrix(tex_transform)
+				get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
+				get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
+		for i, tex_anim in enumerate(material.TextureAnimation):
+			if tex_anim:
+				for j, dtype in enumerate( ("offsetu", "offsetv") ):
+					for key in tex_anim[dtype]:
+						get_tex_slot(mat, i).offset[j] = key[1]
+						get_tex_slot(mat, i).keyframe_insert("offset", index = j, frame = int(key[0]*fps))
+			
 	else: mat = bpy.data.materials[matname]
 	
 	#now finally set all the textures we have in the mesh
