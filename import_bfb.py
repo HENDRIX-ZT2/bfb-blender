@@ -129,29 +129,27 @@ def get_tex_slot(mat, i):
 	return mat.texture_slots[i]
 	
 def create_material(ob,matname):
-
 	material = bfmat(dirname, matname+".bfmat")
 	fx = material.fx
 	cull_mode = material.CullMode
 	fps = bpy.context.scene.render.fps
+	
+	#see which sub-shaders are used by this fx shader, and get the used ones in order
+	shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
+	tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
+	
 	print("MATERIAL:",matname)
 	#only create the material if we haven't already created it, then just grab it
 	if matname not in bpy.data.materials:
 		mat = bpy.data.materials.new(matname)
 		mat.specular_intensity = 0.0
 		mat.ambient = 1
+		mat.alpha=0
 		mat.use_transparency = True
 		if material.MaterialAmbient:
 			mat.diffuse_color = material.MaterialAmbient[0:3]
-			mat.alpha=0
 		if material.MaterialPower:
 			mat.diffuse_intensity= material.MaterialPower
-		if material.TextureTransform:
-			for i, tex_transform in enumerate(material.TextureTransform):
-				if tex_transform is not None:
-					matrix_4x4 = mathutils.Matrix(tex_transform)
-					get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
-					get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
 		for i, texture in enumerate(material.Texture):
 			if texture is not None:
 				if texture not in bpy.data.textures:
@@ -167,43 +165,48 @@ def create_material(ob,matname):
 				mtex = get_tex_slot(mat, i)
 				mtex.texture = tex
 				mtex.texture_coords = 'UV'
-				mtex.use_map_color_diffuse = True 
-				mtex.use_map_color_emission = True 
-				mtex.emission_color_factor = 0.5
-				mtex.use_map_density = True 
-				mtex.mapping = 'FLAT'
-				#mtex.use_stencil = True
-				#RR reflection effect
-				if (fx == "BaseReflectRR" and i == 1) or (fx == "BaseDecalReflectRR" and i == 2):
-					mtex.blend_type = 'OVERLAY'
-					mtex.texture_coords = 'REFLECTION'
-				if (fx == "BaseDetail" and i == 1):
-					mtex.blend_type = 'OVERLAY'
+				mtex.use_map_color_diffuse = True
+				mtex.use_map_density = True
+				mtex.use_stencil = True
 			
-				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
-				tex_index = material.TexCoordIndex[i]
-				mtex.uv_layer = tex_index if tex_index is not None else str(i)
-				
 				#for the icon renderer
-				tex.use_mipmap = False
-				tex.use_interpolation = False
 				tex.filter_type = "BOX"
 				tex.filter_size = 0.1
 				#eg. African violets, but only in rendered view
 				tex.extension = "CLIP" if cull_mode == "2" else "REPEAT"
 				# we only want to render default tex for icons
 				if i > 0: mat.use_textures[i] = False
-		for i, tex_transform in enumerate(material.TextureTransform):
-			if tex_transform is not None:
-				matrix_4x4 = mathutils.Matrix(tex_transform)
-				get_tex_slot(mat, i).offset = matrix_4x4.to_translation()
-				get_tex_slot(mat, i).scale = matrix_4x4.to_scale()
-		for i, tex_anim in enumerate(material.TextureAnimation):
-			if tex_anim:
-				for j, dtype in enumerate( ("offsetu", "offsetv") ):
-					for key in tex_anim[dtype]:
-						get_tex_slot(mat, i).offset[j] = key[1]
-						get_tex_slot(mat, i).keyframe_insert("offset", index = j, frame = int(key[0]*fps))
+				
+				#Shader effects
+				if i < len(tex_shaders):
+					if tex_shaders[i] == "Reflect":
+						mtex.blend_type = 'OVERLAY'
+						mtex.texture_coords = 'REFLECTION'
+					elif tex_shaders[i] == "Detail":
+						mtex.blend_type = 'OVERLAY'
+					elif tex_shaders[i] == "Glow":
+						mtex.use_map_emit = True
+						mat.emit = 1
+					elif tex_shaders[i] == "Gloss":
+						mtex.use_map_specular = True
+						mat.specular_intensity = 1
+				
+				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
+				tex_index = material.TexCoordIndex[i]
+				mtex.uv_layer = tex_index if tex_index is not None else str(i)
+				#texture transform - static
+				tex_transform = material.TextureTransform[i]
+				if tex_transform:
+					matrix_4x4 = mathutils.Matrix(tex_transform)
+					mtex.offset = matrix_4x4.to_translation()
+					mtex.scale = matrix_4x4.to_scale()
+				#texture transform - animated
+				tex_anim = material.TextureAnimation[i]
+				if tex_anim:
+					for j, dtype in enumerate( ("offsetu", "offsetv") ):
+						for key in tex_anim[dtype]:
+							mtex.offset[j] = key[1]
+							mtex.keyframe_insert("offset", index = j, frame = int(key[0]*fps))
 			
 	else: mat = bpy.data.materials[matname]
 	

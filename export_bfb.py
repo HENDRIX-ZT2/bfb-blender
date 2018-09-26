@@ -60,7 +60,7 @@ def write_bfmat(ob, mat):
 		os.makedirs(matpath)
 	material = ET.Element('material')
 	index=0
-	fps=25
+	fps=bpy.context.scene.render.fps
 	for i, texture_slot in enumerate(mat.texture_slots):
 		if texture_slot:
 			if texture_slot.texture.type == "IMAGE":
