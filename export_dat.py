@@ -27,7 +27,7 @@ def save(operator, context, filepath = ''):
 			biomes.append(vgroup.name)
 	verts=[]
 	for vert in me.vertices:
-		s = pack('=f', vert.co.z)
+		s = pack('=f', vert.co.z+7)
 		bw = 0
 		for vertex_group in vert.groups:
 			name = ob.vertex_groups[vertex_group.group].name

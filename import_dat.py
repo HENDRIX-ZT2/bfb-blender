@@ -2,22 +2,14 @@ import os
 import time
 import bpy
 from struct import unpack_from,iter_unpack,calcsize
-
-def mesh_from_data(name, verts, faces):
-	me = bpy.data.meshes.new(name)
-	me.from_pydata(verts, [], faces)
-	me.update()
-	ob = bpy.data.objects.new(name, me)
-	bpy.context.scene.objects.link(ob)
-	return ob, me
+from .common_bfb import *
 
 def load(operator, context, filepath = ""):
 	starttime = time.clock()
 	errors = []
 
-	
-	#when no object exists, or when we are in edit mode when script is run
-	try: bpy.ops.object.mode_set(mode='OBJECT')
+	#when no map_ob.ect exists, or when we are in edit mode when script is run
+	try: bpy.ops.map_ob.ect.mode_set(mode='map_ob.ECT')
 	except: pass
 	
 	print("\nImporting",os.path.basename(filepath))
@@ -34,11 +26,15 @@ def load(operator, context, filepath = ""):
 	#(x_verts-1)*3/4 = x_len
 	#u4, u5 always 9 - maybe resolution of stencil map?
 	u1, x_len, y_len, x_res, y_res, u2, u3, x_verts, y_verts, u4, u5, numbiomes  = unpack_from('=i4f7i',datastream, 0)
+	print(u1, x_len, y_len, x_res, y_res, u2, u3, x_verts, y_verts, u4, u5, numbiomes)
 	p=48
 	lutbiomes=[]
+	biomes=[]
 	for i in range(0,numbiomes):
 		l=unpack_from('=i',datastream, p)[0]
-		lutbiomes.append("08_b_"+datastream[p+4:p+3+l].decode("utf8"))
+		biome = datastream[p+4:p+3+l].decode("utf8")
+		biomes.append(biome)
+		lutbiomes.append("08_b_"+biome)
 		p+=4+l
 	#print(lutbiomes)
 
@@ -56,7 +52,7 @@ def load(operator, context, filepath = ""):
 	#28,29 fail
 	info=["00_f_height","04_f","08_b_biome","09_b","10_b","11_b","12_b_dirt","13_b_shore","14_b","15_b","16_b","17_b_protected","18_b","19_b","20_b_intersection","21_b","22_b","23_b","24_b","25_b","26_b_cliff","27_b_conservation","28_b_tankwall"]
 
-	info=["00_f_height","04_f","08_b_biome","09_b","10_b","11_b","12_b_dirt","13_b_shore","14_b","15_b","16_b","17_b_protected","18_f","22_f","26_b_cliff","27_b_conservation","28_b_tankwall"]
+	info=["00_f_height","04_f","08_b_biome","09_b","10_b","11_b","12_b_dirt","13_b_seafloor","14_b","15_b","16_b","17_b_protected","18_f_shore","22_f","26_b_cliff","27_b_conservation","28_b_tankwall"]
 	
 	#vanilla 28, mm 29, custom 29 - additional byte for tankwall edges
 	#was 14 before, prolly error?!
@@ -66,24 +62,13 @@ def load(operator, context, filepath = ""):
 		info.pop()
 	else:
 		vlen = 29
-	formatstr = "="
-	for pair in info:
-		formatstr += pair[3]
+	formatstr = "="+"".join([pair[3] for pair in info])
 	vertlist = list(iter_unpack(formatstr, datastream[p : p+calcsize(formatstr)*x_verts*y_verts]))
-	
-	#list1
-	#80904
-	#list2 -padding?
-	#5839
-	#root 284
-	
-	#print(x_len,y_len,x_res,y_res,x_verts,y_verts)
-	#print(vertlist[0:5])
 	verts=[]
 	i=0
 	for x in range(0,x_verts):
 		for y in range(0,y_verts):
-			verts.append((-x,y,vertlist[i][0]),)
+			verts.append((-x,y,vertlist[i][0]-7),)
 			i+=1
 	quads=[]
 	i=0
@@ -92,53 +77,47 @@ def load(operator, context, filepath = ""):
 			quads.append((i+1,i,i+y_verts,i+y_verts+1))
 			i+=1
 		i+=1
-	ob, me = mesh_from_data("map", verts=verts, faces=quads)	
+	map_ob, me = mesh_from_data("map", verts, quads, False)
+	scale = y_len / y_verts
+	map_ob.scale = (scale,scale,1)
 	for face in me.polygons:
 		face.use_smooth = True
 	
-	for biome in lutbiomes: ob.vertex_groups.new(biome)
+	for biome in lutbiomes: map_ob.vertex_groups.new(biome)
 	for t, key in enumerate(info):
 		if key == "00_f_height": pass
 		elif key == "08_b_biome":
 			for i in range(0,len(vertlist)):
 				biome = lutbiomes[vertlist[i][t]]
-				ob.vertex_groups[biome].add([i], 1, 'REPLACE')
+				map_ob.vertex_groups[biome].add([i], 1, 'REPLACE')
 		else:
-			ob.vertex_groups.new(key)
+			map_ob.vertex_groups.new(key)
 			for i in range(0,len(vertlist)):
 				#prevent clipping
 				if "f" in key:
-					ob.vertex_groups[key].add([i], vertlist[i][t]/100, 'REPLACE')
+					map_ob.vertex_groups[key].add([i], vertlist[i][t]/100, 'REPLACE')
 				else:
-					ob.vertex_groups[key].add([i], vertlist[i][t], 'REPLACE')
+					map_ob.vertex_groups[key].add([i], vertlist[i][t], 'REPLACE')
 					
-	#p += calcsize(formatstr)*x_verts*y_verts
-	
-	#p += 16
-	#s = int((x_len-1)*(y_len-1))*4
-	#s= 81000
-	#print(p)
-	#print(s)
-	#vertlist = list(iter_unpack("=H", datastream[p:p+s]))
-	#print(vertlist)
-	# verts=[]
-	# i=0
-	# for x in range(0,int(140)):
-		# for y in range(0,int(140)):
-			# #verts.append((-x,y,vertlist[i]),)
-			# verts.append((-x,y,1),)
-			# i+=1
-	# quads=[]
-	# # i=0
-	# # for x in range(0,int(139)):
-		# # for y in range(0,int(139)):
-			# # quads.append((i+1,i,i+y_verts,i+y_verts+1))
-			# # i+=1
-		# # i+=1
-	# ob, me = mesh_from_data("water", verts=verts, faces=quads)	
-	# for face in me.polygons:
-		# face.use_smooth = True
-	
+	p += calcsize(formatstr)*x_verts*y_verts
+	# always the same? u6, u7
+	num_water_bodies, u6, u7 = unpack_from('=IHH',datastream, p)
+	p+= 8
+	for body in range(num_water_bodies):
+		biome_i, num_entries = unpack_from('=II',datastream, p)
+		water_biome = biomes[biome_i]
+		# print("biome", water_biome)
+		entries = unpack_from('='+str(num_entries)+'I',datastream, p+8)
+		height = unpack_from('=f',datastream, p+num_entries*4+13)[0]
+		p+=num_entries*4+17
+		v = []
+		for i in entries:
+			vert = map_ob.data.vertices[i].co
+			#height is not quite correct! possibly another value somewhere? next to it?
+			v.append( (vert[0], vert[1], 11-height) )
+		water_ob, me = mesh_from_data("water"+str(body)+water_biome, v, [])
+		water_ob.scale = (scale,scale,1)
+
 	success = '\nFinished DAT Import in %.2f seconds\n' %(time.clock()-starttime)
 	print(success)
 	return errors
