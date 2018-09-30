@@ -145,8 +145,9 @@ def create_material(ob,matname):
 		mat.specular_intensity = 0.0
 		mat.ambient = 1
 		mat.alpha=0
-		mat.use_transparency = True
 		mat.use_transparent_shadows = True
+		if material.AlphaTestEnable or material.AlphaBlendEnable:
+			mat.use_transparency = True
 		if material.MaterialAmbient:
 			mat.diffuse_color = material.MaterialAmbient[0:3]
 		if material.MaterialPower:
@@ -172,8 +173,8 @@ def create_material(ob,matname):
 				#for the icon renderer
 				tex.filter_type = "BOX"
 				tex.filter_size = 0.1
-				#eg. African violets, but only in rendered view
-				tex.extension = "CLIP" if cull_mode == "2" else "REPEAT"
+				#eg. African violets, but only in rendered view; but: glacier
+				tex.extension = "CLIP" if (cull_mode == "2" and mat.use_transparency) else "REPEAT"
 				
 				#Shader effects
 				if i < len(tex_shaders):
@@ -329,7 +330,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 					for x in range(0, numbones):
 						boneid, parentid, bonegroup, bonename = unpack_from("3b 64s", datastream, pos+x*131)
 						bonename = bfbname_to_blendername(bonename)
-						bind = mathutils.Matrix(list(iter_unpack('4f',datastream[pos+67+x*131:pos+67+x*131+64])))#.transposed()
+						bind = mathutils.Matrix(list(iter_unpack('4f',datastream[pos+67+x*131:pos+67+x*131+64])))
 						#create a bone
 						bone = armData.edit_bones.new(bonename)
 						#parent it and get the armature space matrix

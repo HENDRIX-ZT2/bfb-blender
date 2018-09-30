@@ -77,40 +77,37 @@ class bfmat():
 	def fx(self): return self.root.attrib["fx"]
 	
 	@property
-	def TextureTransform(self):
-		return self.get_range("TextureTransform")
+	def TextureTransform(self): return self.get_range("TextureTransform")
 		
 	@property
-	def TextureAnimation(self):
-		return self.get_anim_range("TextureTransform")
+	def TextureAnimation(self): return self.get_anim_range("TextureTransform")
 		
 	@property
-	def Texture(self):
-		return self.get_range("Texture")
+	def Texture(self): return self.get_range("Texture")
 		
 	@property
-	def Texture_paths(self):
-		return [self.find_recursive(t+".dds") for t in self.Texture if t]
+	def Texture_paths(self): return [self.find_recursive(t+".dds") for t in self.Texture if t]
 		
 	@property
-	def TexCoordIndex(self):
-		return self.get_range("TexCoordIndex")
+	def TexCoordIndex(self): return self.get_range("TexCoordIndex")
 		
 	@property
-	def MaterialEmissive(self):
-		return self.get("MaterialEmissive")
+	def MaterialEmissive(self): return self.get("MaterialEmissive")
 		
 	@property
-	def MaterialAmbient(self):
-		return self.get("MaterialAmbient")
+	def MaterialAmbient(self): return self.get("MaterialAmbient")
 		
 	@property
-	def MaterialPower(self):
-		return self.get("MaterialPower")
+	def MaterialPower(self): return self.get("MaterialPower")
 		
 	@property
-	def CullMode(self):
-		return self.get("CullMode")
+	def AlphaBlendEnable(self): return self.get("AlphaBlendEnable")
+		
+	@property
+	def AlphaTestEnable(self): return self.get("AlphaTestEnable")
+		
+	@property
+	def CullMode(self): return self.get("CullMode")
 	
 
 # mat = bfmat("PerepatTree","PerepatTree_Wetlands_Trunk_Mat_mod0.bfmat")
