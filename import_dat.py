@@ -100,22 +100,25 @@ def load(operator, context, filepath = ""):
 					map_ob.vertex_groups[key].add([i], vertlist[i][t], 'REPLACE')
 					
 	p += calcsize(formatstr)*x_verts*y_verts
-	# always the same? u6, u7
-	num_water_bodies, u6, u7 = unpack_from('=IHH',datastream, p)
-	p+= 8
+	num_water_bodies = unpack_from('=IHH',datastream, p)[0]
+	p+= 4
 	for body in range(num_water_bodies):
-		biome_i, num_entries = unpack_from('=II',datastream, p)
+		height, biome_i, num_entries = unpack_from('=fII',datastream, p)
 		water_biome = biomes[biome_i]
-		# print("biome", water_biome)
-		entries = unpack_from('='+str(num_entries)+'I',datastream, p+8)
-		height = unpack_from('=f',datastream, p+num_entries*4+13)[0]
+		entries = unpack_from('='+str(num_entries)+'I',datastream, p+12)
 		p+=num_entries*4+17
 		v = []
+		f = []
+		# print(f)
+		#these faces are not easy to generate!
 		for i in entries:
 			vert = map_ob.data.vertices[i].co
-			#height is not quite correct! possibly another value somewhere? next to it?
-			v.append( (vert[0], vert[1], 11-height) )
-		water_ob, me = mesh_from_data("water"+str(body)+water_biome, v, [])
+			v.append( (vert[0], vert[1], height-7) )
+			# id = (i+1, i, i+y_verts, i+y_verts+1)
+			# j = len(v)-1
+			# if all(k in entries for k in id):
+				# f.append((j+1, j, j+y_verts, j+y_verts+1))
+		water_ob, me = mesh_from_data("water"+str(body)+water_biome, v, f)
 		water_ob.scale = (scale,scale,1)
 
 	success = '\nFinished DAT Import in %.2f seconds\n' %(time.clock()-starttime)
