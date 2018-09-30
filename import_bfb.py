@@ -146,6 +146,7 @@ def create_material(ob,matname):
 		mat.ambient = 1
 		mat.alpha=0
 		mat.use_transparency = True
+		mat.use_transparent_shadows = True
 		if material.MaterialAmbient:
 			mat.diffuse_color = material.MaterialAmbient[0:3]
 		if material.MaterialPower:
@@ -167,15 +168,12 @@ def create_material(ob,matname):
 				mtex.texture_coords = 'UV'
 				mtex.use_map_color_diffuse = True
 				mtex.use_map_density = True
-				mtex.use_stencil = True
 			
 				#for the icon renderer
 				tex.filter_type = "BOX"
 				tex.filter_size = 0.1
 				#eg. African violets, but only in rendered view
 				tex.extension = "CLIP" if cull_mode == "2" else "REPEAT"
-				# we only want to render default tex for icons
-				if i > 0: mat.use_textures[i] = False
 				
 				#Shader effects
 				if i < len(tex_shaders):
@@ -190,6 +188,10 @@ def create_material(ob,matname):
 					elif tex_shaders[i] == "Gloss":
 						mtex.use_map_specular = True
 						mat.specular_intensity = 1
+					elif tex_shaders[i] == "Decal":
+						mtex.use_map_alpha = False
+						if "blink" in texture:
+							mat.use_textures[i] = False
 				
 				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
 				tex_index = material.TexCoordIndex[i]
