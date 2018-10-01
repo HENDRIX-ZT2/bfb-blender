@@ -4,6 +4,22 @@ import bpy
 from struct import unpack_from,iter_unpack,calcsize
 from .common_bfb import *
 
+def generate_mesh(x_verts, y_verts, scale, heights):
+	verts=[]
+	i=0
+	for y in range(y_verts):
+		for x in range(x_verts):
+			verts.append((x*scale, y*scale, heights[i]-7),)
+			i+=1
+	quads=[]
+	i=0
+	for x in range(x_verts-1):
+		for y in range(y_verts-1):
+			quads.append((i+1,i,i+y_verts,i+y_verts+1))
+			i+=1
+		i+=1
+	return verts, quads
+	
 def load(operator, context, filepath = ""):
 	starttime = time.clock()
 	errors = []
@@ -30,7 +46,7 @@ def load(operator, context, filepath = ""):
 	p=48
 	lutbiomes=[]
 	biomes=[]
-	for i in range(0,numbiomes):
+	for i in range(numbiomes):
 		l=unpack_from('=i',datastream, p)[0]
 		biome = datastream[p+4:p+3+l].decode("utf8")
 		biomes.append(biome)
@@ -62,24 +78,13 @@ def load(operator, context, filepath = ""):
 		info.pop()
 	else:
 		vlen = 29
+	scale = y_len / (y_verts-1)
 	formatstr = "="+"".join([pair[3] for pair in info])
 	vertlist = list(iter_unpack(formatstr, datastream[p : p+calcsize(formatstr)*x_verts*y_verts]))
-	verts=[]
-	i=0
-	for x in range(0,x_verts):
-		for y in range(0,y_verts):
-			verts.append((-x,y,vertlist[i][0]-7),)
-			i+=1
-	quads=[]
-	i=0
-	for x in range(0,x_verts-1):
-		for y in range(0,y_verts-1):
-			quads.append((i+1,i,i+y_verts,i+y_verts+1))
-			i+=1
-		i+=1
+	verts, quads = generate_mesh(x_verts, y_verts, scale, [v[0] for v in vertlist])
 	map_ob, me = mesh_from_data("map", verts, quads, False)
-	scale = y_len / y_verts
-	map_ob.scale = (scale,scale,1)
+	
+	# map_ob.scale = (scale,scale,1)
 	for face in me.polygons:
 		face.use_smooth = True
 	
@@ -87,12 +92,12 @@ def load(operator, context, filepath = ""):
 	for t, key in enumerate(info):
 		if key == "00_f_height": pass
 		elif key == "08_b_biome":
-			for i in range(0,len(vertlist)):
+			for i in range(len(vertlist)):
 				biome = lutbiomes[vertlist[i][t]]
 				map_ob.vertex_groups[biome].add([i], 1, 'REPLACE')
 		else:
 			map_ob.vertex_groups.new(key)
-			for i in range(0,len(vertlist)):
+			for i in range(len(vertlist)):
 				#prevent clipping
 				if "f" in key:
 					map_ob.vertex_groups[key].add([i], vertlist[i][t]/100, 'REPLACE')
@@ -100,26 +105,22 @@ def load(operator, context, filepath = ""):
 					map_ob.vertex_groups[key].add([i], vertlist[i][t], 'REPLACE')
 					
 	p += calcsize(formatstr)*x_verts*y_verts
-	num_water_bodies = unpack_from('=IHH',datastream, p)[0]
+	num_water_bodies = unpack_from('=I',datastream, p)[0]
 	p+= 4
+	v, f = generate_mesh(x_verts, y_verts, scale, [0 for v in vertlist])
+	water_ob, water_me = mesh_from_data("water", v, f, False)
+	for face in water_me.polygons:
+		face.use_smooth = True
 	for body in range(num_water_bodies):
 		height, biome_i, num_entries = unpack_from('=fII',datastream, p)
 		water_biome = biomes[biome_i]
 		entries = unpack_from('='+str(num_entries)+'I',datastream, p+12)
 		p+=num_entries*4+17
-		v = []
-		f = []
-		# print(f)
-		#these faces are not easy to generate!
 		for i in entries:
-			vert = map_ob.data.vertices[i].co
-			v.append( (vert[0], vert[1], height-7) )
-			# id = (i+1, i, i+y_verts, i+y_verts+1)
-			# j = len(v)-1
-			# if all(k in entries for k in id):
-				# f.append((j+1, j, j+y_verts, j+y_verts+1))
-		water_ob, me = mesh_from_data("water"+str(body)+water_biome, v, f)
-		water_ob.scale = (scale,scale,1)
+			water_me.vertices[i].co[2] = height-7
+		group_name = str(body)+"_"+water_biome
+		water_ob.vertex_groups.new(group_name)
+		water_ob.vertex_groups[group_name].add(entries, 1, 'REPLACE')
 
 	success = '\nFinished DAT Import in %.2f seconds\n' %(time.clock()-starttime)
 	print(success)
