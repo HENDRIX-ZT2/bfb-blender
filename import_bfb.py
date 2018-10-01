@@ -144,10 +144,13 @@ def create_material(ob,matname):
 		mat = bpy.data.materials.new(matname)
 		mat.specular_intensity = 0.0
 		mat.ambient = 1
-		mat.alpha=0
+		mat.alpha = 0
 		mat.use_transparent_shadows = True
-		if material.AlphaTestEnable or material.AlphaBlendEnable:
-			mat.use_transparency = True
+		mat.use_transparency = True
+		#we only disable it if both are explicitly set to "False"
+		#if we get "None" ie. not given in the bfmat, it is enabled
+		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
+			mat.use_transparency = False
 		if material.MaterialAmbient:
 			mat.diffuse_color = material.MaterialAmbient[0:3]
 		if material.MaterialPower:
