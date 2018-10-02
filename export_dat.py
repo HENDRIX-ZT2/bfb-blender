@@ -36,9 +36,9 @@ def save(operator, context, filepath = ''):
 				bw = vertex_group.weight
 				biome = name
 				v = biomes.index(biome)
-			if "f" in name:
+			if "_f_" in name:
 				s+=pack('=f', v*100)
-			elif "b" in name:
+			elif "_b_" in name:
 				s+=pack('=b', int(v))
 		#whyyyy??
 		verts.append(s[0:29])
@@ -62,7 +62,6 @@ def save(operator, context, filepath = ''):
 	biomes_weights_map = {}
 	for vgroup in water_ob.vertex_groups:
 		biomes_weights_map[vgroup.name] = []
-	print(biomes_weights_map)
 	#gather all vert indices for each water body
 	for vert in water_me.vertices:
 		for vertex_group in vert.groups:
