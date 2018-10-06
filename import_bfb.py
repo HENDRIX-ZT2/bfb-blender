@@ -186,6 +186,8 @@ def create_material(ob,matname):
 						mtex.texture_coords = 'REFLECTION'
 					elif tex_shaders[i] == "Detail":
 						mtex.blend_type = 'OVERLAY'
+						mtex.use_map_alpha = False
+						mtex.invert = True
 					elif tex_shaders[i] == "Glow":
 						mtex.use_map_emit = True
 						mat.emit = 1
