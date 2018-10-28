@@ -134,7 +134,7 @@ def create_material(filepath,ob,matname):
 	me = ob.data
 	me.materials.append(mat)
 	return mat	
-
+def getv(param): return [float(v) for v in param.text.split(",")]
 def load(operator, context, filepath = ""):
 	try:
 		tree = ET.parse(filepath)
@@ -185,11 +185,10 @@ def load(operator, context, filepath = ""):
 			pset.use_render_emitter = False
 			pset.distribution = 'RAND'
 			pset.object_align_factor = (0,0,1)
-		
 			for param in block:
 				if param.tag == "param":
 					if param.attrib["label"] == "initpos":
-						emitter.location = [float(v) for v in param.text.split(",")]
+						emitter.location = getv(param)
 					if param.attrib["label"] == "minspeed":
 						pass
 					if param.attrib["label"] == "maxspeed":
@@ -203,13 +202,12 @@ def load(operator, context, filepath = ""):
 					if param.attrib["label"] == "areaup":
 						pass
 					if param.attrib["label"] == "transform":
-						vs = [float(v) for v in param.text.split(",")]
-						matrix = mathutils.Matrix((vs[0:4],vs[4:8],vs[8:12],vs[12:16]))
+						matrix = mathutils.Matrix((getv(param)[0:4],getv(param)[4:8],getv(param)[8:12],getv(param)[12:16]))
 						emitter.rotation_quaternion = matrix.to_quaternion()
 					if param.attrib["label"] == "min radius":
 						pass
 					if param.attrib["label"] == "max radius":
-						emitter.scale = (float(param.text), float(param.text), float(param.text))
+						emitter.scale = (getv(param)[0], getv(param)[0], getv(param)[0])
 					if param.attrib["label"] == "velocity base":
 						pass
 				if param.tag == "birthrate":
@@ -227,35 +225,29 @@ def load(operator, context, filepath = ""):
 			if block.attrib["name"] == "Age":
 				for param in block:
 					if param.attrib["label"] == "minlife":
-						lmin = float(param.text) * fps
+						lmin = getv(param)[0] * fps
 					if param.attrib["label"] == "maxlife":
-						lmax = float(param.text) * fps
+						lmax = getv(param)[0] * fps
 				pset.lifetime = (lmin + lmax) / 2
 				pset.lifetime_random = (lmax - pset.lifetime) / pset.lifetime
 			
 			if block.attrib["name"] == "Color":
 				for param in block:
 					if param.attrib["label"] == "Color":
-						values = [float(v) for v in param.text.split(",")]
-						#colors = [(values[i*4:i*4+3], values[i*4+3]) for i in range(0,int(len(values)/4))]
-						colors = [values[i*4:i*4+4] for i in range(0,int(len(values)/4))]
+						values = getv(param)
+						colors = [getv(param)[i*4:i*4+4] for i in range(0,len(getv(param))//4)]
 					if param.attrib["label"] == "Age":
-						#ages = [0.0,] + [float(v)*fps for v in param.text.split(",")] + [pset.lifetime,]
-						ages = [0.0,] + [float(v) for v in param.text.split(",")] + [1.0,]
-				#dic_colors={}
-				for i in range(0, len(ages)):
-				#	dic_colors[ages[i]] = colors[i]
-					lcol.append((ages[i], colors[i]))
-				#print(dic_colors)
+						ages = [0.0,] + getv(param) + [1.0,]
+				lcol = zip(ages, colors)
 					
 			if block.attrib["name"] == "Fade":
 				for param in block:
 					if param.attrib["label"] == "initcolor":
-						initcolor = [float(v) for v in param.text.split(",")]
+						initcolor = getv(param)
 					if param.attrib["label"] == "fade":
-						fade = [float(v) for v in param.text.split(",")]
+						fade = getv(param)
 					if param.attrib["label"] == "age":
-						ages = [float(v) for v in param.text.split(",")]
+						ages = getv(param)
 				lfade = [(ages[0], initcolor),(ages[1], fade)]
 				
 			if block.attrib["name"] == "Velocity":
@@ -266,18 +258,18 @@ def load(operator, context, filepath = ""):
 			if block.attrib["name"] == "Gravity":
 				for param in block:
 					if param.attrib["label"] == "accel":
-						bpy.context.scene.gravity = (0, 0, -float(param.text))
+						bpy.context.scene.gravity = (0, 0, -getv(param)[0])
 			if block.attrib["name"] == "Flutter Velocity":
 				for param in block:
 					if param.attrib["label"] == "accel":
-						pset.brownian_factor = float(param.text)/100
+						pset.brownian_factor = getv(param)[0]/100
 				
 			if block.attrib["name"] == "Size":
 				for param in block:
 					if param.attrib["label"] == "value":
-						values = [float(v) for v in param.text.split(",")]
+						values = getv(param)
 					if param.attrib["label"] == "age":
-						ages = [0.0,] + [float(v)*fps for v in param.text.split(",")] + [pset.lifetime,]
+						ages = [0.0,] + getv(param) + [pset.lifetime,]
 				for i in range(0, len(ages)):
 					pset.particle_size = values[i]
 					pset.keyframe_insert("particle_size", frame = ages[i])
