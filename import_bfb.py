@@ -18,7 +18,6 @@ def log_error(error):
 	errors.append(error)
 	
 def read_linked_list(pos,parent,level):
-	# try:
 	blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
 	name = name.rstrip(b"\x00").decode("utf-8")
 	matrix = get_matrix(pos+81)
@@ -116,12 +115,6 @@ def read_linked_list(pos,parent,level):
 	if nextblockstart!= 0:
 		pos = nextblockstart
 		level = read_linked_list(pos,parent,level)
-			
-	# except:
-		# if parent: name = parent.name
-		# else: name = "EMPTY"
-		# log_error("Read error at position "+str(pos)+" in "+name+"'s children.")
-		
 	return level
 
 def get_tex_slot(mat, i):
@@ -261,7 +254,6 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 	print("BFB Author:",author.rstrip(b"\x00").decode("utf-8"))
 	print("\nReading object blocks...")
 	for b in range(0, blockcount):
-		#try:
 		blockid, typeid, blockend, name = unpack_from("i h i 64s", datastream, pos)
 		try:
 			name = name.rstrip(b"\x00").decode("utf-8")
@@ -423,8 +415,6 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			type_name = "unknown ID: "+str(typeid)
 				
 		print('ID: %.i, Type: ' % int(blockid)+type_name+', End: %.i, Name: ' % int(blockend) + str(name))
-		#except:
-		#	log_error("Could not read block at position "+str(pos)+". Name: "+name+", Type: "+str(type_name))
 		pos = blockend
 	
 	#Now comes the linked list part, it starts with the root block.

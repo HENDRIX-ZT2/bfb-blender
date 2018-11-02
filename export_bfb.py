@@ -6,6 +6,9 @@ import xml.etree.ElementTree as ET
 from struct import pack
 from .common_bfb import *
 
+def flatten(mat):
+	return [v for row in mat for v in row]
+	
 def log_error(error):
 	print(error)
 	global errors
@@ -124,38 +127,41 @@ def write_bfmat(ob, mat):
 	indent(material)
 	materialtree.write(os.path.join(matpath, mat.name.replace(".","") + ".bfmat"))
 
+def has_collider(ob):
+	#does this empty contain a collider object?
+	if ob.children and (ob.children[0].name.startswith('sphere') or ob.children[0].name.startswith('orientedbox')):
+		return True
+	return False
+	
 def write_linked_list(ob, start):
 	data = ""
-	matrix = export_matrix(ob.matrix_local.transposed())
+	matrix = flatten(ob.matrix_local.transposed())
 	print('Gathering block data for',ob.name)
 	if type(ob.data) in (type(None), bpy.types.Armature):
-		#Root Block
-		if not ob.parent:
-			type_id, data = (1, pack('=B 64s 64s 3i', 0, ob.name.encode('utf-8'), matrix, 0, 5, 0))
 		# LOD group
-		elif ob.name.startswith('lodgroup'):
-			type_id, data = (2, pack('=B 64s 64s 3i 64s', 2, ob.name.encode('utf-8'), matrix, 0, 2, 0, b'lodgroup'))
+		if ob.name.startswith('lodgroup'):
+			type_id = 2
+			data = pack('<B 64s 16f 3i 64s', 2, ob.name.encode('utf-8'), *matrix, 0, 2, 0, b'lodgroup')
 		else:
+			type_id = 1
+			# Root Block
+			if not ob.parent:
+				data = pack('<B 64s 16f 3i', 0, ob.name.encode('utf-8'), *matrix, 0, 5, 0)
 			# node, with collision attached
-			if ob.children and ob.children[0] and (ob.children[0].name.startswith('sphere') or ob.children[0].name.startswith('orientedbox')):
-				type_id, data = (1, pack('=B 64s 64s 4i', 1, ob.name.encode('utf-8'), matrix, 1, 1, 1, ob_2_id[ob.children[0]]))
-			# empty node
+			elif has_collider(ob):
+				data = pack('<B 64s 16f 4i', 1, ob.name.encode('utf-8'), *matrix, 1, 1, 1, ob_2_id[ob.children[0]])
+			# standard node
 			else:
-				obname = ob.name
-				if "end_post" in ob.name:
-					obname = "end_post"
-				type_id, data = (1, pack('=B 64s 64s 3i', 1, obname.encode('utf-8'), matrix, 1, 1, 0))
+				obname = "end_post" if "end_post" in ob.name else ob.name
+				data = pack('<B 64s 16f 3i', 1, obname.encode('utf-8'), *matrix, 1, 1, 0)
 	elif type(ob.data) == bpy.types.Mesh:
 		if ob.name.startswith('sphere') or ob.name.startswith('orientedbox'): pass
 		elif ob.name.startswith('capsule'):
-			if ob.parent_type != "BONE":
+			if ob.parent_type != "BONE" or not ob.parent_bone:
 				log_error("Capsule collider "+ob.name+" is not parented to a bone.")
-#				return errors
-			elif ob.parent_bone == "":
-				log_error("Capsule collider "+ob.name+" is not parented to a bone.")
-#				return errors
 			bone = blendername_to_bfbname(ob.parent_bone)
-			type_id, data = (5, pack('=B 64s 64s 4i 64s', 0, bone.lower().encode('utf-8'), matrix, 1, 1, 1, ob_2_id[ob], bone.encode('utf-8')))
+			type_id = 5
+			data = pack('<B 64s 16f 4i 64s', 0, bone.lower().encode('utf-8'), *matrix, 1, 1, 1, ob_2_id[ob], bone.encode('utf-8'))
 		else:
 			matname = 'none'
 			if len(ob.data.materials) > 0:
@@ -170,44 +176,33 @@ def write_linked_list(ob, start):
 				log_error('Mesh '+ob.name+' has no Material, no BFMAT was exported!')
 			if ob.constraints:
 				#i assume 1, 0, -1 are the tracking axes?
-				type_id, data = (4, pack('=B 64s 64s 6i 3f 2i 128s', 4, ob.name.encode('utf-8'), matrix, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, ob_2_id[ob], matname.encode('utf-8')))
+				type_id = 4
+				data = pack('<B 64s 16f 6i 3f 2i 128s', 4, ob.name.encode('utf-8'), *matrix, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, ob_2_id[ob], matname.encode('utf-8'))
 			else:
-				type_id, data = (3, pack('=B 64s 64s 6i 128s', 4, ob.name.encode('utf-8'), matrix, 1, 1, 0, 1, ob_2_id[ob], 1, matname.encode('utf-8')))
-	
-	oblist.append(ob)
+				type_id = 3
+				data = pack('<B 64s 16f 6i 128s', 4, ob.name.encode('utf-8'), *matrix, 1, 1, 0, 1, ob_2_id[ob], 1, matname.encode('utf-8'))
 	if data:
-		if ob.children:
-			#print(ob,'has children')
-			childrenstart = start + len(data) + 16
-			blockend = childrenstart
-			for child in ob.children:
-				childstr = write_linked_list(child,childrenstart)
-				if childstr:
-					childrenstart += len(childstr)
-					data += childstr
-			#collision nodes
-			#the node has only one child and it's a mesh and it's a collider
-			if len(ob.children) == 1:
-				if ob.children[0].name.startswith('sphere') or ob.children[0].name.startswith('orientedbox'):
-					blockend = 0
-		else:
-			#print(ob,'has no children!')
-			blockend = 0
-		nextblockstart = start + len(data) + 16
-
-		#if no more sibling left, nextblockstart is 0
-		has_no_sibling = True
+		#does this node have children? colliders don't count!
+		has_children = False
+		if ob.children and not has_collider(ob):
+			has_children = True
+		blockend = start + len(data) + 16 if has_children else 0
+		
+		childrenstart = blockend
+		for child in ob.children:
+			childstr = write_linked_list(child,childrenstart)
+			if childstr:
+				childrenstart += len(childstr)
+				data += childstr
+		#are there any more siblings of this node left to add?
+		has_sibling = False
 		if ob.parent:
-			for sibling in ob.parent.children:
+			for sibling in ob.parent.children[ob.parent.children.index(ob)+1:]:
 				if type(sibling.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
-					if sibling not in oblist:
-						has_no_sibling = False
-						break
-		if has_no_sibling:
-			#print('No more siblings left, move back up')
-			nextblockstart = 0
-		#print(ob,blockend,nextblockstart)
-		return pack('= 4i', ob_2_id[ob], type_id, blockend, nextblockstart)+data
+					has_sibling = True
+					break
+		nextblockstart = start + len(data) + 16 if has_sibling else 0
+		return pack('<4i', ob_2_id[ob], type_id, blockend, nextblockstart)+data
 	
 def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, fix_root_bones=False, numlods = 1, rate = 1):
 	
@@ -230,10 +225,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 	write_materials = export_materials
 	global dirname
 	dirname = os.path.dirname(filepath)
-	#make global to check for weights and grant access to all meshes
-	# not needed?
-	global armature_bytes
 	armature_bytes = b""
+	
+	#if one model uses an armature, all have to. If they don't, they can't be exported.
+	has_armature = False
+	
 	global ob_2_block
 	ob_2_block = {}
 	global ob_2_weight_bytes
@@ -242,18 +238,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 	ob_2_fx_wind = {}
 	global ob_2_id
 	ob_2_id = {}
-	#ID of meshdata, vert_readstart,readcount,tris readstart, readcount
 	ob_2_meshOffset={}
-	#BFRVertex=[meshData,meshData,....]
-	#meshData=(vertices,trilist)
-	#and get the ID later on
 	BFRVertex_2_meshData={}
 	
 	global stream
 	stream = b''
-	#used to check for siblings when writing the linked list, ie. if one obejct has already been processed
-	global oblist
-	oblist = []
 	starttime = time.clock()
 	print('Generating block IDs for objects in scene...')
 	#keep track of objects without a parent, if >1 add an Auto Root
@@ -275,14 +264,13 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 			ob.parent = root
 	
 	
-	#note that this is not the final blockcount, as every mesh data also gets counted
+	blockcount = 0
 	ID=1
-	blockcount=0
 	for ob in bpy.context.scene.objects:
-		while ID in list(ob_2_id.values()):
-			ID+=1
 		ob_2_id[ob]=ID
+		ID+=1
 		if type(ob.data) == bpy.types.Mesh:
+			#note that this is not the final blockcount, as every mesh data also gets counted
 			blockcount+=1
 			#fix meshes parented to a bone by adding vgroups
 			if ob.parent_type == "BONE" and not ob.name.startswith('capsule'):
@@ -296,7 +284,8 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					vert.co = m * vert.co
 				ob.parent_type = "OBJECT"
 				bpy.context.scene.update()
-
+			if ob.find_armature(): has_armature = True
+	
 	print('Gathering mesh data...')
 	#get all objects, meshData, meshes + skeletons and collisions
 	for ob in bpy.context.scene.objects:
@@ -308,9 +297,13 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 			elif ob.name.startswith('orientedbox'):
 				stream+=export_bounding_box(ob, 88+len(stream))
 			else:
-				armature = ob.find_armature()
 				#export the armature if not already done for a previous mesh
-				if armature and not armature_bytes:
+				armature = ob.find_armature()
+				#we have an armature on one mesh, means we can't export meshes without armature
+				if has_armature and not armature:
+					log_error(ob.name+" is not exported because it does not use an armature while other models do.")
+					continue
+				if has_armature and not armature_bytes:
 					bones = armature.data.bones.values()
 					#todo: calculate this value properly, refer values from other objects
 					lodgroup = -1
@@ -344,7 +337,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 							parentid = bones.index(bone.parent)+1
 						else:
 							parentid = 0
-						armature_bytes += pack('= bbb 64s', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8')) + export_matrix(get_bfb_matrix(bone))
+						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(get_bfb_matrix(bone)) )
 				#remove unneeded modifiers
 				for mod in ob.modifiers:
 					if mod.type in ('ARMATURE','TRIANGULATE'):
@@ -395,11 +388,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 						no = me.loops[loop_index].normal
 						#else: no = me.vertices[vertex_index].normal
 						
-						bfb_vertex = pack('= 3f',co.x, co.y, co.z)
-						bfb_normal = pack('= 3f',no.x, no.y, no.z)
+						bfb_vertex = pack('<3f',co.x, co.y, co.z)
+						bfb_normal = pack('<3f',no.x, no.y, no.z)
 						if me.vertex_colors:
 							#access via index for NIF intercompatibility
-							bfb_col = pack('4B',int(me.vertex_colors[0].data[loop_index].color.b*255),
+							bfb_col = pack('<4B',int(me.vertex_colors[0].data[loop_index].color.b*255),
 												int(me.vertex_colors[0].data[loop_index].color.g*255),
 												int(me.vertex_colors[0].data[loop_index].color.r*255),
 												int(me.vertex_colors[1].data[loop_index].color.b*255))
@@ -414,9 +407,9 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 									break
 						for uv_layer in me.uv_layers:
 							if 'T3' in BFRVertex:
-								bfb_uv+= pack('3f',uv_layer.data[loop_index].uv.x, 1-uv_layer.data[loop_index].uv.y, weight)
+								bfb_uv+= pack('<3f',uv_layer.data[loop_index].uv.x, 1-uv_layer.data[loop_index].uv.y, weight)
 							else:
-								bfb_uv+= pack('2f',uv_layer.data[loop_index].uv.x, 1-uv_layer.data[loop_index].uv.y)
+								bfb_uv+= pack('<2f',uv_layer.data[loop_index].uv.x, 1-uv_layer.data[loop_index].uv.y)
 						#we have to add new verts also if the UV is different!
 						if bfb_vertex+bfb_uv not in dummy_vertices:
 							dummy_vertices.append(bfb_vertex+bfb_uv)
@@ -431,12 +424,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 								w_s = sorted(w, key = lambda x:x[1], reverse = True)[0:4]
 								#pad the weight list to 4 bones, ie. add empty bones if missing
 								for i in range(0, 4-len(w_s)): w_s.append((-1,0))
-								sum = w_s[0][1]+w_s[1][1]+w_s[2][1]+w_s[3][1]
-								if sum > 0.0: weights_bytes+= pack('4b 3f', w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0], w_s[0][1]/sum, w_s[1][1]/sum, w_s[2][1]/sum)
+								sw = w_s[0][1]+w_s[1][1]+w_s[2][1]+w_s[3][1]
+								if sw > 0.0: weights_bytes+= pack('<4b 3f', w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0], w_s[0][1]/sw, w_s[1][1]/sw, w_s[2][1]/sw)
 								elif vertex_index not in unweighted_vertices: unweighted_vertices.append(vertex_index)
-						bfb_vert_index = dummy_vertices.index(bfb_vertex+bfb_uv)
-						tri.append(bfb_vert_index)
-					mesh_triangles.append(pack('= 3h',*tri))
+						tri.append( dummy_vertices.index(bfb_vertex+bfb_uv) )
+					mesh_triangles.append( pack('<3h',*tri) )
 				
 				if armature_bytes:
 					ob_2_weight_bytes[ob] = weights_bytes
@@ -446,44 +438,35 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 						log_error('Found '+str(len(unweighted_vertices))+' unweighted vertices in '+ob.name+'! Add them to vertex groups!')
 						return errors
 				#does a mesh of this type already exist?
-				if BFRVertex not in BFRVertex_2_meshData:
-					blockcount+=1
-					id=1
-					while id in list(ob_2_id.values()): id+=1
-					ob_2_id[id]=id
-					print('Assigned meshID',id,'to BFRVertex'+BFRVertex)
-					BFRVertex_2_meshData[BFRVertex]=(id,[],[],[])
-				BFRVertex_2_meshData[BFRVertex][1].append(ob)
-				BFRVertex_2_meshData[BFRVertex][2].append(mesh_vertices)
-				BFRVertex_2_meshData[BFRVertex][3].append(mesh_triangles)
+				if BFRVertex not in BFRVertex_2_meshData: BFRVertex_2_meshData[BFRVertex] = ([],[],[])
+				BFRVertex_2_meshData[BFRVertex][0].append(ob)
+				BFRVertex_2_meshData[BFRVertex][1].append(mesh_vertices)
+				BFRVertex_2_meshData[BFRVertex][2].append(mesh_triangles)
 					
-	#we create a meshData block for every vertex type we have
-	#we merge all meshes that use the same vertex type
-	#then we get the counts for creating separate mesh blocks in the next loop
-	for BFRVertex in BFRVertex_2_meshData:		
-		#so here we have a tuple with lists of all the blocks and the same index
-		meshDataID, obs, vertex_lists, triangle_lists = BFRVertex_2_meshData[BFRVertex]
+	#1) create a meshData block for every vertex type we have
+	#2) merge all meshes that use the same vertex type
+	#3) get the counts for creating separate mesh blocks in the next loop
+	#4) increment blockcount + ID for each meshData
+	for BFRVertex, (obs, vertex_lists, triangle_lists) in BFRVertex_2_meshData.items():
+		ID+=1
+		blockcount+=1
+		print('Assigned meshID',ID,'to BFRVertex'+BFRVertex)
 		num_all_vertices = 0
 		num_all_triangles = 0
 		bytes_vertices = b''
 		bytes_triangles = b''
-		for i in range(0,len(vertex_lists)):
-			num_all_vertices += len(vertex_lists[i])
-			num_all_triangles += len(triangle_lists[i])
-			for vert in vertex_lists[i]:
-				bytes_vertices += vert
-			for tri in triangle_lists[i]:
-				bytes_triangles += tri
-			#these are the offsets for every mesh block
-			start_vertices  = num_all_vertices - len(vertex_lists[i])
-			start_triangles = num_all_triangles - len(triangle_lists[i])
-			num_vertices  = len(vertex_lists[i])
-			num_triangles = len(triangle_lists[i])
-			ob_2_meshOffset[obs[i]]=(meshDataID, start_vertices, num_vertices, start_triangles, num_triangles)
-		
+		for ob, vertex_list, triangle_list in zip(obs, vertex_lists, triangle_lists):
+			num_vertices  = len(vertex_list)
+			num_triangles = len(triangle_list)
+			bytes_vertices += b''.join(vertex_list)
+			bytes_triangles += b''.join(triangle_list)
+			ob_2_meshOffset[ob] = (ID, num_all_vertices, num_vertices, num_all_triangles, num_triangles)
+			num_all_vertices += num_vertices
+			num_all_triangles += num_triangles
+		len_vert = len(vertex_list[0])
 		#write the meshData block
-		stream += pack('= 3i 64s B 64s 2i',meshDataID, -2147483642, len(stream)+242+num_all_vertices*len(vert)+num_all_triangles*6, b'meshData', 8, 
-		('BFRVertex'+BFRVertex).encode('utf-8'), len(vert), num_all_vertices) + bytes_vertices + pack('= B i', 2, num_all_triangles*3) + bytes_triangles
+		stream += pack('<i 2h i 64s B 64s 2i', ID, 6, -32768, len(stream)+242+num_all_vertices*len_vert+num_all_triangles*6, b'meshData', 8, 
+		('BFRVertex'+BFRVertex).encode('utf-8'), len_vert, num_all_vertices) + bytes_vertices + pack('<B i', 2, num_all_triangles*3) + bytes_triangles
 		
 	#write the mesh blocks
 	for ob in ob_2_meshOffset:
@@ -493,31 +476,22 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 		center = mathutils.Vector()
 		for v in me.vertices:
 			center += v.co
-		center = center/len(me.vertices)
-		radius = 0
-		for v in me.vertices:
-			radius = max(radius,(v.co-center).length)
+		center /= len(me.vertices)
+		radius = max( [(v.co-center).length for v in me.vertices] )
 		
-		id = 1
-		while id in list(ob_2_id.values()):
-			id += 1
-		ob_2_id[ob] = id
 		if ob in ob_2_weight_bytes:
 			weights_bytes = ob_2_weight_bytes[ob]
-			typeid = -2147483640
+			typeid = 8
 			len_weights=len(armature_bytes)+len(weights_bytes)+8
 		else:
-			typeid = -2147483643
+			typeid = 5
 			len_weights = 0
-		stream += pack('= 3i 64s B 7i 4f', id, typeid, len(stream)+209+len_weights, b'mesh', 0, meshDataID, 1, start_triangles*3, num_triangles*3, start_vertices, num_vertices, num_triangles, center.x, center.y, center.z, radius)
+		stream += pack('<i 2h i 64s B 7i 4f', ob_2_id[ob], typeid, -32768, len(stream)+209+len_weights, b'mesh', 0, meshDataID, 1, start_triangles*3, num_triangles*3, start_vertices, num_vertices, num_triangles, *center, radius)
 		
 		if ob in ob_2_weight_bytes:
-			stream += pack('= 2i', int(len(armature_bytes)/131), int(len(weights_bytes)/16))
-			stream += armature_bytes + weights_bytes
+			stream += pack('<2i', len(armature_bytes)//131, len(weights_bytes)//16) + armature_bytes + weights_bytes
 	
-	header = pack('= 8s l l 64s i i', b'BFB!*000', 131073, 1, author_name.encode('utf-8'), blockcount, blockcount)
-	stream = header + stream
-	
+	stream = pack('<8s l l 64s i i', b'BFB!*000', 131073, 1, author_name.encode('utf-8'), blockcount, blockcount) + stream
 	stream+= write_linked_list(root, len(stream))
 
 	if not os.path.exists(dirname):
@@ -535,23 +509,17 @@ def export_capsule(ob, blockstart):
 	start = (me.vertices[0].co+me.vertices[12].co) / 2
 	end = (me.vertices[37].co+me.vertices[49].co) / 2 - start
 	radius = ((me.vertices[0].co-me.vertices[12].co) / 2).length
-	return pack('= 3i 64s h 3f 3f f', ob_2_id[ob], -2147483644, blockstart+106, ob.name.encode('utf-8'), 1, start.x, start.y, start.z, end.x, end.y, end.z, radius)
+	return pack('<i 2h i 64s h 3f 3f f', ob_2_id[ob], 4, -32768, blockstart+106, ob.name.encode('utf-8'), 1, start.x, start.y, start.z, end.x, end.y, end.z, radius)
 
 def export_bounding_box(ob, blockstart):
 	print('Found bounding box collider!')
 	me = ob.data
 	x, y, z = me.vertices[4].co*2
-	return pack('= 3i 64s h', ob_2_id[ob], -2147483645, blockstart+154, ob.name.encode('utf-8'), 1) + export_matrix(ob.matrix_local.transposed()) + pack('= 3f', x, y, z)
+	return pack('<i 2h i 64s h 16f 3f', ob_2_id[ob], 3, -32768, blockstart+154, ob.name.encode('utf-8'), 1, *flatten(ob.matrix_local.transposed()), x, y, z)
 
 def export_sphere(ob, blockstart):
 	print('Found sphere collider!')
 	me = ob.data
 	center = (me.vertices[2].co + me.vertices[23].co) / 2
 	r = (me.vertices[2].co - center).length
-	x, y, z = ob.location
-	return pack('= 3i 64s h 4f', ob_2_id[ob], -2147483647, blockstart+94, ob.name.encode('utf-8'), 1, x, y, z, r)
-	
-def export_matrix(mat):
-	bytes = b''
-	for row in mat: bytes += pack('=4f',*row)
-	return bytes
+	return pack('<i 2h i 64s h 4f', ob_2_id[ob], 1, -32768, blockstart+94, ob.name.encode('utf-8'), 1, *ob.location, r)
