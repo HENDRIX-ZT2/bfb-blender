@@ -134,7 +134,7 @@ def has_collider(ob):
 	return False
 	
 def write_linked_list(ob, start):
-	data = ""
+	data = b''
 	matrix = flatten(ob.matrix_local.transposed())
 	print('Gathering block data for',ob.name)
 	if type(ob.data) in (type(None), bpy.types.Armature):
@@ -186,23 +186,23 @@ def write_linked_list(ob, start):
 		has_children = False
 		if ob.children and not has_collider(ob):
 			has_children = True
-		blockend = start + len(data) + 16 if has_children else 0
+		next_child = start + len(data) + 16 if has_children else 0
 		
-		childrenstart = blockend
+		childrenstart = next_child
 		for child in ob.children:
-			childstr = write_linked_list(child,childrenstart)
-			if childstr:
-				childrenstart += len(childstr)
-				data += childstr
-		#are there any more siblings of this node left to add?
+			childstr = write_linked_list(child, childrenstart)
+			childrenstart += len(childstr)
+			data += childstr
+		#are there any more siblings of this node left to add? siblings follow after all children of this node
 		has_sibling = False
 		if ob.parent:
 			for sibling in ob.parent.children[ob.parent.children.index(ob)+1:]:
 				if type(sibling.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
 					has_sibling = True
 					break
-		nextblockstart = start + len(data) + 16 if has_sibling else 0
-		return pack('<4i', ob_2_id[ob], type_id, blockend, nextblockstart)+data
+		next_sibling = start + len(data) + 16 if has_sibling else 0
+		return pack('<4i', ob_2_id[ob], type_id, next_child, next_sibling)+data
+	return data
 	
 def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, fix_root_bones=False, numlods = 1, rate = 1):
 	
@@ -361,8 +361,8 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 				weights_bytes = b''
 				bfb_col=b''
 				if 'fx_wind' in ob.vertex_groups:
-					ob_2_fx_wind[ob] = "_wind"
 					weight_group_index = ob.vertex_groups['fx_wind'].index
+					ob_2_fx_wind[ob] = "_wind"
 					#this is for some shaders to make sure the decal set uses the UV1
 					if len(me.uv_layers) > 1:
 						ob_2_fx_wind[ob]+="_uv11"
@@ -384,27 +384,19 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					for loop_index in polygon.loop_indices:
 						vertex_index = me.loops[loop_index].vertex_index
 						co = me.vertices[vertex_index].co
-						#if me.has_custom_normals:
 						no = me.loops[loop_index].normal
-						#else: no = me.vertices[vertex_index].normal
 						
 						bfb_vertex = pack('<3f',co.x, co.y, co.z)
 						bfb_normal = pack('<3f',no.x, no.y, no.z)
 						if me.vertex_colors:
-							#access via index for NIF intercompatibility
 							bfb_col = pack('<4B',int(me.vertex_colors[0].data[loop_index].color.b*255),
 												int(me.vertex_colors[0].data[loop_index].color.g*255),
 												int(me.vertex_colors[0].data[loop_index].color.r*255),
 												int(me.vertex_colors[1].data[loop_index].color.b*255))
 						bfb_uv = b''
 						if 'T3' in BFRVertex:
-							weight = 0
-							#sometimes there might be zero weights missing from the group, which have to be restored
-							#use get api instead??
-							for vertex_group in me.vertices[vertex_index].groups:
-								if vertex_group.group == weight_group_index:
-									weight = vertex_group.weight
-									break
+							try: weight = me.vertices[vertex_index].groups[weight_group_index].weight
+							except: weight = 0
 						for uv_layer in me.uv_layers:
 							if 'T3' in BFRVertex:
 								bfb_uv+= pack('<3f',uv_layer.data[loop_index].uv.x, 1-uv_layer.data[loop_index].uv.y, weight)
