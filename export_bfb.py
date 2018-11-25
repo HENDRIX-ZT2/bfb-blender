@@ -263,7 +263,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 		for ob in roots:
 			ob.parent = root
 	
-	
+	identity = mathutils.Matrix()
 	blockcount = 0
 	ID=1
 	for ob in bpy.context.scene.objects:
@@ -284,7 +284,14 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					vert.co = m * vert.co
 				ob.parent_type = "OBJECT"
 				bpy.context.scene.update()
-			if ob.find_armature(): has_armature = True
+			if ob.find_armature():
+				#the world space transform of every rigged mesh must be neutral
+				#local space transforms of the mesh and its parents may be different as long as the mesh origin ends up on the scene origin
+				if ob.matrix_world != identity:
+					for vert in ob.data.vertices: vert.co = ob.matrix_world * vert.co
+					ob.matrix_world = identity
+					log_error(ob.name+" has had its transform applied to avoid ingame distortion!")
+				has_armature = True
 	
 	print('Gathering mesh data...')
 	#get all objects, meshData, meshes + skeletons and collisions
