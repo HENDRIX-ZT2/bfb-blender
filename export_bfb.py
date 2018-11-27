@@ -277,18 +277,16 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 				log_error(ob.name+" was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
 				bonename = ob.parent_bone
 				ob.vertex_groups.new(bonename)
-				try: m = ob.parent.data.bones[bonename].matrix_local
-				except: m = mathutils.Matrix()
-				for i, vert in enumerate(ob.data.vertices):
-					ob.vertex_groups[bonename].add([i], 1.0, 'REPLACE')
-					vert.co = m * vert.co
+				try: ob.data.transform( ob.parent.data.bones[bonename].matrix_local )
+				except: pass
+				ob.vertex_groups[bonename].add( range(len(ob.data.vertices)), 1.0, 'REPLACE' )
 				ob.parent_type = "OBJECT"
 				bpy.context.scene.update()
 			if ob.find_armature():
 				#the world space transform of every rigged mesh must be neutral
 				#local space transforms of the mesh and its parents may be different as long as the mesh origin ends up on the scene origin
 				if ob.matrix_world != identity:
-					for vert in ob.data.vertices: vert.co = ob.matrix_world * vert.co
+					ob.data.transform(ob.matrix_world)
 					ob.matrix_world = identity
 					log_error(ob.name+" has had its transform applied to avoid ingame distortion!")
 				has_armature = True
