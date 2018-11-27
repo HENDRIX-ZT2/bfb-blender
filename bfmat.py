@@ -1,21 +1,19 @@
 import os
 import xml.etree.ElementTree as ET
 
-def log_error(e):
-	print(e)
-	
 class bfmat():
 	def __init__(self, dirname, bfmat_file_name):
 		self.dir = dirname
 		self.bfmat_file = self.find_recursive(os.path.join("Materials", bfmat_file_name))
 		self.tex_range = range(3)
-		if self.bfmat_file:
-			try:
-				self.root = ET.parse(self.bfmat_file).getroot()
-			except:
-				log_error("Materials/"+bfmat_file_name+" cannot be parsed, likely due to an XML syntax error!")
-		else:
-			log_error("Could not find Materials/"+bfmat_file_name)
+		self.errors = []
+		self.root = None
+		try:
+			self.root = ET.parse(self.bfmat_file).getroot()
+		except TypeError:
+			self.errors.append("Could not find Materials/"+bfmat_file_name)
+		except ET.ParseError:
+			self.errors.append("Materials/"+bfmat_file_name+" cannot be parsed, likely due to an XML syntax error!")
 	
 	def find_recursive(self, filename, recursiveDepth = 5):
 		mat_dir = self.dir

@@ -123,6 +123,9 @@ def get_tex_slot(mat, i):
 	
 def create_material(ob,matname):
 	material = bfmat(dirname, matname+".bfmat")
+	for error in material.errors:
+		log_error(error)
+	if not material.root: return
 	fx = material.fx
 	cull_mode = material.CullMode
 	fps = bpy.context.scene.render.fps
@@ -287,7 +290,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			meshtypes = (("P",("ver",)), ("N",("nor",)), ("ND",("rgba",)), ("T0",("u0",)), ("T1",("u1",)), ("T2",("u2",)), ("T30",("u0","w",)), ("T31",("u1","c",)), ("T3D1",("u3","abcd",)), )
 			mesh_data = {"tri":trilist, "we":[]}
 			meshformat = []
-			#parse the meshtypes from the BFVertex into dict and list for correct sorting
+			#parse the meshtypes from the BFRVertex into dict and list for correct sorting
 			for letter, typetuple in meshtypes:
 				for meshtype in typetuple:
 					mesh_data[meshtype] = []
@@ -365,17 +368,12 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 				ob.vertex_groups.new("fx_wind")
 				for i, vert in enumerate(mesh["w"]):
 					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
-			#build a correctly sorted normals array, sorted by the order of faces - loops does not work!!
-			no_array = []
-			for face in me.polygons:
-				for vertex_index in face.vertices:
-					no_array.append(mesh["nor"][vertex_index])	
-				face.use_smooth = True
+
+			for face in me.polygons: face.use_smooth = True
+				
 			if use_custom_normals:
 				me.use_auto_smooth = True
-				#is there any way without the operator??
-				bpy.ops.mesh.customdata_custom_splitnormals_add()
-				me.normals_split_custom_set(no_array)
+				me.normals_split_custom_set_from_vertices(mesh["nor"])
 			
 			#UV: 1-V coordinate
 			for uv_layer in ("u0","u1","u2"):
