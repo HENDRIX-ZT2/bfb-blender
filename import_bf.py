@@ -4,7 +4,7 @@ import bpy
 import mathutils
 import math
 from struct import iter_unpack, calcsize, unpack_from
-from .common_bfb import get_bfb_matrix, decompose_srt, bfbname_to_blendername, create_empty, get_armature
+from .common_bfb import get_bfb_matrix, decompose_srt, bfbname_to_blendername, create_empty, get_armature, create_anim
 from bisect import bisect_left
 
 def interpolate(x_list, xp, fp):
@@ -59,13 +59,6 @@ def load(operator, context, files = [], filepath = "", set_fps=False):
 		for anim in files:
 			read_bf_empties(dirname, anim.name, info, fpms)
 	return {'FINISHED'}
-
-def create_anim(ob, anim_name):
-	action = bpy.data.actions.new(name = anim_name)
-	action.use_fake_user = True
-	ob.animation_data_create()
-	ob.animation_data.action = action
-	return action
 	
 def read_bf_empties(dir, anim, info, fpms):
 	print("Reading",anim)

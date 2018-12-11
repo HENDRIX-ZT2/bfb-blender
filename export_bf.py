@@ -67,6 +67,8 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 				#these so called action groups are the bones, ie one group contains all fcurves of one bone
 				for group in action.groups:
 					if group.name in bones_data:
+						#do not export scale library
+						if "!scale!" in group.name: continue
 						#do not export constrained animations prior to baking
 						if "*" in group.name: continue
 						#if it is a secondary anim, limit the baked channels to what was keyframed initially

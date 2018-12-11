@@ -243,6 +243,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 	camera = None
 	dirname, basename = os.path.split(filepath)
 	id2data = {}
+	skinned_meshes = []
 	#when no object exists, or when we are in edit mode when script is run
 	try: bpy.ops.object.mode_set(mode='OBJECT')
 	except: pass
@@ -327,10 +328,16 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 					bpy.ops.object.mode_set(mode = 'EDIT')
 					#read the armature block
 					mat_storage = {}
+					scales = {}
 					for x in range(0, numbones):
 						boneid, parentid, bonegroup, bonename = unpack_from("3b 64s", datastream, pos+x*131)
 						bonename = bfbname_to_blendername(bonename)
 						bind = mathutils.Matrix(list(iter_unpack('4f',datastream[pos+67+x*131:pos+67+x*131+64])))
+						#new support for bone scale
+						scale = bind.to_scale()[0]
+						if int(round(scale*1000)) != 1000:
+							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
+							scales[bonename] = scale
 						#create a bone
 						bone = armData.edit_bones.new(bonename)
 						#parent it and get the armature space matrix
@@ -358,6 +365,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			ob, me = mesh_from_data(name, mesh["ver"], mesh["tri"], False)
 			id2data[blockid] = ob
 			if mesh["we"]:
+				skinned_meshes.append(ob)
 				for i, vert	in enumerate(mesh["we"]):
 					for bonename, weight in vert:
 						if bonename not in ob.vertex_groups: ob.vertex_groups.new(bonename)
@@ -425,6 +433,27 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 		if i < maxlod or i == 5 or i == 0: bools.append(True)
 		else: bools.append(False)
 	bpy.context.scene.layers = bools
+	
+	#handle scale on armature and meshes
+	if armature and scales:
+		#set inverse scale to all bones
+		for bonename, scale in scales.items():
+			pbone = armature.pose.bones[bonename]
+			pbone.matrix_basis = mathutils.Matrix.Scale(1/scale, 4)
+		bpy.context.scene.update()
+		#apply skin deformation 
+		for ob in skinned_meshes:
+			ob.data = ob.to_mesh(bpy.context.scene, True, "PREVIEW", calc_tessface=False)
+		#remove scales from armature
+		bpy.context.scene.objects.active = armature
+		bpy.ops.object.mode_set(mode='POSE' )
+		bpy.ops.pose.armature_apply()
+		bpy.ops.object.mode_set(mode='OBJECT' )
+		#add scale back in as dummy action
+		scale_action = create_anim(armature, "!scale!")
+		for bonename, scale in scales.items():
+			fcurves = [scale_action.fcurves.new(data_path = 'pose.bones["'+bonename+'"].scale', index = i, action_group = bonename) for i in range(0, 3)]
+			for fcurve in fcurves: fcurve.keyframe_points.insert(0, scale)
 	
 	success = '\nFinished BFB Import in %.2f seconds\n' %(time.clock()-starttime)
 	print(success)

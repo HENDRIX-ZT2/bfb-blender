@@ -114,6 +114,13 @@ def create_ob(ob_name, ob_data):
 	bpy.context.scene.objects.active = ob
 	return ob
 	
+def create_anim(ob, anim_name):
+	action = bpy.data.actions.new(name = anim_name)
+	action.use_fake_user = True
+	ob.animation_data_create()
+	ob.animation_data.action = action
+	return action
+	
 def mesh_from_data(name, verts, faces, wireframe = True):
 	me = bpy.data.meshes.new(name)
 	me.from_pydata(verts, [], faces)

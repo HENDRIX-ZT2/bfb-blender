@@ -290,7 +290,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					ob.matrix_world = identity
 					log_error(ob.name+" has had its transform applied to avoid ingame distortion!")
 				has_armature = True
-	
+	rest_scale = None
 	print('Gathering mesh data...')
 	#get all objects, meshData, meshes + skeletons and collisions
 	for ob in bpy.context.scene.objects:
@@ -309,6 +309,8 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					log_error(ob.name+" is not exported because it does not use an armature while other models do.")
 					continue
 				if has_armature and not armature_bytes:
+					for pbone in armature.pose.bones:
+						pbone.matrix_basis = mathutils.Matrix()
 					bones = armature.data.bones.values()
 					#todo: calculate this value properly, refer values from other objects
 					lodgroup = -1
@@ -336,20 +338,36 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 						else:
 							log_error(armature.name+" has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
 							return errors
+					
+					rest_scale = bpy.data.actions["!scale!"]
 					for bone in bones:
 						boneid = bones.index(bone)+1
 						if bone.parent:
 							parentid = bones.index(bone.parent)+1
 						else:
 							parentid = 0
-						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(get_bfb_matrix(bone)) )
+						#new scale support
+						try:
+							group = rest_scale.groups[bone.name]
+							scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
+							scale = scales[0].keyframe_points[0].co[1]
+						except:
+							scale = 1.0
+						mat = mathutils.Matrix.Scale(scale, 4) * get_bfb_matrix(bone)
+						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(mat) )
+				
+				# we have to apply the scale dummy action
+				if rest_scale:
+					armature.animation_data.action = rest_scale
+					bpy.context.scene.frame_set(0)
 				#remove unneeded modifiers
 				for mod in ob.modifiers:
-					if mod.type in ('ARMATURE','TRIANGULATE'):
+					if mod.type in ('TRIANGULATE',):
 						ob.modifiers.remove(mod)
 				ob.modifiers.new('Triangulate', 'TRIANGULATE')
+				
 				#make a copy with all modifiers applied - I think there was another way to do it too
-				me = ob.to_mesh(bpy.context.scene, True, "PREVIEW", calc_tessface=True, calc_undeformed=False)
+				me = ob.to_mesh(bpy.context.scene, True, "PREVIEW", calc_tessface=False)
 				
 				if len(me.vertices) == 0:
 					log_error(ob.name+" has no vertices. Delete the object and export again.")
@@ -359,7 +377,6 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 				
 				mesh_vertices = []
 				mesh_triangles = []
-				
 				#used to ignore the normals for checking equality
 				dummy_vertices = []
 				
@@ -429,11 +446,9 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 				
 				if armature_bytes:
 					ob_2_weight_bytes[ob] = weights_bytes
-					mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
-					mod.object = armature
-					if unweighted_vertices:
-						log_error('Found '+str(len(unweighted_vertices))+' unweighted vertices in '+ob.name+'! Add them to vertex groups!')
-						return errors
+				if unweighted_vertices:
+					log_error('Found '+str(len(unweighted_vertices))+' unweighted vertices in '+ob.name+'! Add them to vertex groups!')
+					return errors
 				#does a mesh of this type already exist?
 				if BFRVertex not in BFRVertex_2_meshData: BFRVertex_2_meshData[BFRVertex] = ([],[],[])
 				BFRVertex_2_meshData[BFRVertex][0].append(ob)
