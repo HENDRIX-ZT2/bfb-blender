@@ -152,6 +152,7 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 								key_bytes.append(struct.pack('=4H', 14, num_keys, 8+num_keys*10, 0))
 								for i in range(0, num_keys):
 									frame = eulers[0].keyframe_points[i].co[0]
+									#todo: use to_euler( ) with compatible euler to fix distortions
 									quat = export_keymat(rest_rot, mathutils.Euler([fcurve.keyframe_points[i].co[1] for fcurve in eulers]).to_matrix().to_4x4() ).to_quaternion()
 									key_bytes.append(struct.pack('=H4h', rint(frame/fpms), rint(quat.x*10000), rint(quat.y*10000), rint(quat.z*10000), rint(quat.w*10000)))
 																	

@@ -442,7 +442,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 								if sw > 0.0: weights_bytes+= pack('<4b 3f', w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0], w_s[0][1]/sw, w_s[1][1]/sw, w_s[2][1]/sw)
 								elif vertex_index not in unweighted_vertices: unweighted_vertices.append(vertex_index)
 						tri.append( dummy_vertices.index(bfb_vertex+bfb_uv) )
-					mesh_triangles.append( pack('<3h',*tri) )
+					mesh_triangles.append( pack('<3H',*tri) )
 				
 				if armature_bytes:
 					ob_2_weight_bytes[ob] = weights_bytes

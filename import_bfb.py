@@ -192,8 +192,8 @@ def create_material(ob,matname):
 						mat.specular_intensity = 1
 					elif tex_shaders[i] == "Decal":
 						mtex.use_map_alpha = False
-						if "blink" in texture:
-							mat.use_textures[i] = False
+						# if "blink" in texture:
+							# mat.use_textures[i] = False
 				
 				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
 				tex_index = material.TexCoordIndex[i]
