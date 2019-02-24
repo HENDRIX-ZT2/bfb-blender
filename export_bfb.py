@@ -203,7 +203,15 @@ def write_linked_list(ob, start):
 		next_sibling = start + len(data) + 16 if has_sibling else 0
 		return pack('<4i', ob_2_id[ob], type_id, next_child, next_sibling)+data
 	return data
-	
+
+def apply_transform(ob, ):
+	identity = mathutils.Matrix()
+	#the world space transform of every rigged mesh must be neutral
+	#local space transforms of the mesh and its parents may be different as long as the mesh origin ends up on the scene origin
+	if ob.matrix_world != identity:
+		ob.data.transform(ob.matrix_world)
+		ob.matrix_world = identity
+		log_error(ob.name+" has had its transform applied to avoid ingame distortion!")	
 def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, fix_root_bones=False, numlods = 1, rate = 1):
 	
 	if create_lods:
@@ -272,6 +280,9 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 		if type(ob.data) == bpy.types.Mesh:
 			#note that this is not the final blockcount, as every mesh data also gets counted
 			blockcount+=1
+			if ob.find_armature():
+				apply_transform(ob)
+				has_armature = True
 			#fix meshes parented to a bone by adding vgroups
 			if ob.parent_type == "BONE" and not ob.name.startswith('capsule'):
 				log_error(ob.name+" was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
@@ -282,15 +293,8 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 				ob.vertex_groups[bonename].add( range(len(ob.data.vertices)), 1.0, 'REPLACE' )
 				ob.parent_type = "OBJECT"
 				bpy.context.scene.update()
-			if ob.find_armature():
-				#the world space transform of every rigged mesh must be neutral
-				#local space transforms of the mesh and its parents may be different as long as the mesh origin ends up on the scene origin
-				if ob.matrix_world != identity:
-					ob.data.transform(ob.matrix_world)
-					ob.matrix_world = identity
-					log_error(ob.name+" has had its transform applied to avoid ingame distortion!")
-				has_armature = True
-	rest_scale = None
+				# apply again just to be sure
+				apply_transform(ob)
 	print('Gathering mesh data...')
 	#get all objects, meshData, meshes + skeletons and collisions
 	for ob in bpy.context.scene.objects:
@@ -338,15 +342,23 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 						else:
 							log_error(armature.name+" has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
 							return errors
-					
-					rest_scale = bpy.data.actions["!scale!"]
+					# locate rest scale action
+					if "!scale!" in bpy.data.actions:
+						rest_scale = bpy.data.actions["!scale!"]
+						# we have to apply the scale dummy action
+						armature.animation_data.action = rest_scale
+						bpy.context.scene.frame_set(0)
+					else:
+						log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
+						rest_scale = None
+					# export bones
 					for bone in bones:
 						boneid = bones.index(bone)+1
 						if bone.parent:
 							parentid = bones.index(bone.parent)+1
 						else:
 							parentid = 0
-						#new scale support
+						#new rest scale support
 						try:
 							group = rest_scale.groups[bone.name]
 							scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
@@ -356,10 +368,6 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 						mat = mathutils.Matrix.Scale(scale, 4) * get_bfb_matrix(bone)
 						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(mat) )
 				
-				# we have to apply the scale dummy action
-				if rest_scale:
-					armature.animation_data.action = rest_scale
-					bpy.context.scene.frame_set(0)
 				#remove unneeded modifiers
 				for mod in ob.modifiers:
 					if mod.type in ('TRIANGULATE',):
