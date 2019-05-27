@@ -155,45 +155,45 @@ def create_material(ob, matname):
 				# #eg. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (material.AlphaTestEnable is False and material.AlphaBlendEnable is False) ) else "REPEAT"
 				tex.interpolation = "Smart"
-				uv = tree.nodes.new('ShaderNodeUVMap')
-				uv.name = "TexCoordIndex"+str(i)
-				uv.uv_map = tex_index if tex_index else str(i)
-				if tex_transform or tex_anim:
-					transform = tree.nodes.new('ShaderNodeMapping')
-					#todo: negate V coordinate
-					if tex_transform: 
-						matrix_4x4 = mathutils.Matrix(tex_transform)
-						transform.scale = matrix_4x4.to_scale()
-						transform.rotation = matrix_4x4.to_euler()
-						transform.translation = matrix_4x4.to_translation()
-						transform.name = "TextureTransform"+str(i)
-					if tex_anim:
-						for j, dtype in enumerate( ("offsetu", "offsetv") ):
-							for key in tex_anim[dtype]:
-								transform.translation[j] = key[1]
-								#note that since we are dealing with UV coordinates, V has to be negated
-								if j == 1: transform.translation[j] *= -1
-								transform.keyframe_insert("translation", index = j, frame = int(key[0]*fps))
-						for fcu in tree.animation_data.action.fcurves:
-							for k in fcu.keyframe_points:
-								k.interpolation = 'LINEAR'
-							mod = fcu.modifiers.new('CYCLES')
-							mod.mode_after = 'REPEAT_OFFSET'
-							mod.mode_before = 'REPEAT_OFFSET'
-					tree.links.new(uv.outputs[0], transform.inputs[0])
-					tree.links.new(transform.outputs[0], tex.inputs[0])
+				# use generated UV coords for reflection maps
+				if tex_shaders[i] == "Reflect":
+					uv = tree.nodes.new('ShaderNodeTexCoord')
+					tree.links.new(uv.outputs[6], tex.inputs[0])
+				# use supplied UV maps for everything else, if present
 				else:
-					tree.links.new(uv.outputs[0], tex.inputs[0])
+					uv = tree.nodes.new('ShaderNodeUVMap')
+					uv.name = "TexCoordIndex"+str(i)
+					uv.uv_map = tex_index if tex_index else str(i)
+					if tex_transform or tex_anim:
+						transform = tree.nodes.new('ShaderNodeMapping')
+						#todo: negate V coordinate
+						if tex_transform: 
+							matrix_4x4 = mathutils.Matrix(tex_transform)
+							transform.scale = matrix_4x4.to_scale()
+							transform.rotation = matrix_4x4.to_euler()
+							transform.translation = matrix_4x4.to_translation()
+							transform.name = "TextureTransform"+str(i)
+						if tex_anim:
+							for j, dtype in enumerate( ("offsetu", "offsetv") ):
+								for key in tex_anim[dtype]:
+									transform.translation[j] = key[1]
+									#note that since we are dealing with UV coordinates, V has to be negated
+									if j == 1: transform.translation[j] *= -1
+									transform.keyframe_insert("translation", index = j, frame = int(key[0]*fps))
+						tree.links.new(uv.outputs[0], transform.inputs[0])
+						tree.links.new(transform.outputs[0], tex.inputs[0])
+					else:
+						tree.links.new(uv.outputs[0], tex.inputs[0])
 				tex.update()
 		#gather & premix all diffuse colors into one RGB color to plug into the shader
 		if textures:
 			diffuse = textures[0]
 			for texture, tex_shader in zip(textures, tex_shaders):
-				if tex_shader in ("Detail", "Decal"):
+				if tex_shader in ("Detail", "Decal", "Reflect"):
 					mixRGB = tree.nodes.new('ShaderNodeMixRGB')
 					if tex_shader == "Decal":
 						tree.links.new(texture.outputs[1], mixRGB.inputs[0])
-					elif tex_shader == "Detail":
+					elif tex_shader in ("Detail", "Reflect"):
 						mixRGB.inputs[0].default_value = 1
 						mixRGB.blend_type = "OVERLAY"
 					tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
@@ -205,15 +205,28 @@ def create_material(ob, matname):
 			mixRGB = tree.nodes.new('ShaderNodeMixRGB')
 			mixRGB.inputs[0].default_value = 1
 			mixRGB.blend_type = "OVERLAY"
-			#fallback for missing texture
 			if textures:
 				tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
 				tree.links.new(vcol.outputs[0], mixRGB.inputs[2])
 				diffuse = mixRGB
+			#fallback for missing texture
 			else:
 				diffuse = vcol
 		if diffuse:
 			tree.links.new(diffuse.outputs[0], shader_diffuse.inputs[0])
+		
+		# glow / emit
+		for texture, tex_shader in zip(textures, tex_shaders):
+			if tex_shader == "Glow":
+				# create a glow shader and link this texture to it
+				shader_glow = tree.nodes.new('ShaderNodeEmission')
+				tree.links.new(texture.outputs[0], shader_glow.inputs[0])
+				tree.links.new(texture.outputs[1], shader_glow.inputs[1])
+				#now add glow to diffuse shader with an add shader
+				shader_add = tree.nodes.new('ShaderNodeAddShader')
+				tree.links.new(shader_diffuse.outputs[0], shader_add.inputs[0])
+				tree.links.new(shader_glow.outputs[0], shader_add.inputs[1])
+				shader_diffuse = shader_add
 		
 		#transparency
 		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
@@ -249,6 +262,14 @@ def create_material(ob, matname):
 			tree.links.new(alpha_mixer.outputs[0],		output.inputs[0])
 			
 		nodes_iterate(tree, output)
+		#finally, set interpolation and extrapolation for all fcurves we have created
+		if tree.animation_data:
+			for fcu in tree.animation_data.action.fcurves:
+				for k in fcu.keyframe_points:
+					k.interpolation = 'LINEAR'
+				mod = fcu.modifiers.new('CYCLES')
+				mod.mode_after = 'REPEAT_OFFSET'
+				mod.mode_before = 'REPEAT_OFFSET'
 	else: mat = bpy.data.materials[matname]
 	
 	#now finally set all the textures we have in the mesh
