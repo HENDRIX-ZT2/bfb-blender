@@ -61,7 +61,7 @@ def vec_roll_to_mat3(vec, roll):
 	rMatrix = mathutils.Matrix.Rotation(roll, 3, nor)
 	
 	#Combine and output result
-	mat = rMatrix * bMatrix
+	mat = rMatrix @ bMatrix
 	return mat
 
 def mat3_to_vec_roll(mat):
@@ -69,12 +69,10 @@ def mat3_to_vec_roll(mat):
 	vec = mat.col[1]
 	vecmat = vec_roll_to_mat3(mat.col[1], 0)
 	vecmatinv = vecmat.inverted()
-	rollmat = vecmatinv * mat
+	rollmat = vecmatinv @ mat
 	roll = math.atan2(rollmat[0][2], rollmat[2][2])
 	return vec, roll
 	
-def select_layer(layer_nr): return tuple(i == layer_nr for i in range(0, 20))
-
 def load_config():
 	d={}
 	f = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"config_bfb.ini"), 'rb')
@@ -110,8 +108,8 @@ def config_to_str(config):
 
 def create_ob(ob_name, ob_data):
 	ob = bpy.data.objects.new(ob_name, ob_data)
-	bpy.context.scene.objects.link(ob)
-	bpy.context.scene.objects.active = ob
+	bpy.context.scene.collection.objects.link(ob)
+	bpy.context.view_layer.objects.active = ob
 	return ob
 	
 def create_anim(ob, anim_name):
@@ -127,7 +125,7 @@ def mesh_from_data(name, verts, faces, wireframe = True):
 	me.update()
 	ob = create_ob(name, me)
 	if wireframe:
-		ob.draw_type = 'WIRE'
+		ob.display_type = 'WIRE'
 	return ob, me
 	
 def create_sphere(name, x, y, z, r):
@@ -137,15 +135,15 @@ def create_sphere(name, x, y, z, r):
 	for v in me.vertices:
 		v.co = v.co*r
 	ob.location = (x,y,z)
-	ob.layers = select_layer(5)
-	return ob	
+	# ob.layers = select_layer(5)
+	return ob
 
 def create_bounding_box(name, matrix, x, y, z):
 	verts = [(x/2,y/2,-z/2),(x/2,-y/2,-z/2),(-x/2,-y/2,-z/2),(-x/2,y/2,-z/2),(x/2,y/2,z/2),(x/2,-y/2,z/2),(-x/2,-y/2,z/2),(-x/2,y/2,z/2)]
 	faces = [(0,1,2,3),(4,7,6,5),(0,4,5,1),(1,5,6,2),(2,6,7,3),(4,0,3,7)]
 	ob, me = mesh_from_data(name,verts,faces)
 	ob.matrix_local = matrix
-	ob.layers = select_layer(5)
+	# ob.layers = select_layer(5)
 	return ob
 	
 def create_capsule(name, start, end, r):
@@ -159,9 +157,9 @@ def create_capsule(name, start, end, r):
 	rot = end.to_track_quat("Z", "Y" )
 	#this shows our rotation is correct	#up = mathutils.Vector((0,0,1))	#result = rot*up*l	#print(result)	#print(end)	#these are all working = identical
 	for v in me.vertices:
-		v.co = rot*v.co+start
+		v.co = rot @ v.co+start
 	ob.rotation_euler.z = 1.5708
-	ob.layers = select_layer(5)
+	# ob.layers = select_layer(5)
 	return ob
 
 def create_empty(parent, name, matrix):
@@ -169,17 +167,17 @@ def create_empty(parent, name, matrix):
 	if parent:
 		empty.parent = parent
 	empty.matrix_local = matrix
-	empty.empty_draw_type="ARROWS"
+	empty.empty_display_type="ARROWS"
 	return empty
 
 correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
 correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
 
 def get_bfb_matrix(bone):
-	bind = correction_global.inverted() *  correction_local.inverted() * bone.matrix_local *  correction_local
+	bind = correction_global.inverted() @  correction_local.inverted() @ bone.matrix_local @  correction_local
 	if bone.parent:
-		p_bind_restored = correction_global.inverted() *  correction_local.inverted() * bone.parent.matrix_local *  correction_local
-		bind = p_bind_restored.inverted() * bind
+		p_bind_restored = correction_global.inverted() @ correction_local.inverted() @ bone.parent.matrix_local @ correction_local
+		bind = p_bind_restored.inverted() @ bind
 		
 	return bind.transposed()
 	

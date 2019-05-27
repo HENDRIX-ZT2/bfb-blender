@@ -23,8 +23,8 @@ def interpolate(x_list, xp, fp):
 correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
 correction_local_inv = correction_local.inverted()
 def import_keymat(rest_rot_inv, key_matrix):
-	key_matrix = rest_rot_inv * key_matrix
-	return correction_local * key_matrix * correction_local_inv
+	key_matrix = rest_rot_inv @ key_matrix
+	return correction_local @ key_matrix @ correction_local_inv
 	
 def load(operator, context, files = [], filepath = "", set_fps=False):
 	starttime = time.clock()

@@ -10,14 +10,22 @@ def getstring128(x): return datastream[x:x+128].rstrip(b"\x00").decode("utf-8")
 def getint(x): return unpack_from('i',datastream, x)[0]
 def get_matrix(x): return mathutils.Matrix(list(iter_unpack('4f',datastream[x:x+64])))
 
-def select_layer(layer_nr): return tuple(i == layer_nr for i in range(0, 20))
-
 def log_error(error):
 	print(error)
 	global errors
 	errors.append(error)
+
+def LOD(ob, level):
+	lod = "LOD"+str(level)
+	if lod not in bpy.data.collections:
+		coll = bpy.data.collections.new(lod)
+		bpy.context.scene.collection.children.link(coll)
+	else:
+		coll = bpy.data.collections[lod]
+	# Link active object to the new collection
+	coll.objects.link(ob)
 	
-def read_linked_list(pos,parent,level):
+def read_linked_list(pos, parent, level):
 	blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
 	name = name.rstrip(b"\x00").decode("utf-8")
 	matrix = get_matrix(pos+81)
@@ -25,33 +33,20 @@ def read_linked_list(pos,parent,level):
 	#ordinary node, node with collision or lod level
 	if typeid == 1:
 		print("NODE:",name)
-		if parent:
-			ob = create_empty(parent,name,matrix)
-			#if this is a lod level, move it to its respective layer
-			if parent.name.startswith("lodgroup"):
-				ob.layers = select_layer(level)
-			#a dock node, a collision node, but nothing with a model, so move it to layer 6
-			else:
-				ob.layers = parent.layers
+		if armature and not parent:
+			ob = armature
+			ob.name = name
+			ob.data.name = name
+			ob.matrix_local = matrix
 		else:
-			if armature:
-				ob = armature
-				ob.name = name
-				ob.data.name = name
-				ob.matrix_local = matrix
-			else:
-				ob = create_empty(parent,name,matrix)
-			ob.layers = select_layer(5)
+			ob = create_empty(parent, name, matrix)
 		hascollision = getint(pos+153)
 		if hascollision == 1:
 			id2data[getint(pos+157)].parent = ob
-			if name.startswith("paint_"):
-				ob.layers = select_layer(5)
 	#lod group
 	elif typeid == 2:
 		print("LOD GROUP:",name)
-		ob = create_empty(parent,"lodgroup",matrix)
-		ob.layers = select_layer(5)
+		ob = create_empty(parent, "lodgroup", matrix)
 	#mesh linker
 	elif typeid == 3:
 		print("MESH LINK:",name)
@@ -63,7 +58,7 @@ def read_linked_list(pos,parent,level):
 			ob.parent = parent
 		ob.matrix_local = matrix
 		create_material(ob,matname)
-		ob.layers = select_layer(level)
+		LOD(ob, level)
 	elif typeid == 4:
 		print("BILLBOARD:",name)
 		global camera
@@ -80,7 +75,7 @@ def read_linked_list(pos,parent,level):
 		ob.matrix_local = matrix
 		ob.parent = parent
 		create_material(ob,matname)
-		ob.layers = select_layer(level)
+		LOD(ob, level)
 		const = ob.constraints.new('COPY_ROTATION')
 		const.use_x = False
 		const.use_y = False
@@ -106,28 +101,36 @@ def read_linked_list(pos,parent,level):
 	#if we have children, the newly created empty is their parent
 	if childstart!= 0:
 		pos = childstart
-		level = read_linked_list(pos,ob,level)
-	if parent:
-		#if this is a lod level, move it to its respective layer
-		if parent.name.startswith("lodgroup"):
-			level+= 1
+		read_linked_list(pos,ob,level)
+	#if this is a lod level, move it to its respective layer
+	if parent and parent.name.startswith("lodgroup"):
+		level+= 1
 	#for the next block, the old empty is the parent
 	if nextblockstart!= 0:
 		pos = nextblockstart
-		level = read_linked_list(pos,parent,level)
-	return level
+		read_linked_list(pos,parent,level)
 
-def get_tex_slot(mat, i):
-	while not mat.texture_slots[i]: mat.texture_slots.add()
-	return mat.texture_slots[i]
-	
-def create_material(ob,matname):
+def align_ancestors(node):
+	# sib = None
+	for socket in node.inputs:
+		for link in socket.links:
+			anc_node = link.from_socket.node
+			anc_node.location.x = node.location.x - anc_node.width - 50
+			anc_node.location.y = node.location.y
+			# if sib:
+				# anc_node.location.y += sib.height + 50
+			# anc_node.update()
+			# sib = anc_node
+			align_ancestors(anc_node)
+
+def create_material(ob, matname):
 	material = bfmat(dirname, matname+".bfmat")
 	for error in material.errors:
 		log_error(error)
 	if not material.root: return
 	fx = material.fx
 	cull_mode = material.CullMode
+	alpha_ref = material.AlphaRef
 	fps = bpy.context.scene.render.fps
 	
 	#see which sub-shaders are used by this fx shader, and get the used ones in order
@@ -138,97 +141,129 @@ def create_material(ob,matname):
 	#only create the material if we haven't already created it, then just grab it
 	if matname not in bpy.data.materials:
 		mat = bpy.data.materials.new(matname)
-		mat.specular_intensity = 0.0
-		mat.ambient = 1
-		mat.alpha = 0
-		mat.use_transparent_shadows = True
-		mat.use_transparency = True
-		#we only disable it if both are explicitly set to "False"
-		#if we get "None" ie. not given in the bfmat, it is enabled
-		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
-			mat.use_transparency = False
-		if material.MaterialAmbient:
-			mat.diffuse_color = material.MaterialAmbient[0:3]
-		if material.MaterialPower:
-			mat.diffuse_intensity= material.MaterialPower
-		for i, texture in enumerate(material.Texture):
+		mat.use_nodes = True
+		
+		tree = mat.node_tree
+		# clear default nodes
+		for node in tree.nodes:
+			tree.nodes.remove(node)
+		output = tree.nodes.new('ShaderNodeOutputMaterial')
+		# principled = tree.nodes.new('ShaderNodeBsdfPrincipled')
+		shader_diffuse = tree.nodes.new('ShaderNodeBsdfDiffuse')
+		
+		textures = []
+		for i, (texture, tex_index, tex_transform, tex_anim) in enumerate( zip(material.Texture, material.TexCoordIndex, material.TextureTransform, material.TextureAnimation) ):
 			if texture is not None:
-				if texture not in bpy.data.textures:
-					tex = bpy.data.textures.new(texture, type = 'IMAGE')
-					try:
-						img = bpy.data.images.load(material.find_recursive(texture+".dds"))
-					except:
-						print("Could not find image "+texture+".dds, generating blank image!")
-						img = bpy.data.images.new(texture+".dds",1,1)
-					tex.image = img
-				else: tex = bpy.data.textures[texture]
-				#now create the slot in the material for the texture
-				mtex = get_tex_slot(mat, i)
-				mtex.texture = tex
-				mtex.texture_coords = 'UV'
-				mtex.use_map_color_diffuse = True
-				mtex.use_map_density = True
+				tex = tree.nodes.new('ShaderNodeTexImage')
+				textures.append(tex)
+				#todo: only load if img can't be found in existing images
+				try:
+					img = bpy.data.images.load(material.find_recursive(texture+".dds"))
+				except:
+					print("Could not find image "+texture+".dds, generating blank image!")
+					img = bpy.data.images.new(texture+".dds",1,1)
+				tex.image = img
+				# #eg. African violets, but only in rendered view; but: glacier
+				tex.extension = "CLIP" if (cull_mode == "2" and not (material.AlphaTestEnable is False and material.AlphaBlendEnable is False) ) else "REPEAT"
+				tex.interpolation = "Smart"
+				uv = tree.nodes.new('ShaderNodeUVMap')
+				uv.uv_map = tex_index if tex_index else str(i)
+				if tex_transform or tex_anim:
+					transform = tree.nodes.new('ShaderNodeMapping')
+					#todo: negate V coordinate
+					if tex_transform: 
+						matrix_4x4 = mathutils.Matrix(tex_transform)
+						transform.scale = matrix_4x4.to_scale()
+						transform.rotation = matrix_4x4.to_euler()
+						transform.translation = matrix_4x4.to_translation()
+					if tex_anim:
+						for j, dtype in enumerate( ("offsetu", "offsetv") ):
+							for key in tex_anim[dtype]:
+								transform.translation[j] = key[1]
+								#note that since we are dealing with UV coordinates, V has to be negated
+								if j == 1: transform.translation[j] *= -1
+								transform.keyframe_insert("translation", index = j, frame = int(key[0]*fps))
+						for fcu in tree.animation_data.action.fcurves:
+							for k in fcu.keyframe_points:
+								k.interpolation = 'LINEAR'
+							mod = fcu.modifiers.new('CYCLES')
+							mod.mode_after = 'REPEAT_OFFSET'
+							mod.mode_before = 'REPEAT_OFFSET'
+					tree.links.new(uv.outputs[0], transform.inputs[0])
+					tree.links.new(transform.outputs[0], tex.inputs[0])
+				else:
+					tree.links.new(uv.outputs[0], tex.inputs[0])
+				tex.update()
+		#gather & premix all diffuse colors into one RGB color to plug into the shader
+		if textures:
+			diffuse = textures[0]
+			for texture, tex_shader in zip(textures, tex_shaders):
+				if tex_shader in ("Detail", "Decal"):
+					mixRGB = tree.nodes.new('ShaderNodeMixRGB')
+					if tex_shader == "Decal":
+						tree.links.new(texture.outputs[1], mixRGB.inputs[0])
+					elif tex_shader == "Detail":
+						mixRGB.inputs[0].default_value = 1
+						mixRGB.blend_type = "OVERLAY"
+					tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
+					tree.links.new(texture.outputs[0], mixRGB.inputs[2])
+					diffuse = mixRGB
+		if ob.data.vertex_colors:
+			vcol = tree.nodes.new('ShaderNodeAttribute')
+			vcol.attribute_name = "RGB"
+			mixRGB = tree.nodes.new('ShaderNodeMixRGB')
+			mixRGB.inputs[0].default_value = 1
+			mixRGB.blend_type = "OVERLAY"
+			#fallback for missing texture
+			if textures:
+				tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
+				tree.links.new(vcol.outputs[0], mixRGB.inputs[2])
+				diffuse = mixRGB
+			else:
+				diffuse = vcol
+		if diffuse:
+			tree.links.new(diffuse.outputs[0], shader_diffuse.inputs[0])
+		
+		#transparency
+		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
+			mat.blend_method = "OPAQUE"
+			tree.links.new(shader_diffuse.outputs[0], output.inputs[0])
+		else:
+			if material.AlphaTestEnable:
+				mat.blend_method = "CLIP"
+				mat.alpha_threshold = 1 - float(alpha_ref) /255
+			if material.AlphaBlendEnable:
+				mat.blend_method = "BLEND"
+			transp = tree.nodes.new('ShaderNodeBsdfTransparent')
+			alpha_mixer = tree.nodes.new('ShaderNodeMixShader')
 			
-				#for the icon renderer
-				tex.filter_type = "BOX"
-				tex.filter_size = 0.1
-				#eg. African violets, but only in rendered view; but: glacier
-				tex.extension = "CLIP" if (cull_mode == "2" and mat.use_transparency) else "REPEAT"
+			if textures and ob.data.vertex_colors:
+				vcol = tree.nodes.new('ShaderNodeAttribute')
+				vcol.attribute_name = "AAA"
+				mixAAA = tree.nodes.new('ShaderNodeMixRGB')
+				mixAAA.inputs[0].default_value = 1
+				mixAAA.blend_type = "MULTIPLY"
+				tree.links.new(textures[0].outputs[1],	mixAAA.inputs[1])
+				tree.links.new(vcol.outputs[0], 		mixAAA.inputs[2])
+				tree.links.new(mixAAA.outputs[0],		alpha_mixer.inputs[0])
+			elif textures:
+				tree.links.new(textures[0].outputs[1],	alpha_mixer.inputs[0])
+			elif ob.data.vertex_colors:
+				vcol = tree.nodes.new('ShaderNodeAttribute')
+				vcol.attribute_name = "AAA"
+				tree.links.new(vcol.outputs[0],			alpha_mixer.inputs[0])
 				
-				#Shader effects
-				if i < len(tex_shaders):
-					if tex_shaders[i] == "Reflect":
-						mtex.blend_type = 'OVERLAY'
-						mtex.texture_coords = 'REFLECTION'
-					elif tex_shaders[i] == "Detail":
-						mtex.blend_type = 'OVERLAY'
-						mtex.use_map_alpha = False
-						mtex.invert = True
-					elif tex_shaders[i] == "Glow":
-						mtex.use_map_emit = True
-						mat.emit = 1
-					elif tex_shaders[i] == "Gloss":
-						mtex.use_map_specular = True
-						mat.specular_intensity = 1
-					elif tex_shaders[i] == "Decal":
-						mtex.use_map_alpha = False
-						# if "blink" in texture:
-							# mat.use_textures[i] = False
-				
-				#see if there is an alternative UV index specified. If so, set it as the UV layer. If not, use i.
-				tex_index = material.TexCoordIndex[i]
-				mtex.uv_layer = tex_index if tex_index is not None else str(i)
-				#texture transform - static
-				tex_transform = material.TextureTransform[i]
-				if tex_transform:
-					matrix_4x4 = mathutils.Matrix(tex_transform)
-					mtex.offset = matrix_4x4.to_translation()
-					mtex.scale = matrix_4x4.to_scale()
-				#texture transform - animated
-				tex_anim = material.TextureAnimation[i]
-				if tex_anim:
-					for j, dtype in enumerate( ("offsetu", "offsetv") ):
-						for key in tex_anim[dtype]:
-							mtex.offset[j] = key[1]
-							mtex.keyframe_insert("offset", index = j, frame = int(key[0]*fps))
+			tree.links.new(transp.outputs[0],			alpha_mixer.inputs[1])
+			tree.links.new(shader_diffuse.outputs[0],	alpha_mixer.inputs[2])
+			tree.links.new(alpha_mixer.outputs[0],		output.inputs[0])
+			
+		align_ancestors(output)
 			
 	else: mat = bpy.data.materials[matname]
 	
 	#now finally set all the textures we have in the mesh
 	me = ob.data
 	me.materials.append(mat)
-	#reversed so the last is shown
-	for mtex in reversed(mat.texture_slots):
-		if mtex:
-			try:
-				uv_i = int(mtex.uv_layer)
-				for texface in me.uv_textures[uv_i].data:
-					texface.image = mtex.texture.image
-			except:
-				print("No matching UV layer for Texture!")
-	#and for rendering, make sure each poly is assigned to the material
-	for f in me.polygons:
-		f.material_index = 0
 	
 def load(operator, context, filepath = "", use_custom_normals = False, mirror_mesh=False):
 	starttime = time.clock()
@@ -322,34 +357,29 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 					#create the armature
 					armData = bpy.data.armatures.new(basename[:-4])
 					armData.show_axes = True
-					armData.draw_type = 'STICK'
+					armData.display_type = 'STICK'
 					armature = create_ob(basename[:-4], armData)
-					armature.show_x_ray = True
+					# armature.show_x_ray = True
 					bpy.ops.object.mode_set(mode = 'EDIT')
 					#read the armature block
 					mat_storage = {}
-					scales = {}
 					for x in range(0, numbones):
 						boneid, parentid, bonegroup, bonename = unpack_from("3b 64s", datastream, pos+x*131)
 						bonename = bfbname_to_blendername(bonename)
 						bind = mathutils.Matrix(list(iter_unpack('4f',datastream[pos+67+x*131:pos+67+x*131+64])))
-						#new support for bone scale
-						scale = bind.to_scale()[0]
-						if int(round(scale*1000)) != 1000:
-							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
-							scales[bonename] = scale
 						#create a bone
 						bone = armData.edit_bones.new(bonename)
 						#parent it and get the armature space matrix
 						if parentid > 0:
-							bind *= mat_storage[parentid]
+							#@ operator apparently does not work in-place
+							bind = bind @ mat_storage[parentid]
 							bone.parent = armData.edit_bones[parentid-1]
 						#we store the bfb space armature matrix of each bone
 						mat_storage[boneid] = bind.copy()
 						#blender transposes matrices
 						bind.transpose()
 						#set transformation
-						bind = correction_global * correction_local * bind * correction_local.inverted()
+						bind = correction_global @ correction_local @ bind @ correction_local.inverted()
 						tail, roll = mat3_to_vec_roll(bind.to_3x3())
 						bone.head = bind.to_translation()
 						bone.tail = tail + bone.head
@@ -368,16 +398,18 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 				skinned_meshes.append(ob)
 				for i, vert	in enumerate(mesh["we"]):
 					for bonename, weight in vert:
-						if bonename not in ob.vertex_groups: ob.vertex_groups.new(bonename)
+						if bonename not in ob.vertex_groups: ob.vertex_groups.new( name = bonename )
 						ob.vertex_groups[bonename].add([i], weight, 'REPLACE')
 			#Do we have weights for the wind vertex shader? (UVW coordinates if you like) We store them as a vertex group so they can be easily modified.
 			if mesh["w"]:
 				print("Found fx_wind weights!")
-				ob.vertex_groups.new("fx_wind")
+				ob.vertex_groups.new( name = "fx_wind" )
 				for i, vert in enumerate(mesh["w"]):
 					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
-			for face in me.polygons: face.use_smooth = True
+			for face in me.polygons:
+				face.use_smooth = True
+				face.material_index = 0
 				
 			if use_custom_normals:
 				me.use_auto_smooth = True
@@ -386,13 +418,14 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			#UV: 1-V coordinate
 			for uv_layer in ("u0","u1","u2"):
 				if mesh[uv_layer]:
-					me.uv_textures.new(uv_layer[-1])
+					me.uv_layers.new(name = uv_layer[-1])
 					me.uv_layers[-1].data.foreach_set("uv", [uv for pair in [mesh[uv_layer][l.vertex_index] for l in me.loops] for uv in (pair[0], 1-pair[1])])
+			#2.8: vcol now uses RGBA colors, maintain old 2-layer setup until implementation is fully functional
 			if mesh["rgba"]:
-				me.vertex_colors.new("RGB")
-				me.vertex_colors[-1].data.foreach_set("color", [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for c in (col[2]/255, col[1]/255, col[0]/255)])
-				me.vertex_colors.new("AAA")
-				me.vertex_colors[-1].data.foreach_set("color", [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for c in (col[3]/255, col[3]/255, col[3]/255)])
+				me.vertex_colors.new(name = "RGB")
+				me.vertex_colors[-1].data.foreach_set("color", [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for c in (col[2]/255, col[1]/255, col[0]/255, 1)])
+				me.vertex_colors.new(name = "AAA")
+				me.vertex_colors[-1].data.foreach_set("color", [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for c in (col[3]/255, col[3]/255, col[3]/255, 1)])
 				
 			bpy.ops.object.mode_set(mode = 'EDIT')
 			if mirror_mesh and mesh["we"]:
@@ -425,14 +458,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 	
 	#Now comes the linked list part, it starts with the root block.
 	print("\nReading object hierarchy and creating blender objects...")
-	maxlod = read_linked_list(pos, None, 0)
-	
-	#set the visible layers for this scene
-	bools = []
-	for i in range(20):  
-		if i < maxlod or i == 5 or i == 0: bools.append(True)
-		else: bools.append(False)
-	bpy.context.scene.layers = bools
+	read_linked_list(pos, None, 0)
 	
 	#handle scale on armature and meshes
 	if armature and scales:

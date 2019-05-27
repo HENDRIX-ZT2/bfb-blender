@@ -107,6 +107,8 @@ class bfmat():
 	@property
 	def CullMode(self): return self.get("CullMode")
 	
+	@property
+	def AlphaRef(self): return self.get("AlphaRef")
 
 # mat = bfmat("PerepatTree","PerepatTree_Wetlands_Trunk_Mat_mod0.bfmat")
 # mat = bfmat("bathroomlarge_xt","bathroomlarge_xt_falling_water_mod0.bfmat")
