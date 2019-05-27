@@ -353,10 +353,16 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 					bpy.ops.object.mode_set(mode = 'EDIT')
 					#read the armature block
 					mat_storage = {}
+					scales = {}
 					for x in range(0, numbones):
 						boneid, parentid, bonegroup, bonename = unpack_from("3b 64s", datastream, pos+x*131)
 						bonename = bfbname_to_blendername(bonename)
 						bind = mathutils.Matrix(list(iter_unpack('4f',datastream[pos+67+x*131:pos+67+x*131+64])))
+						#new support for bone scale
+						scale = bind.to_scale()[0]
+						if int(round(scale*1000)) != 1000:
+							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
+							scales[bonename] = scale
 						#create a bone
 						bone = armData.edit_bones.new(bonename)
 						#parent it and get the armature space matrix
