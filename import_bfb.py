@@ -5,6 +5,7 @@ import mathutils
 from struct import iter_unpack, unpack_from
 from .common_bfb import *
 from .bfmat import bfmat
+from .util.node_arrange import nodes_iterate
 
 def getstring128(x): return datastream[x:x+128].rstrip(b"\x00").decode("utf-8")
 def getint(x): return unpack_from('i',datastream, x)[0]
@@ -110,19 +111,6 @@ def read_linked_list(pos, parent, level):
 		pos = nextblockstart
 		read_linked_list(pos,parent,level)
 
-def align_ancestors(node):
-	# sib = None
-	for socket in node.inputs:
-		for link in socket.links:
-			anc_node = link.from_socket.node
-			anc_node.location.x = node.location.x - anc_node.width - 50
-			anc_node.location.y = node.location.y
-			# if sib:
-				# anc_node.location.y += sib.height + 50
-			# anc_node.update()
-			# sib = anc_node
-			align_ancestors(anc_node)
-
 def create_material(ob, matname):
 	material = bfmat(dirname, matname+".bfmat")
 	for error in material.errors:
@@ -162,11 +150,13 @@ def create_material(ob, matname):
 				except:
 					print("Could not find image "+texture+".dds, generating blank image!")
 					img = bpy.data.images.new(texture+".dds",1,1)
+				tex.name = "Texture"+str(i)
 				tex.image = img
 				# #eg. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (material.AlphaTestEnable is False and material.AlphaBlendEnable is False) ) else "REPEAT"
 				tex.interpolation = "Smart"
 				uv = tree.nodes.new('ShaderNodeUVMap')
+				uv.name = "TexCoordIndex"+str(i)
 				uv.uv_map = tex_index if tex_index else str(i)
 				if tex_transform or tex_anim:
 					transform = tree.nodes.new('ShaderNodeMapping')
@@ -176,6 +166,7 @@ def create_material(ob, matname):
 						transform.scale = matrix_4x4.to_scale()
 						transform.rotation = matrix_4x4.to_euler()
 						transform.translation = matrix_4x4.to_translation()
+						transform.name = "TextureTransform"+str(i)
 					if tex_anim:
 						for j, dtype in enumerate( ("offsetu", "offsetv") ):
 							for key in tex_anim[dtype]:
@@ -257,8 +248,7 @@ def create_material(ob, matname):
 			tree.links.new(shader_diffuse.outputs[0],	alpha_mixer.inputs[2])
 			tree.links.new(alpha_mixer.outputs[0],		output.inputs[0])
 			
-		align_ancestors(output)
-			
+		nodes_iterate(tree, output)
 	else: mat = bpy.data.materials[matname]
 	
 	#now finally set all the textures we have in the mesh
