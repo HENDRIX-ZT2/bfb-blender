@@ -483,12 +483,13 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 		for bonename, scale in scales.items():
 			pbone = armature.pose.bones[bonename]
 			pbone.matrix_basis = mathutils.Matrix.Scale(1/scale, 4)
-		bpy.context.scene.update()
+		depsgraph = context.evaluated_depsgraph_get()
 		#apply skin deformation 
 		for ob in skinned_meshes:
-			ob.data = ob.to_mesh(bpy.context.scene, True, "PREVIEW", calc_tessface=False)
+			object_eval = ob.evaluated_get(depsgraph)
+			ob.data = bpy.data.meshes.new_from_object(object_eval)
 		#remove scales from armature
-		bpy.context.scene.objects.active = armature
+		bpy.context.view_layer.objects.active = armature
 		bpy.ops.object.mode_set(mode='POSE' )
 		bpy.ops.pose.armature_apply()
 		bpy.ops.object.mode_set(mode='OBJECT' )
