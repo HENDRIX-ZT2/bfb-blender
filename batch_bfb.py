@@ -125,7 +125,7 @@ def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1)
 			bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name)+"new.bfb", author_name="HENDRIX", export_materials = False)
 		elif file.name.endswith(".nif"):
 			try:
-				bpy.ops.import_scene.nif(filepath = os.path.join(dir, file.name), combine_vertices = True)
+				bpy.ops.import_scene.nif(filepath = os.path.join(dir, file.name), combine_vertices = True, axis_forward='X', axis_up='Y')
 				add_lods(numlods, rate)
 				bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name).replace(".nif",".bfb"), author_name="HENDRIX", export_materials = True, fix_root_bones = True)
 			except: print("NIF import didn't work")
