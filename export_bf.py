@@ -17,8 +17,8 @@ def rint(f): return int(round(f))
 correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
 correction_local_inv = correction_local.inverted()
 def export_keymat(rest_rot, key_matrix):
-	key_matrix = correction_local_inv * key_matrix * correction_local
-	return rest_rot * key_matrix
+	key_matrix = correction_local_inv @ key_matrix @ correction_local
+	return rest_rot @ key_matrix
 
 def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp_power = 2):
 	
