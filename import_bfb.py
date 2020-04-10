@@ -6,6 +6,7 @@ from struct import iter_unpack, unpack_from
 from .common_bfb import *
 from .bfmat import bfmat
 from .util.node_arrange import nodes_iterate
+from .util.node_util import *
 
 def getstring128(x): return datastream[x:x+128].rstrip(b"\x00").decode("utf-8")
 def getint(x): return unpack_from('i',datastream, x)[0]
@@ -16,16 +17,6 @@ def log_error(error):
 	global errors
 	errors.append(error)
 
-def LOD(ob, level):
-	lod = "LOD"+str(level)
-	if lod not in bpy.data.collections:
-		coll = bpy.data.collections.new(lod)
-		bpy.context.scene.collection.children.link(coll)
-	else:
-		coll = bpy.data.collections[lod]
-	# Link active object to the new collection
-	coll.objects.link(ob)
-	
 def read_linked_list(pos, parent, level):
 	blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
 	name = name.rstrip(b"\x00").decode("utf-8")
@@ -136,25 +127,19 @@ def create_material(ob, matname):
 		for node in tree.nodes:
 			tree.nodes.remove(node)
 		output = tree.nodes.new('ShaderNodeOutputMaterial')
+		output.label = fx
 		# principled = tree.nodes.new('ShaderNodeBsdfPrincipled')
 		shader_diffuse = tree.nodes.new('ShaderNodeBsdfDiffuse')
+		diffuse = None
 		
 		textures = []
 		for i, (texture, tex_index, tex_transform, tex_anim) in enumerate( zip(material.Texture, material.TexCoordIndex, material.TextureTransform, material.TextureAnimation) ):
 			if texture is not None:
-				tex = tree.nodes.new('ShaderNodeTexImage')
+				tex = load_tex(tree, material.find_recursive(texture+".dds"))
 				textures.append(tex)
-				#todo: only load if img can't be found in existing images
-				try:
-					img = bpy.data.images.load(material.find_recursive(texture+".dds"))
-				except:
-					print("Could not find image "+texture+".dds, generating blank image!")
-					img = bpy.data.images.new(texture+".dds",1,1)
 				tex.name = "Texture"+str(i)
-				tex.image = img
 				# #eg. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (material.AlphaTestEnable is False and material.AlphaBlendEnable is False) ) else "REPEAT"
-				tex.interpolation = "Smart"
 				# use generated UV coords for reflection maps
 				if tex_shaders[i] == "Reflect":
 					uv = tree.nodes.new('ShaderNodeTexCoord')

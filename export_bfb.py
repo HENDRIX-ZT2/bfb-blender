@@ -62,58 +62,66 @@ def write_bfmat(ob, mat):
 	if not os.path.exists(matpath):
 		os.makedirs(matpath)
 	material = ET.Element('material')
-	index=0
 	fps=bpy.context.scene.render.fps
-	for i, texture_slot in enumerate(mat.texture_slots):
-		if texture_slot:
-			if texture_slot.texture.type == "IMAGE":
-				
-				u = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 0)
-				v = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 1)
-				
-				if u:
-					animate = ET.SubElement(material, "animate",{"name":"TextureTransform"+str(index),"type":"UVTransform", "loop":"wrap", "length":str(max(u.range()[1],v.range()[1])/fps)})
-					offsetu =  ET.SubElement(animate, "offsetu")
-					for k in u.keyframe_points:
-						ET.SubElement(offsetu, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
-					offsetv =  ET.SubElement(animate, "offsetv")
-					for k in v.keyframe_points:
-						ET.SubElement(offsetv, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
-					#not exactly sure what these are for? - not supported atm
-					tileu =  ET.SubElement(animate, "tileu")
-					ET.SubElement(tileu, "key",{"time":"0.0","value":"1.0"})
-					tilev =  ET.SubElement(animate, "tilev")
-					ET.SubElement(tilev, "key",{"time":"0.0","value":"1.0"})
-					rotw =  ET.SubElement(animate, "rotw")
-					ET.SubElement(rotw, "key",{"time":"0.0","value":"0.0"})
-					
-				#matoptions.append(("AddressU"+str(index), "dword", "1"))
-				#matoptions.append(("AddressV"+str(index), "dword", "1"))
-				if texture_slot.texture.image:
-					image = texture_slot.texture.image.filepath
-					if not image: image = texture_slot.texture.image.name
-					matoptions.append(("Texture"+str(index), "texture", os.path.basename(image)[:-4]))
-					try:
-						texcoord = str(int(texture_slot.uv_layer))
-					except:
-						error = texture_slot.name+" does not follow the UV layer naming convention (numbers only), TexCoordIndex set to 0"
-						print(error)
-						texcoord = list(mat.texture_slots).index(texture_slot)
-					matoptions.append(("TexCoordIndex"+str(index),"dword",texcoord))
-					index+=1
-				else:
-					log_error('Texture '+texture_slot.texture.name+' in material '+mat.name+' contains no image!')
-					
-	
+
+	# updated for node material
+	texture_slots = []
+	output = None
+	for node in mat.node_tree.nodes:
+		if "Texture" in node.name:
+			texture_slots.append(node)
+	for i, texture_slot in enumerate(texture_slots):
+
+		# todo: support UV anim
+		# u = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 0)
+		# v = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 1)
+		#
+		# if u:
+		# 	animate = ET.SubElement(material, "animate",{"name":"TextureTransform"+str(index),"type":"UVTransform", "loop":"wrap", "length":str(max(u.range()[1],v.range()[1])/fps)})
+		# 	offsetu =  ET.SubElement(animate, "offsetu")
+		# 	for k in u.keyframe_points:
+		# 		ET.SubElement(offsetu, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
+		# 	offsetv =  ET.SubElement(animate, "offsetv")
+		# 	for k in v.keyframe_points:
+		# 		ET.SubElement(offsetv, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
+		# 	#not exactly sure what these are for? - not supported atm
+		# 	tileu =  ET.SubElement(animate, "tileu")
+		# 	ET.SubElement(tileu, "key",{"time":"0.0","value":"1.0"})
+		# 	tilev =  ET.SubElement(animate, "tilev")
+		# 	ET.SubElement(tilev, "key",{"time":"0.0","value":"1.0"})
+		# 	rotw =  ET.SubElement(animate, "rotw")
+		# 	ET.SubElement(rotw, "key",{"time":"0.0","value":"0.0"})
+
+		#matoptions.append(("AddressU"+str(index), "dword", "1"))
+		#matoptions.append(("AddressV"+str(index), "dword", "1"))
+		if texture_slot.image:
+			image = texture_slot.image.filepath
+			# fallback for generated images
+			if not image:
+				image = texture_slot.image.name
+			# strip the extension and save it
+			matoptions.append(("Texture"+str(i), "texture", os.path.splitext(os.path.basename(image))[0]))
+			# todo: try to grab texcord from node
+			# try:
+			# 	texcoord = str(int(texture_slot.uv_layer))
+			# except:
+			# 	error = texture_slot.name+" does not follow the UV layer naming convention (numbers only), TexCoordIndex set to 0"
+			# 	print(error)
+			# 	texcoord = list(mat.texture_slots).index(texture_slot)
+			# matoptions.append(("TexCoordIndex"+str(index),"dword",texcoord))
+		else:
+			log_error('Texture '+texture_slot.texture.name+' in material '+mat.name+' contains no image!')
+
+	# todo: first try to get imported fx from output_node.label, then fall back
 	fx="Base"
-	if index==1:
+	if len(texture_slots) == 1:
 		matoptions.append(("LightingEnable","bool","true"))
-	if index==2:
-		fx+="Decal"
-	if index==3:
-		fx+="DecalDetail"
+	elif len(texture_slots) == 2:
+		fx += "Decal"
+	elif len(texture_slots) == 3:
+		fx += "DecalDetail"
 	if ob in ob_2_fx_wind:
-		fx+=ob_2_fx_wind[ob]
+		fx += ob_2_fx_wind[ob]
 	material.set("fx",fx)
 	#dots don't work in ZT2
 	material.set("name",mat.name.replace(".",""))
@@ -211,7 +219,9 @@ def apply_transform(ob, ):
 	if ob.matrix_world != identity:
 		ob.data.transform(ob.matrix_world)
 		ob.matrix_world = identity
-		log_error(ob.name+" has had its transform applied to avoid ingame distortion!")	
+		log_error(ob.name+" has had its transform applied to avoid ingame distortion!")
+
+
 def save(operator, context, filepath = '', author_name = "HENDRIX", export_materials = True, create_lods = False, fix_root_bones=False, numlods = 1, rate = 1):
 	
 	if create_lods:
@@ -222,13 +232,8 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 	print('Exporting',filepath,'...')
 	global errors
 	errors = []
-	#just in case - probably not needed
-	#make sure there is an active object - is it needed?
-	try: bpy.ops.object.mode_set(mode="OBJECT")
-	except:
-		bpy.context.scene.objects.active = bpy.context.scene.objects[0]
-		bpy.ops.object.mode_set(mode="OBJECT")
-	
+	ensure_active_object()
+
 	global write_materials
 	write_materials = export_materials
 	global dirname
@@ -365,7 +370,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 							scale = scales[0].keyframe_points[0].co[1]
 						except:
 							scale = 1.0
-						mat = mathutils.Matrix.Scale(scale, 4) * get_bfb_matrix(bone)
+						mat = mathutils.Matrix.Scale(scale, 4) @ get_bfb_matrix(bone)
 						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup, blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(mat) )
 				
 				#remove unneeded modifiers
@@ -373,9 +378,11 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 					if mod.type in ('TRIANGULATE',):
 						ob.modifiers.remove(mod)
 				ob.modifiers.new('Triangulate', 'TRIANGULATE')
-				
-				#make a copy with all modifiers applied - I think there was another way to do it too
-				me = ob.to_mesh(bpy.context.scene, True, "PREVIEW", calc_tessface=False)
+
+				# make a copy with all modifiers applied
+				dg = bpy.context.evaluated_depsgraph_get()
+				eval_obj = ob.evaluated_get(dg)
+				me = eval_obj.to_mesh(preserve_all_data_layers=True, depsgraph=dg)
 				
 				if len(me.vertices) == 0:
 					log_error(ob.name+" has no vertices. Delete the object and export again.")

@@ -23,6 +23,7 @@ class bfmat():
 			file = os.path.join(mat_dir, "shared", filename)
 			if os.path.exists(file): return file
 			mat_dir = os.path.dirname(mat_dir)
+		return filename
 
 	def get_data(self, param):
 		#return this element's data string as an appropriate data type

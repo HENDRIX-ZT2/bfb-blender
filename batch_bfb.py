@@ -3,20 +3,13 @@ import os
 import mathutils
 import time
 
-def select_layer(layer_nr): return tuple(i == layer_nr for i in range(0, 20))
-
-def create_empty(parent,name,matrix):
-	empty = bpy.data.objects.new(name, None)
-	bpy.context.scene.objects.link(empty)
-	if parent:
-		empty.parent = parent
-	empty.matrix_local = matrix
-	empty.empty_draw_type="ARROWS"
-	return empty
+from .common_bfb import *
+from .import_bfb import LOD
 
 def clear_scene():
 	#set the visible layers for this scene
-	bpy.context.scene.layers = [True for i in range(0,20)]
+	# todo: make all collisions visible?
+	# bpy.context.scene.layers = [True for i in range(0,20)]
 	bpy.ops.object.select_all(action='SELECT')
 	bpy.ops.object.delete(use_global=True)
 	for cat in (bpy.data.objects, bpy.data.materials, ):
@@ -29,87 +22,95 @@ def get_children(childlist):
 	for child in childlist:
 		oblist.append(child)
 		get_children(child.children)
-		
+
+
 def add_lods(numlods, rate):
-	bpy.context.scene.layers = [True for i in range(0,20)]
-	try: bpy.ops.object.mode_set(mode="OBJECT")
-	except:
-		bpy.context.scene.objects.active = bpy.context.scene.objects[0]
-		bpy.ops.object.mode_set(mode="OBJECT")
-	obs = bpy.context.scene.objects
+	ensure_active_object()
 	root = None
 	meshes = []
 	lodgroup = None
-	for ob in obs:
-		ob.select = False
+	for ob in bpy.context.scene.objects:
+		ob.select_set(False)
 		if type(ob.data) in (type(None), bpy.types.Armature):
 			if ob.name.startswith("lodgroup"):
 				print("BFB model already has lodgroups!")
-				ob.select = True
+				ob.select_set(True)
 				lodgroup = ob
 			if not ob.parent:
 				root = ob
-	#lodgroup mustn't be the root!
+	# lodgroup mustn't be the root!
 	if not root:
 		root = create_empty(None,"AutoRoot",mathutils.Matrix())
-	#delete the existing lodgroup and low detail lods
+	# delete the existing lodgroup and low detail lods
+	for coll_name in bpy.context.view_layer.layer_collection.children.keys():
+		hide_collection(coll_name, False)
+	bpy.ops.object.select_all(action='DESELECT')
 	if lodgroup:
+		print("Found lodgroup, deleting children...")
 		try:
-			#parent lod0 to lodgroup
+			# parent lod0 to lodgroup's parent
 			lod0 = lodgroup.children[0]
 			lod0.parent = lodgroup.parent
 			global oblist
 			oblist = []
 			get_children(lodgroup.children)
-			for ob in oblist: ob.select = True
+			for ob in oblist:
+				print("deleting",ob)
+				# first show, then select!
+				ob.hide_set(False, view_layer=bpy.context.view_layer)
+				ob.select_set(True)
 		except:
 			print("Deleted lonely lodgroup with no LOD levels!")
 		bpy.ops.object.delete(use_global=True)
-	for ob in obs:
-		#if we have more than one mesh we have to add a lod group node
-		#in some cases, a model is our root (eg. fence), then we add the lodgroup as the new root
+	for ob in bpy.context.scene.objects:
+		# if we have more than one mesh we have to add a lod group node
+		# in some cases, a model is our root (eg. fence), then we add the lodgroup as the new root
 		if type(ob.data) == bpy.types.Mesh:
 			if ob.name.startswith('sphere') or ob.name.startswith('orientedbox') or ob.name.startswith('capsule'): pass
 			else:
-				#special cases
+				# special cases
 				if ob.parent_type == 'BONE':
-					#sometimes the main mesh is child of a bone...
+					# sometimes the main mesh is child of a bone...
 					ob.matrix_local = mathutils.Matrix()
-					#it has to be some NIF dummy object, so delete it!
-					if not ob.vertex_groups: ob.select = True
-					else: meshes.append(ob)
-				else: meshes.append(ob)
+					# it has to be some NIF dummy object, so delete it!
+					if not ob.vertex_groups:
+						ob.select_set(True)
+					# it shouldn't be parented to a bone, nif sometimes does this
+					else:
+						meshes.append(ob)
+				# this has to be lodded
+				else:
+					meshes.append(ob)
 	bpy.ops.object.delete(use_global=True)
 	
-	#only add a lodgroup if needed
+	# only add a lodgroup if needed
 	if numlods > 1:
 		lodgroup = create_empty(root,"lodgroup",mathutils.Matrix())
-		lodgroup.layers = select_layer(5)
-		#when obs are parented to empties with offset it will cause trouble!
-		#decide what the parent should be
-		for i in range(0,numlods):
-			#create lod level if needed
+		# when obs are parented to empties with offset it will cause trouble!
+		# decide what the parent should be
+		for i in range(numlods):
+			# create lod level if needed
 			if len(meshes) > 1:
 				lodlevel = create_empty(lodgroup,"LOD"+str(i),mathutils.Matrix())
 				parent = lodlevel
 			else:
 				parent = lodgroup
-			#copy for new lod levels, assign high detail to lodgroup
-			#could also try to copy the empties here, but not much need for that
+			# copy for new lod levels, assign high detail to lodgroup
+			# could also try to copy the empties here, but not much need for that
 			for ob in meshes:
 				if i > 0:
 					lod = ob.copy()
 					lod.data = ob.data.copy()
 					lod.name = ob.name + "_LOD"+str(i)
-					bpy.context.scene.objects.link(lod)
-					lod.layers = select_layer(i)
+					bpy.context.scene.collection.objects.link(lod)
+					LOD(lod, i)
 					lod.parent = parent
 					mod = lod.modifiers.new('Decimator', 'DECIMATE')
 					mod.ratio = 1/(i+rate)
 				else: 
 					ob.parent = parent
-	#maybe a final cleanup
-	#if armature > clear any empties without children
+	# maybe a final cleanup
+	# if armature > clear any empties without children
 				
 def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1):
 	dir = os.path.dirname(filepath)

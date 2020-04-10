@@ -309,7 +309,7 @@ def menu_func_import(self, context):
 	self.layout.operator(ImportDAT.bl_idname, text="Blue Fang Map (.dat)", icon_value=preview_collection["zt2.png"].icon_id)
 	self.layout.operator(ImportBF.bl_idname, text="Blue Fang Animation (.bf)", icon_value=preview_collection["zt2.png"].icon_id)
 	self.layout.operator(ImportPSYS.bl_idname, text="Blue Fang Particles (.psys)", icon_value=preview_collection["zt2.png"].icon_id)
-	self.layout.operator(BatchBFB.bl_idname, text="BFB and NIF Batch Processing (.bfb, .nif)", icon_value=preview_collection["zt2.png"].icon_id)
+	# self.layout.operator(BatchBFB.bl_idname, text="BFB and NIF Batch Processing (.bfb, .nif)", icon_value=preview_collection["zt2.png"].icon_id)
 
 def menu_func_add_objects(self, context):
 	self.layout.operator(AddCapsule.bl_idname, icon_value=preview_collection["bfb_capsule.png"].icon_id)
@@ -335,7 +335,7 @@ classes = (
 	ExportDAT,
 	ExportBFB,
 	ExportBF,
-	BatchBFB,
+	# BatchBFB,
 	ToggleIKLink,
 	ReorientBone,
 	AddCorrectionBone,
