@@ -84,7 +84,7 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 		for bone_name in bone_names:
 			b1 = armature.data.edit_bones[bone_name]
 			locally_rotated = b1.matrix * rot_mat
-			tail, roll = mat3_to_vec_roll(locally_rotated.to_3x3())
+			tail, roll = bpy.types.Bone.AxisRollFromMatrix(locally_rotated.to_3x3())
 			b1.head = locally_rotated.to_translation()
 			b1.tail = tail + b1.head
 			b1.roll = roll

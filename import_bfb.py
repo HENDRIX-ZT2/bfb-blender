@@ -382,7 +382,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 						bind.transpose()
 						#set transformation
 						bind = correction_global @ correction_local @ bind @ correction_local.inverted()
-						tail, roll = mat3_to_vec_roll(bind.to_3x3())
+						tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
 						bone.head = bind.to_translation()
 						bone.tail = tail + bone.head
 						bone.roll = roll
