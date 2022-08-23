@@ -22,7 +22,7 @@ def export_keymat(rest_rot, key_matrix):
 
 def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp_power = 2):
 	
-	starttime = time.clock()
+	starttime = time.time()
 	errors = []
 	if bake_actions:
 		from . import bake_clean_actions
@@ -214,6 +214,6 @@ def save(operator, context, filepath='', bake_actions = False, error = 0.25, exp
 				key_bytes = b"".join(key_bytes)
 				nodes.append(struct.pack('=32s H 2B H I 2B', blendername_to_bfbname(action.name).encode('utf-8'), num_mod_types, 204, 204, 44+len(key_bytes), 0, 204, 204) + key_bytes)
 			write_nodes(dirname, action, nodes, fps)
-	success = '\nFinished BF Export in %.2f seconds\n' %(time.clock()-starttime)
+	success = '\nFinished BF Export in %.2f seconds\n' %(time.time()-starttime)
 	print(success)
 	return errors

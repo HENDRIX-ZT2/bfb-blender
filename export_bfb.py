@@ -256,7 +256,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 	
 	global stream
 	stream = b''
-	starttime = time.clock()
+	starttime = time.time()
 	print('Generating block IDs for objects in scene...')
 	#keep track of objects without a parent, if >1 add an Auto Root
 	roots=[]
@@ -527,7 +527,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 	f.write(stream)
 	f.close()
 
-	print('Finished BFB Export in %.2f seconds' %(time.clock()-starttime))
+	print('Finished BFB Export in %.2f seconds' %(time.time()-starttime))
 	return errors
 
 def export_capsule(ob, blockstart):

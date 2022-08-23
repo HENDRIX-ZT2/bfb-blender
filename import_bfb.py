@@ -262,7 +262,7 @@ def create_material(ob, matname):
 	me.materials.append(mat)
 	
 def load(operator, context, filepath = "", use_custom_normals = False, mirror_mesh=False):
-	starttime = time.clock()
+	starttime = time.time()
 	global errors
 	errors = []
 	global armature
@@ -484,6 +484,6 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			fcurves = [scale_action.fcurves.new(data_path = 'pose.bones["'+bonename+'"].scale', index = i, action_group = bonename) for i in range(0, 3)]
 			for fcurve in fcurves: fcurve.keyframe_points.insert(0, scale)
 	
-	success = '\nFinished BFB Import in %.2f seconds\n' %(time.clock()-starttime)
+	success = '\nFinished BFB Import in %.2f seconds\n' %(time.time()-starttime)
 	print(success)
 	return errors

@@ -202,7 +202,7 @@ def is_constrained_armature(ob):
 						
 def bake_and_clean(error = 0.25, exp_power = 2):
 	print("\nStarted baking and cleaning process with max error",error)
-	starttime = time.clock()
+	starttime = time.time()
 	frame_back = bpy.context.scene.frame_current
 	
 	#first fix the tangents on all actions
@@ -317,7 +317,7 @@ def bake_and_clean(error = 0.25, exp_power = 2):
 						mod = fcurve.modifiers.new('CYCLES')
 						mod.mode_after = 'REPEAT_OFFSET'
 						mod.mode_before = 'REPEAT_OFFSET'
-			success = '\nFinished action baking and fcurve cleaning in %.2f seconds\n' %(time.clock()-starttime)
+			success = '\nFinished action baking and fcurve cleaning in %.2f seconds\n' %(time.time()-starttime)
 			bpy.context.scene.frame_set(frame_back)
 			bpy.context.scene.update()
 			worked = True

@@ -27,7 +27,7 @@ def import_keymat(rest_rot_inv, key_matrix):
 	return correction_local @ key_matrix @ correction_local_inv
 	
 def load(operator, context, files = [], filepath = "", set_fps=False):
-	starttime = time.clock()
+	starttime = time.time()
 	dirname = os.path.dirname(filepath)
 	if set_fps:
 		bpy.context.scene.render.fps = 30
@@ -51,7 +51,7 @@ def load(operator, context, files = [], filepath = "", set_fps=False):
 			bones_data[bone.name] = (rest_scale, rest_rot.inverted().to_4x4(), rest_trans)
 		for anim in files:
 			read_bf(dirname, anim.name, armature, bones_data, info, fpms)
-		success = '\nFinished BF Import in %.2f seconds\n' %(time.clock()-starttime)
+		success = '\nFinished BF Import in %.2f seconds\n' %(time.time()-starttime)
 		print(success)
 		return {'FINISHED'}
 	else:

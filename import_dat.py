@@ -21,7 +21,7 @@ def generate_mesh(x_verts, y_verts, scale, heights):
 	return verts, quads
 	
 def load(operator, context, filepath = ""):
-	starttime = time.clock()
+	starttime = time.time()
 	errors = []
 	
 	sculpt_settings = bpy.context.scene.tool_settings.sculpt
@@ -121,6 +121,6 @@ def load(operator, context, filepath = ""):
 		water_ob.vertex_groups.new(group_name)
 		water_ob.vertex_groups[group_name].add(entries, 1, 'REPLACE')
 
-	success = 'Finished DAT Import in %.2f seconds\n' %(time.clock()-starttime)
+	success = 'Finished DAT Import in %.2f seconds\n' %(time.time()-starttime)
 	print(success)
 	return errors

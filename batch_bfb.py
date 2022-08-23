@@ -114,7 +114,7 @@ def add_lods(numlods, rate):
 				
 def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1):
 	dir = os.path.dirname(filepath)
-	starttime = time.clock()
+	starttime = time.time()
 
 	clear_scene()
 	print("Starting Batch Processing")
@@ -132,6 +132,6 @@ def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1)
 			except: print("NIF import didn't work")
 		else: continue
 		clear_scene()
-	success = '\nFinished Batch LOD processing in %.2f seconds\n' %(time.clock()-starttime)
+	success = '\nFinished Batch LOD processing in %.2f seconds\n' %(time.time()-starttime)
 	print(success)
 	return {'FINISHED'}

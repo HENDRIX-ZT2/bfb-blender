@@ -15,7 +15,7 @@ def save(operator, context, filepath = ''):
 		bpy.context.scene.objects.active = bpy.context.scene.objects[0]
 		bpy.ops.object.mode_set(mode="OBJECT")
 	
-	starttime = time.clock()
+	starttime = time.time()
 	
 	map_ob = bpy.data.objects["map"]
 	me = map_ob.data
@@ -85,5 +85,5 @@ def save(operator, context, filepath = ''):
 	f.write(pack('=l4f7i', 14, x_len, y_len, 3, 3, 5, 5, int(xverts), int(yverts), 9, 9, len(biomes)) + biomesstr + b"".join(verts) + pack('=I', num_water_bodies) + pack("5B",0,0,0,0,0).join(bodies))
 	f.close()
 
-	print('Finished DAT Export in %.2f seconds' %(time.clock()-starttime))
+	print('Finished DAT Export in %.2f seconds' %(time.time()-starttime))
 	return errors
