@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE niftoolsxml>
+<niftoolsxml version="0.7.1.0">
+
+	<xi:include href="../ovl_base/ovl_base.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="xpointer(*/*)" />
+
+    <basic name="ubyte50" integral="true" countable="true">
+        An unsigned 16-bit integer.
+    </basic>
+
+    <basic name="ushort1000" integral="true" countable="true">
+        An unsigned 16-bit integer.
+    </basic>
+
+    <basic name="short1000" integral="true" countable="true">
+        An unsigned 16-bit integer.
+    </basic>
+
+    <basic name="short10000" integral="true" countable="true">
+        An unsigned 16-bit integer.
+    </basic>
+
+	<enum name="KeyType" storage="ushort">
+		<option value="1" name="LocQuadratic" />
+		<option value="2" name="LocLinear" />
+		<option value="6" name="EulerXQuadratic" />
+		<option value="7" name="EulerYQuadratic" />
+		<option value="8" name="EulerZXQuadratic" />
+        <option value="12" name="QuaternionQuadratic"/>
+        <option value="14" name="QuaternionLinear"/>
+        <option value="16" name="ScaleQuadratic"/>
+        <option value="17" name="ScaleLinear"/>
+	</enum>
+
+	<compound name="BfRoot">
+        <add name="header" type="BfHeader"/>
+        <add name="nodes" type="BfNode" arr1="header \ num_nodes"/>
+<!--        <add name="nodes" type="BfNode" arr1="1"/>-->
+        <add name="footer" type="BfFooter"/>
+    </compound>
+
+	<compound name="BfHeader">
+        <add name="version" type="uint" >1 for beta, 2 for release</add>
+        <add name="duration" type="float">duration of anim</add>
+        <add name="num nodes" type="ushort">Number of nodes in bf</add>
+        <add name="unk" type="ushort">unknown</add>
+        <add name="reserved" type="uint" arr1="29" until="1">unused</add>
+    </compound>
+
+	<compound name="BfFooter">
+        <add name="start time" type="float"/>
+        <add name="unk 0" type="ushort">6</add>
+        <add name="start" type="FixedString" arg="6">start</add>
+        <add name="end time" type="float"/>
+        <add name="unk 1" type="ushort">6</add>
+        <add name="end" type="FixedString" arg="12">end</add>
+    </compound>
+
+    <compound name="BfNode">
+        <add name="name" type="FixedString" arg="32">start</add>
+        <add name="num_mod_types" type="ushort" />
+        <add name="unk 0" type="ubyte" default="204"/>
+        <add name="unk 1" type="ubyte" default="204" />
+        <add name="size" type="uint" />
+        <add name="reserved" type="uint64" arr1="5" until="1">unused</add>
+        <add name="zero" type="ushort" />
+        <add name="unk 2" type="ubyte" default="204"/>
+        <add name="unk 3" type="ubyte" default="204" />
+        <add name="modifiers" type="BfModifier" arr1="num_mod_types" />
+    </compound>
+	
+    <compound name="BfModifier">
+<!--        <add name="key_type" type="short" />-->
+        <add name="key_type" type="KeyType" />
+        <add name="num_keys" type="short" />
+        <add name="num_bytes" type="uint" />
+
+        <add name="keys" cond="key_type == 2" type="LocLinear" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 6" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 7" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 8" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 14" type="QuaternionLinear" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 17" type="ScaleLinear" arr1="num_keys"/>
+    </compound>
+
+    <compound name="ScaleLinear">
+        <add name="time" type="float" until="1" />
+        <add name="scale" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="scale" type="ubyte50" since="2" />
+    </compound>
+
+    <compound name="EulerQuadratic">
+        <add name="time" type="float" until="1" />
+        <add name="value" type="float" until="1" />
+        <add name="a" type="float" until="1" />
+        <add name="b" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="value" type="Short1000" since="2" />
+        <add name="a" type="Short1000" since="2" />
+        <add name="b" type="Short1000" since="2" />
+    </compound>
+
+    <compound name="QuaternionLinear">
+        <add name="time" type="float" until="1"/>
+        <add name="x" type="float" until="1" />
+        <add name="y" type="float" until="1" />
+        <add name="z" type="float" until="1" />
+        <add name="w" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="x" type="Short10000" since="2"/>
+        <add name="y" type="Short10000" since="2"/>
+        <add name="z" type="Short10000" since="2"/>
+        <add name="w" type="Short10000" since="2"/>
+    </compound>
+
+    <compound name="LocLinear">
+        <add name="time" type="float" until="1" />
+        <add name="x" type="float" until="1" />
+        <add name="y" type="float" until="1" />
+        <add name="z" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="x" type="Short1000" since="2"/>
+        <add name="y" type="Short1000" since="2"/>
+        <add name="z" type="Short1000" since="2"/>
+    </compound>
+
+</niftoolsxml>
