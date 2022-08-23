@@ -14,7 +14,8 @@ def interpolate(x_list, xp, fp):
 	intervals = zip(xp, xp[1:], fp, fp[1:])
 	slopes = [(y2 - y1) / (x2 - x1) for x1, x2, y1, y2 in intervals]
 	# if we had just one input, slope will be 0 for constant extrapolation
-	if not slopes: slopes = [0, ]
+	if not slopes:
+		slopes = [0, ]
 	for x in x_list:
 		i = bisect_left(xp, x) - 1
 		# clamp to valid range
@@ -39,15 +40,16 @@ def load(operator, context, files=[], filepath="", set_fps=False):
 		bpy.context.scene.render.fps = 30
 		logging.info("Adjusted scene FPS!")
 	fpms = bpy.context.scene.render.fps / 1000
-	info = {1: ("=H9h", "QUAD", "location", (1, 2, 3), 1000),
-			2: ("=H3h", "LINEAR", "location", (1, 2, 3), 1000),
-			6: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
-			7: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
-			8: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
-			12: ("=H7h", "QUAD", "rotation_quaternion", (4, 1, 2, 3), 10000),
-			14: ("=H4h", "LINEAR", "rotation_quaternion", (4, 1, 2, 3), 10000),
-			16: ("=HB2h", "QUAD", "scale", (1, 1, 1), 50),
-			17: ("=HB", "LINEAR", "scale", (1, 1, 1), 50)}
+	info = {
+		1: ("=H9h", "QUAD", "location", (1, 2, 3), 1000),
+		2: ("=H3h", "LINEAR", "location", (1, 2, 3), 1000),
+		6: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
+		7: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
+		8: ("=H3h", "QUAD", "rotation_euler", (1,), 1000),
+		12: ("=H7h", "QUAD", "rotation_quaternion", (4, 1, 2, 3), 10000),
+		14: ("=H4h", "LINEAR", "rotation_quaternion", (4, 1, 2, 3), 10000),
+		16: ("=HB2h", "QUAD", "scale", (1, 1, 1), 50),
+		17: ("=HB", "LINEAR", "scale", (1, 1, 1), 50)}
 
 	armature = get_armature()
 	if armature:
@@ -107,8 +109,8 @@ def read_bf_empties(dir, anim, info, fpms):
 				elif data_type == "rotation_quaternion":
 					ob.rotation_mode = "QUATERNION"
 				# initialize the fcurves
-				fcurves = [action.fcurves.new(data_path=data_type, index=i, action_group="LocRotScale") for i in
-						   i_curves]
+				fcurves = [
+					action.fcurves.new(data_path=data_type, index=i, action_group="LocRotScale") for i in i_curves]
 
 				# read the data and process it
 				for element in iter_unpack(fmt, datastream[8 + pos: 8 + pos + calcsize(fmt) * num_keys]):
