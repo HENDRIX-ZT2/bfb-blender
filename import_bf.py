@@ -3,6 +3,7 @@ import time
 import bpy
 import mathutils
 import math
+import logging
 from struct import iter_unpack, calcsize, unpack_from
 from .common_bfb import get_bfb_matrix, decompose_srt, bfbname_to_blendername, create_empty, get_armature, create_anim
 from bisect import bisect_left
@@ -36,7 +37,7 @@ def load(operator, context, files=[], filepath="", set_fps=False):
 	dirname = os.path.dirname(filepath)
 	if set_fps:
 		bpy.context.scene.render.fps = 30
-		print("Adjusted scene FPS!")
+		logging.info("Adjusted scene FPS!")
 	fpms = bpy.context.scene.render.fps / 1000
 	info = {1: ("=H9h", "QUAD", "location", (1, 2, 3), 1000),
 			2: ("=H3h", "LINEAR", "location", (1, 2, 3), 1000),
@@ -56,11 +57,10 @@ def load(operator, context, files=[], filepath="", set_fps=False):
 			bones_data[bone.name] = (rest_scale, rest_rot.inverted().to_4x4(), rest_trans)
 		for anim in files:
 			read_bf(dirname, anim.name, armature, bones_data, info, fpms)
-		success = '\nFinished BF Import in %.2f seconds\n' % (time.time() - starttime)
-		print(success)
+		logging.info(f'Finished BF Import in {time.time() - starttime:.2f} seconds')
 		return {'FINISHED'}
 	else:
-		print(
+		logging.info(
 			"The scene doesn't contain any armature! If you want to do skeletal anims, import a BFB file and try again!")
 		for anim in files:
 			read_bf_empties(dirname, anim.name, info, fpms)
@@ -68,7 +68,7 @@ def load(operator, context, files=[], filepath="", set_fps=False):
 
 
 def read_bf_empties(dir, anim, info, fpms):
-	print("Reading", anim)
+	logging.info(f"Reading {anim}")
 	with open(os.path.join(dir, anim), 'rb') as f:
 		datastream = f.read()
 
@@ -120,7 +120,7 @@ def read_bf_empties(dir, anim, info, fpms):
 
 
 def read_bf(dir, anim, armature, bones_data, info, fpms):
-	print("Reading", anim)
+	logging.info(f"Reading {anim}")
 	with open(os.path.join(dir, anim), 'rb') as f:
 		datastream = f.read()
 		# we only want to get the anim set and anim eg. Stand_Idle so cull the stuff before, if there is any
