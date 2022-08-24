@@ -75,12 +75,27 @@
         <add name="num_keys" type="short" />
         <add name="num_bytes" type="uint" />
 
+        <add name="keys" cond="key_type == 1" type="LocQuadratic" arr1="num_keys"/>
         <add name="keys" cond="key_type == 2" type="LocLinear" arr1="num_keys"/>
         <add name="keys" cond="key_type == 6" type="EulerQuadratic" arr1="num_keys"/>
         <add name="keys" cond="key_type == 7" type="EulerQuadratic" arr1="num_keys"/>
         <add name="keys" cond="key_type == 8" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 12" type="QuaternionQuadratic" arr1="num_keys"/>
         <add name="keys" cond="key_type == 14" type="QuaternionLinear" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 16" type="ScaleQuadratic" arr1="num_keys"/>
         <add name="keys" cond="key_type == 17" type="ScaleLinear" arr1="num_keys"/>
+    </compound>
+
+    <compound name="ScaleQuadratic">
+        <add name="time" type="float" until="1" />
+        <add name="scale" type="float" until="1" />
+        <add name="a" type="float" until="1" />
+        <add name="b" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="scale" type="ubyte50" since="2" />
+        <add name="a" type="Short1000" since="2" />
+        <add name="b" type="Short1000" since="2" />
     </compound>
 
     <compound name="ScaleLinear">
@@ -103,6 +118,26 @@
         <add name="b" type="Short1000" since="2" />
     </compound>
 
+    <compound name="QuaternionQuadratic">
+        <add name="time" type="float" until="1"/>
+        <add name="x" type="float" until="1" />
+        <add name="y" type="float" until="1" />
+        <add name="z" type="float" until="1" />
+        <add name="w" type="float" until="1" />
+        <add name="t" type="float" until="1" />
+        <add name="b" type="float" until="1" />
+        <add name="c" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="x" type="Short10000" since="2"/>
+        <add name="y" type="Short10000" since="2"/>
+        <add name="z" type="Short10000" since="2"/>
+        <add name="w" type="Short10000" since="2"/>
+        <add name="t" type="Short10000" since="2"/>
+        <add name="b" type="Short10000" since="2"/>
+        <add name="c" type="Short10000" since="2"/>
+    </compound>
+
     <compound name="QuaternionLinear">
         <add name="time" type="float" until="1"/>
         <add name="x" type="float" until="1" />
@@ -115,6 +150,30 @@
         <add name="y" type="Short10000" since="2"/>
         <add name="z" type="Short10000" since="2"/>
         <add name="w" type="Short10000" since="2"/>
+    </compound>
+
+    <compound name="LocQuadratic">
+        <add name="time" type="float" until="1" />
+        <add name="x" type="float" until="1" />
+        <add name="y" type="float" until="1" />
+        <add name="z" type="float" until="1" />
+        <add name="x a" type="float" until="1" />
+        <add name="y a" type="float" until="1" />
+        <add name="z a" type="float" until="1" />
+        <add name="x b" type="float" until="1" />
+        <add name="y b" type="float" until="1" />
+        <add name="z b" type="float" until="1" />
+
+        <add name="time" type="Ushort1000" since="2" />
+        <add name="x" type="Short1000" since="2"/>
+        <add name="y" type="Short1000" since="2"/>
+        <add name="z" type="Short1000" since="2"/>
+        <add name="x a" type="Short1000" since="2"/>
+        <add name="y a" type="Short1000" since="2"/>
+        <add name="z a" type="Short1000" since="2"/>
+        <add name="x b" type="Short1000" since="2"/>
+        <add name="y b" type="Short1000" since="2"/>
+        <add name="z b" type="Short1000" since="2"/>
     </compound>
 
     <compound name="LocLinear">
