@@ -19,7 +19,7 @@ class BfNode(BaseStruct):
 		self.num_mod_types = 0
 		self.unk_0 = 204
 		self.unk_1 = 204
-		self.size = 0
+		self.num_bytes = 0
 
 		# unused
 		self.reserved = numpy.zeros((5,), dtype=numpy.dtype('uint64'))
@@ -36,7 +36,7 @@ class BfNode(BaseStruct):
 		self.num_mod_types = 0
 		self.unk_0 = 204
 		self.unk_1 = 204
-		self.size = 0
+		self.num_bytes = 0
 		if self.context.version <= 1:
 			self.reserved = numpy.zeros((5,), dtype=numpy.dtype('uint64'))
 		self.zero = 0
@@ -51,7 +51,7 @@ class BfNode(BaseStruct):
 		instance.num_mod_types = Ushort.from_stream(stream, instance.context, 0, None)
 		instance.unk_0 = Ubyte.from_stream(stream, instance.context, 0, None)
 		instance.unk_1 = Ubyte.from_stream(stream, instance.context, 0, None)
-		instance.size = Uint.from_stream(stream, instance.context, 0, None)
+		instance.num_bytes = Uint.from_stream(stream, instance.context, 0, None)
 		if instance.context.version <= 1:
 			instance.reserved = Array.from_stream(stream, instance.context, 0, None, (5,), Uint64)
 		instance.zero = Ushort.from_stream(stream, instance.context, 0, None)
@@ -66,7 +66,7 @@ class BfNode(BaseStruct):
 		Ushort.to_stream(stream, instance.num_mod_types)
 		Ubyte.to_stream(stream, instance.unk_0)
 		Ubyte.to_stream(stream, instance.unk_1)
-		Uint.to_stream(stream, instance.size)
+		Uint.to_stream(stream, instance.num_bytes)
 		if instance.context.version <= 1:
 			Array.to_stream(stream, instance.reserved, (5,), Uint64, instance.context, 0, None)
 		Ushort.to_stream(stream, instance.zero)
@@ -81,7 +81,7 @@ class BfNode(BaseStruct):
 		yield 'num_mod_types', Ushort, (0, None), (False, None)
 		yield 'unk_0', Ubyte, (0, None), (False, 204)
 		yield 'unk_1', Ubyte, (0, None), (False, 204)
-		yield 'size', Uint, (0, None), (False, None)
+		yield 'num_bytes', Uint, (0, None), (False, None)
 		if instance.context.version <= 1:
 			yield 'reserved', Array, ((5,), Uint64, 0, None), (False, None)
 		yield 'zero', Ushort, (0, None), (False, None)
@@ -99,7 +99,7 @@ class BfNode(BaseStruct):
 		s += f'\n	* num_mod_types = {self.fmt_member(self.num_mod_types, indent+1)}'
 		s += f'\n	* unk_0 = {self.fmt_member(self.unk_0, indent+1)}'
 		s += f'\n	* unk_1 = {self.fmt_member(self.unk_1, indent+1)}'
-		s += f'\n	* size = {self.fmt_member(self.size, indent+1)}'
+		s += f'\n	* num_bytes = {self.fmt_member(self.num_bytes, indent+1)}'
 		s += f'\n	* reserved = {self.fmt_member(self.reserved, indent+1)}'
 		s += f'\n	* zero = {self.fmt_member(self.zero, indent+1)}'
 		s += f'\n	* unk_2 = {self.fmt_member(self.unk_2, indent+1)}'

@@ -61,7 +61,7 @@
         <add name="num_mod_types" type="ushort" />
         <add name="unk 0" type="ubyte" default="204"/>
         <add name="unk 1" type="ubyte" default="204" />
-        <add name="size" type="uint" />
+        <add name="num_bytes" type="uint" />
         <add name="reserved" type="uint64" arr1="5" until="1">unused</add>
         <add name="zero" type="ushort" />
         <add name="unk 2" type="ubyte" default="204"/>
