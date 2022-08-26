@@ -8,7 +8,7 @@ class Ubyte50(Float):
 
     @staticmethod
     def to_stream(stream, instance):
-        Ubyte.to_stream(stream, round(instance * 50))
+        Ubyte.to_stream(stream, Ubyte.from_value(round(instance * 50)))
 
 
 class Ushort1000(Float):
@@ -18,7 +18,7 @@ class Ushort1000(Float):
 
     @staticmethod
     def to_stream(stream, instance):
-        Ushort.to_stream(stream, round(instance * 1000))
+        Ushort.to_stream(stream, Ushort.from_value(round(instance * 1000)))
 
 
 class Short1000(Float):
@@ -28,7 +28,7 @@ class Short1000(Float):
 
     @staticmethod
     def to_stream(stream, instance):
-        Short.to_stream(stream, round(instance * 1000))
+        Short.to_stream(stream, Short.from_value(round(instance * 1000)))
 
 
 class Short10000(Float):
@@ -38,4 +38,4 @@ class Short10000(Float):
 
     @staticmethod
     def to_stream(stream, instance):
-        Short.to_stream(stream, round(instance * 10000))
+        Short.to_stream(stream, Short.from_value(round(instance * 10000)))
