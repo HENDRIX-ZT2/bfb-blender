@@ -71,8 +71,12 @@
         A string that ends with a null byte (0x00).
     </basic>
 
-    <compound name="FixedString" count="0" >
+    <basic name="FixedString" count="0" >
         Holds a string of a fixed size, given as an argument.
-    </compound>
+    </basic>
+
+    <basic name="SizedString" count="0" >
+        Holds a string of a fixed size.
+    </basic>
 
 </niftoolsxml>

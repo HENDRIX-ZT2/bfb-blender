@@ -172,6 +172,45 @@ class ZString:
 		return len(instance.encode(errors="surrogateescape")) + 1
 
 
+class FixedString(ZString):
+
+	@staticmethod
+	def from_stream(stream, context=None, arg=0, template=None):
+		pos = stream.tell()
+		data = r_zstr(stream.read)
+		stream.seek(pos + arg)
+		return data
+
+	@staticmethod
+	def to_stream(instance, stream, context=None, arg=0, template=None):
+		pos = stream.tell()
+		w_zstr(stream.write, instance)
+		padding = arg - (stream.tell() - pos)
+		stream.write(b'\x00' * padding)
+
+	@staticmethod
+	def get_size(instance, context, arg=0, template=None):
+		assert arg > (len(instance) + 1)
+		return arg
+
+
+class SizedString(ZString):
+
+	@staticmethod
+	def from_stream(stream, context=None, arg=0, template=None):
+		size = Ushort.from_stream(stream, context, arg, template)
+		return r_zstr(stream.read)
+
+	@staticmethod
+	def to_stream(instance, stream, context=None, arg=0, template=None):
+		Ushort.to_stream(ZString.get_size(instance, context), stream)
+		w_zstr(stream.write, instance)
+
+	@staticmethod
+	def get_size(instance, context, arg=0, template=None):
+		return len(instance.encode(errors="surrogateescape")) + 1 + 2
+
+
 class UNormClass:
 	"""Class for floats between 0.0 and 1.0 stored linearly
 	This class cannot be used on its own and must be subclassed, with the following class functions/variables defined:

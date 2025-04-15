@@ -25,7 +25,7 @@
 		<option value="2" name="LocLinear" />
 		<option value="6" name="EulerXQuadratic" />
 		<option value="7" name="EulerYQuadratic" />
-		<option value="8" name="EulerZXQuadratic" />
+		<option value="8" name="EulerZQuadratic" />
         <option value="12" name="QuaternionQuadratic"/>
         <option value="14" name="QuaternionLinear"/>
         <option value="16" name="ScaleQuadratic"/>
@@ -35,7 +35,6 @@
 	<compound name="BfRoot">
         <add name="header" type="BfHeader"/>
         <add name="nodes" type="BfNode" arr1="header \ num_nodes"/>
-<!--        <add name="nodes" type="BfNode" arr1="1"/>-->
         <add name="footer" type="BfFooter"/>
     </compound>
 
@@ -43,17 +42,16 @@
         <add name="version" type="uint" >1 for beta, 2 for release</add>
         <add name="duration" type="float">duration of anim</add>
         <add name="num nodes" type="ushort">Number of nodes in bf</add>
-        <add name="unk" type="ushort">unknown</add>
+        <add name="unk" type="ushort" default="256"/>
         <add name="reserved" type="uint" arr1="29" until="1">unused</add>
     </compound>
 
 	<compound name="BfFooter">
         <add name="start time" type="float"/>
-        <add name="unk 0" type="ushort">6</add>
-        <add name="start" type="FixedString" arg="6">start</add>
+        <add name="start" type="SizedString" default="start"/>
         <add name="end time" type="float"/>
-        <add name="unk 1" type="ushort">6</add>
-        <add name="end" type="FixedString" arg="12">end</add>
+        <add name="end" type="SizedString" default="end"/>
+        <add name="unused" type="ubyte" arr1="7" default="0"/>
     </compound>
 
     <compound name="BfNode">
