@@ -398,7 +398,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 						b_edit_bone = armData.edit_bones.new(bonename)
 						#parent it and get the armature space matrix
 						if parentid > 0:
-							# calculate ms2 armature space matrix
+							# calculate bfb armature space matrix
 							bind = mat_storage[parentid] @ bind
 							b_edit_bone.parent = armData.edit_bones[parentid - 1]
 						# we store the bfb space armature matrix of each bone
