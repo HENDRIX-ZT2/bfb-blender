@@ -179,8 +179,11 @@ def blendername_to_bfbname(s):
 			s = s[:-2].replace('Bip01 ','Bip01 R ')
 	return s
 	
-def bfbname_to_blendername(s):
-	s = s.rstrip(b"\x00").decode("utf-8")
+def bfbname_to_blendername(b: bytes):
+	s = b.rstrip(b"\x00").decode("utf-8")
+	return name_import(s)
+
+def name_import(s: str):
 	if " l " in s:
 		s+= ".L"
 	elif " L " in s:
@@ -190,7 +193,7 @@ def bfbname_to_blendername(s):
 	elif " R " in s:
 		s+= ".R"
 	return s.title().replace(" R "," ").replace(" L "," ").replace("back","Back").replace("front","Front").replace("left","Left").replace("right","Right").replace("Nonaccum","NonAccum").replace("Upperarm","UpperArm").replace("Horselink","HorseLink")
-	
+
 def get_armature():
 	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature]
 	#do we have armatures?
