@@ -21,11 +21,6 @@ type_module_name_map = {
 	'Short1000': 'bfb_gen.formats.bf.basic',
 	'Short10000': 'bfb_gen.formats.bf.basic',
 	'KeyType': 'bfb_gen.formats.bf.enums.KeyType',
-	'BfRoot': 'bfb_gen.formats.bf.compounds.BfRoot',
-	'BfHeader': 'bfb_gen.formats.bf.compounds.BfHeader',
-	'BfFooter': 'bfb_gen.formats.bf.compounds.BfFooter',
-	'BfNode': 'bfb_gen.formats.bf.compounds.BfNode',
-	'BfModifier': 'bfb_gen.formats.bf.compounds.BfModifier',
 	'ScaleQuadratic': 'bfb_gen.formats.bf.compounds.ScaleQuadratic',
 	'ScaleLinear': 'bfb_gen.formats.bf.compounds.ScaleLinear',
 	'EulerQuadratic': 'bfb_gen.formats.bf.compounds.EulerQuadratic',
@@ -33,6 +28,11 @@ type_module_name_map = {
 	'QuaternionLinear': 'bfb_gen.formats.bf.compounds.QuaternionLinear',
 	'LocQuadratic': 'bfb_gen.formats.bf.compounds.LocQuadratic',
 	'LocLinear': 'bfb_gen.formats.bf.compounds.LocLinear',
+	'BfModifier': 'bfb_gen.formats.bf.compounds.BfModifier',
+	'BfNode': 'bfb_gen.formats.bf.compounds.BfNode',
+	'BfHeader': 'bfb_gen.formats.bf.compounds.BfHeader',
+	'BfFooter': 'bfb_gen.formats.bf.compounds.BfFooter',
+	'BfRoot': 'bfb_gen.formats.bf.compounds.BfRoot',
 }
 
 name_type_map = {}

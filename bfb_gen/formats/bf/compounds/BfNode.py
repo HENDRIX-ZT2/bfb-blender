@@ -23,6 +23,7 @@ class BfNode(BaseStruct):
 		self.zero = name_type_map['Ushort'](self.context, 0, None)
 		self.unk_2 = name_type_map['Ubyte'].from_value(204)
 		self.unk_3 = name_type_map['Ubyte'].from_value(204)
+		self.modifiers = Array(self.context, 0, None, (0,), name_type_map['BfModifier'])
 		if set_default:
 			self.set_defaults()
 

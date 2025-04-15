@@ -32,57 +32,6 @@
         <option value="17" name="ScaleLinear"/>
 	</enum>
 
-	<compound name="BfRoot">
-        <add name="header" type="BfHeader"/>
-        <add name="nodes" type="BfNode" arr1="header \ num_nodes"/>
-        <add name="footer" type="BfFooter"/>
-    </compound>
-
-	<compound name="BfHeader">
-        <add name="version" type="uint" >1 for beta, 2 for release</add>
-        <add name="duration" type="float">duration of anim</add>
-        <add name="num nodes" type="ushort">Number of nodes in bf</add>
-        <add name="unk" type="ushort" default="256"/>
-        <add name="reserved" type="uint" arr1="29" until="1">unused</add>
-    </compound>
-
-	<compound name="BfFooter">
-        <add name="start time" type="float"/>
-        <add name="start" type="SizedString" default="start"/>
-        <add name="end time" type="float"/>
-        <add name="end" type="SizedString" default="end"/>
-        <add name="unused" type="ubyte" arr1="7" default="0"/>
-    </compound>
-
-    <compound name="BfNode">
-        <add name="name" type="FixedString" arg="32">start</add>
-        <add name="num_mod_types" type="ushort" />
-        <add name="unk 0" type="ubyte" default="204"/>
-        <add name="unk 1" type="ubyte" default="204" />
-        <add name="num_bytes" type="uint" />
-        <add name="reserved" type="uint64" arr1="5" until="1">unused</add>
-        <add name="zero" type="ushort" />
-        <add name="unk 2" type="ubyte" default="204"/>
-        <add name="unk 3" type="ubyte" default="204" />
-        <add name="modifiers" type="BfModifier" arr1="num_mod_types" />
-    </compound>
-	
-    <compound name="BfModifier">
-        <add name="key_type" type="KeyType" />
-        <add name="num_keys" type="short" />
-        <add name="num_bytes" type="uint" />
-
-        <add name="keys" cond="key_type == 1" type="LocQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 2" type="LocLinear" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 6" type="EulerQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 7" type="EulerQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 8" type="EulerQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 12" type="QuaternionQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 14" type="QuaternionLinear" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 16" type="ScaleQuadratic" arr1="num_keys"/>
-        <add name="keys" cond="key_type == 17" type="ScaleLinear" arr1="num_keys"/>
-    </compound>
-
     <compound name="ScaleQuadratic">
         <add name="time" type="float" until="1" />
         <add name="scale" type="float" until="1" />
@@ -183,6 +132,57 @@
         <add name="x" type="Short1000" since="2"/>
         <add name="y" type="Short1000" since="2"/>
         <add name="z" type="Short1000" since="2"/>
+    </compound>
+
+    <compound name="BfModifier">
+        <add name="key_type" type="KeyType" />
+        <add name="num_keys" type="short" />
+        <add name="num_bytes" type="uint" />
+
+        <add name="keys" cond="key_type == 1" type="LocQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 2" type="LocLinear" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 6" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 7" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 8" type="EulerQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 12" type="QuaternionQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 14" type="QuaternionLinear" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 16" type="ScaleQuadratic" arr1="num_keys"/>
+        <add name="keys" cond="key_type == 17" type="ScaleLinear" arr1="num_keys"/>
+    </compound>
+
+    <compound name="BfNode">
+        <add name="name" type="FixedString" arg="32">start</add>
+        <add name="num_mod_types" type="ushort" />
+        <add name="unk 0" type="ubyte" default="204"/>
+        <add name="unk 1" type="ubyte" default="204" />
+        <add name="num_bytes" type="uint" />
+        <add name="reserved" type="uint64" arr1="5" until="1">unused</add>
+        <add name="zero" type="ushort" />
+        <add name="unk 2" type="ubyte" default="204"/>
+        <add name="unk 3" type="ubyte" default="204" />
+        <add name="modifiers" type="BfModifier" arr1="num_mod_types" />
+    </compound>
+
+	<compound name="BfHeader">
+        <add name="version" type="uint" >1 for beta, 2 for release</add>
+        <add name="duration" type="float">duration of anim</add>
+        <add name="num nodes" type="ushort">Number of nodes in bf</add>
+        <add name="unk" type="ushort" default="256"/>
+        <add name="reserved" type="uint" arr1="29" until="1">unused</add>
+    </compound>
+
+	<compound name="BfFooter">
+        <add name="start time" type="float"/>
+        <add name="start" type="SizedString" default="start"/>
+        <add name="end time" type="float"/>
+        <add name="end" type="SizedString" default="end"/>
+        <add name="unused" type="ubyte" arr1="7" default="0"/>
+    </compound>
+
+	<compound name="BfRoot">
+        <add name="header" type="BfHeader"/>
+        <add name="nodes" type="BfNode" arr1="header \ num_nodes"/>
+        <add name="footer" type="BfFooter"/>
     </compound>
 
 </niftoolsxml>

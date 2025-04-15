@@ -13,6 +13,7 @@ class BfModifier(BaseStruct):
 		self.key_type = name_type_map['KeyType'](self.context, 0, None)
 		self.num_keys = name_type_map['Short'](self.context, 0, None)
 		self.num_bytes = name_type_map['Uint'](self.context, 0, None)
+		self.keys = Array(self.context, 0, None, (0,), name_type_map['ScaleLinear'])
 		if set_default:
 			self.set_defaults()
 
