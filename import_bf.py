@@ -47,6 +47,7 @@ def load(operator, context, files=(), filepath="", set_fps=False):
 	if armature:
 		for bone in armature.data.bones:
 			rest_scale, rest_rot, rest_trans = decompose_srt(get_bfb_matrix(bone))
+			# rest_rot = get_bfb_matrix(bone)
 			bones_data[bone.name] = (rest_scale, rest_rot.inverted().to_4x4(), rest_trans)
 	else:
 		logging.info(
@@ -62,7 +63,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 	src_path = os.path.join(dir_path, bf_name)
 	bf = BfFile()
 	bf.load(src_path)
-	# we only want to get the anim set and anim eg. Stand_Idle so cull the stuff before, if there is any
+	# we only want to get the anim set and anim e.g. Stand_Idle so cull the stuff before, if there is any
 	action_name = "_".join(bf_name[:-3].split("_")[-2:])
 	if bones_data:
 		b_action = anim_sys.create_action(b_armature, action_name)

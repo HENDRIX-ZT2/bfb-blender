@@ -5,8 +5,7 @@ import mathutils
 from struct import iter_unpack, unpack_from
 from .common_bfb import *
 from .bfmat import bfmat
-from .util.node_arrange import nodes_iterate
-from .util.node_util import *
+from .util import node_arrange, node_util
 
 def getstring128(x): return datastream[x:x+128].rstrip(b"\x00").decode("utf-8")
 def getint(x): return unpack_from('i',datastream, x)[0]
@@ -103,9 +102,13 @@ def read_linked_list(pos, parent, level):
 		read_linked_list(pos,parent,level)
 
 def create_material(ob, matname):
-	material = bfmat(dirname, matname+".bfmat")
-	for error in material.errors:
+	try:
+		material = bfmat(dirname, matname+".bfmat")
+		for error in material.errors:
+			log_error(error)
+	except Exception as error:
 		log_error(error)
+		return
 	if not material.root: return
 	fx = material.fx
 	cull_mode = material.CullMode
@@ -135,7 +138,7 @@ def create_material(ob, matname):
 		textures = []
 		for i, (texture, tex_index, tex_transform, tex_anim) in enumerate( zip(material.Texture, material.TexCoordIndex, material.TextureTransform, material.TextureAnimation) ):
 			if texture is not None:
-				tex = load_tex(tree, material.find_recursive(texture+".dds"))
+				tex = node_util.load_tex_node(tree, material.find_recursive(texture+".dds"))
 				textures.append(tex)
 				tex.name = "Texture"+str(i)
 				# #eg. African violets, but only in rendered view; but: glacier
@@ -246,7 +249,7 @@ def create_material(ob, matname):
 			tree.links.new(shader_diffuse.outputs[0],	alpha_mixer.inputs[2])
 			tree.links.new(alpha_mixer.outputs[0],		output.inputs[0])
 			
-		nodes_iterate(tree, output)
+		node_arrange.nodes_iterate(tree, output)
 		#finally, set interpolation and extrapolation for all fcurves we have created
 		if tree.animation_data:
 			for fcu in tree.animation_data.action.fcurves:
@@ -451,7 +454,7 @@ def load(operator, context, filepath = "", use_custom_normals = False, mirror_me
 			if mesh["we"]:
 				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
 				mod.object = armature
-			me.calc_normals()
+			# me.calc_normals()
 		else:
 			type_name = "unknown ID: "+str(typeid)
 				
