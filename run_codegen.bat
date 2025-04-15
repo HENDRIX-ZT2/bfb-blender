@@ -1,0 +1,1 @@
+python -m codegen --generated-dir=bfb_gen

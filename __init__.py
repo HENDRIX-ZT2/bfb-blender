@@ -1,6 +1,6 @@
 bl_info = {	"name": "Blue Fang BFB format (Zoo Tycoon 2)",
 			"author": "HENDRIX",
-			"blender": (2, 80, 0),
+			"blender": (4, 4, 0),
 			"location": "File > Import-Export",
 			"description": "Import-Export models, skeletons and animations, batch-process models to add LODs. Experimental map & particle support.",
 			"warning": "",
@@ -9,11 +9,17 @@ bl_info = {	"name": "Blue Fang BFB format (Zoo Tycoon 2)",
 			"tracker_url": "https://github.com/HENDRIX-ZT2/bfb-blender/issues/new",
 			"category": "Import-Export"}
 
+import os
+import sys
 import bpy
 from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, CollectionProperty, EnumProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy_extras.object_utils import AddObjectHelper
 import bpy.utils.previews
+
+plugin_dir = os.path.dirname(__file__)
+if not plugin_dir in sys.path:
+	sys.path.append(plugin_dir)
 preview_collection = bpy.utils.previews.new()
 
 class AddCapsule(bpy.types.Operator, AddObjectHelper):

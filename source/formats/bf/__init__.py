@@ -1,5 +1,5 @@
-from generated.formats.bf.compounds.BfRoot import BfRoot
-from generated.io import IoFile
+from bfb_gen.formats.bf.compounds.BfRoot import BfRoot
+from bfb_gen.io import IoFile
 import io
 
 
@@ -19,7 +19,7 @@ class BfFile(BfRoot, IoFile):
 	def save(self, filepath):
 		# before saving, update sizes for the structs that have them
 		with io.BytesIO() as dummy:
-			self.to_stream(dummy, self)
+			self.to_stream(self, dummy, self.context)
 		for node in self.nodes:
 			node.num_bytes = node.io_size
 			for mod in node.modifiers:

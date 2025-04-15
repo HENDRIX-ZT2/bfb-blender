@@ -5,6 +5,8 @@ import mathutils
 import math
 import logging
 from struct import iter_unpack, calcsize, unpack_from
+
+from bfb_gen.formats.bf import BfFile
 from .common_bfb import get_bfb_matrix, decompose_srt, bfbname_to_blendername, create_empty, get_armature, create_anim
 from bisect import bisect_left
 
@@ -33,7 +35,7 @@ def import_keymat(rest_rot_inv, key_matrix):
 	return correction_local @ key_matrix @ correction_local_inv
 
 
-def load(operator, context, files=[], filepath="", set_fps=False):
+def load(operator, context, files=(), filepath="", set_fps=False):
 	starttime = time.time()
 	dirname = os.path.dirname(filepath)
 	if set_fps:
@@ -123,7 +125,11 @@ def read_bf_empties(dir, anim, info, fpms):
 
 def read_bf(dir, anim, armature, bones_data, info, fpms):
 	logging.info(f"Reading {anim}")
-	with open(os.path.join(dir, anim), 'rb') as f:
+	src_path = os.path.join(dir, anim)
+	bf = BfFile()
+	bf.load(src_path)
+	print(bf)
+	with open(src_path, 'rb') as f:
 		datastream = f.read()
 		# we only want to get the anim set and anim eg. Stand_Idle so cull the stuff before, if there is any
 		filename = "_".join(anim[:-3].split("_")[-2:])

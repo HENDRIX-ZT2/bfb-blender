@@ -1,7 +1,22 @@
 """Expression parser (for arr1, arr2, cond, and vercond xml attributes of
 <add> tag)."""
+import ast
+import math
+import operator
 
-from codegen.naming_conventions import name_access
+from .naming_conventions import name_access
+
+
+class LiteralFloat(float):
+
+    def __new__(cls, *args, **kwargs):
+        return super(LiteralFloat, cls).__new__(cls, *args, **kwargs)
+
+    def __str__(self):
+        if self in (math.inf, -math.inf):
+            return f"float('{super(LiteralFloat, LiteralFloat).__str__(self)}')"
+        else:
+            return super().__str__()
 
 
 class Version(object):
@@ -19,55 +34,90 @@ class Version(object):
             else:
                 # use int(x, 0) to evaluate x as an int literal, allowing for non-decimal (e.g. hex) values to be read
                 self.value = int(expr_str, 0)
-                # print(self)
-
-    def version_number(version_str):
-        """Converts version string into an integer.
-        :param version_str: The version string.
-        :type version_str: str
-        :return: A version integer.
-        """
-
-        # 3.03 case is special
-        if version_str == '3.03':
-            return 0x03000300
-
-        # NS (neosteam) case is special
-        if version_str == 'NS':
-            return 0x0A010000
-
-        try:
-            ver_list = [int(x) for x in version_str.split('.')]
-        except ValueError:
-            return -1  # version not supported (i.e. version_str '10.0.1.3a' would trigger this)
-        if len(ver_list) > 4 or len(ver_list) < 1:
-            return -1  # version not supported
-        for ver_digit in ver_list:
-            if (ver_digit | 0xff) > 0xff:
-                return -1  # version not supported
-        while len(ver_list) < 4:
-            ver_list.append(0)
-        return (ver_list[0] << 24) + (ver_list[1] << 16) + (ver_list[2] << 8) + ver_list[3]
 
     def __str__(self):
-        """Reconstruct tfhe expression to a string."""
+        """Reconstruct the expression to a string."""
         if self.value is not None:
             return str(self.value)
         else:
             return ""
 
 
+def interpret_literal(input_str, include_version=False):
+    """interpret numeric values as written in the xml and return the unambiguous python equivalent (back-printable to their literals)"""
+    try:
+        return int(input_str, 0)
+    except ValueError:
+        pass
+    try:
+        return LiteralFloat(input_str)
+    except:
+        pass
+    if include_version:
+        try:
+            return Version(input_str)
+        except:
+            pass
+    return None
+
+
+def str_is_number(str_expr):
+    # check if it might be an int:
+    return interpret_literal is None
+
+
+def format_potential_tuple(value):
+    """Converts xml attribute value lists to tuples if space is present and all
+    comma-space-separated values can be converted to numbers, otherwise leaves it alone.
+    :param value: the string that is the value of an attribute
+    :return: original string if no space is present, or commas as separators
+    and surrounding parentheses if whitespace is present.
+    >>> format_potential_tuple('1.0')
+    '1.0
+    >>> format_potential_tuple('1.0, 1.0, 1.0')
+    '(1.0, 1.0, 1.0)'"""
+    if ', ' in value:
+        interpreted_literals = [interpret_literal(potential_number) for potential_number in value.split(', ')]
+        if all([interpreted is not None for interpreted in interpreted_literals]):
+            return f"({', '.join([str(interpreted) for interpreted in interpreted_literals])})"
+        else:
+            return value
+    else:
+        return value
+
+
 class Expression(object):
 
-    operators = {'==', '!=', '>=', '<=', '&&', '||', '&', '|', '-', '!', '<', '>', '/', '*', '+', '%'}
+    operators = {'!': lambda a, b: not b,
+                 '*': operator.mul,
+                 '/': lambda a, b: int(operator.truediv(a, b)),
+                 '%': operator.mod,
+                 '+': operator.add,
+                 '-': operator.sub,
+                 '<<': operator.lshift,
+                 '>>': operator.rshift,
+                 '&': operator.and_,
+                 '|': operator.or_,
+                 '==': operator.eq,
+                 '!=': operator.ne,
+                 '>': operator.gt,
+                 '>=': operator.ge,
+                 '<': operator.lt,
+                 '<=': operator.le,
+                 '&&': lambda a, b: a and b,
+                 '||': lambda a, b: a or b}
 
-    def __init__(self, expr_str, attribute_prefix=""):
+    op_replacement = {'&&': 'and',
+                      '||': 'or',
+                      '!': 'not'}
+
+    def __init__(self, expr_str, target_variable=""):
         try:
             left, self._op, right = self._partition(expr_str)
-            self._left = self._parse(left, attribute_prefix)
-            self._right = self._parse(right, attribute_prefix)
+            self._left = self._parse(left, target_variable)
+            self._right = self._parse(right, target_variable)
         except:
-            print("error while parsing expression '%s'" % expr_str)
+            print(f"error while parsing expression '{expr_str}'")
             raise
 
     def __str__(self):
@@ -82,37 +132,36 @@ class Expression(object):
         if isinstance(self._right, Expression):
             right = f"({right})"
         op = self._op
-        for k, v in (("&&", "and"), ("||", "or"), ("!", "not")):
-            if op.strip() == k:
-                op = v
+        op = self.op_replacement.get(op.strip(), op)
         # since we need it for arrays, round to int
-        if op == "/":
+        if op.strip() == "/":
             return f"int({left} {op} {right})"
         return f"{left} {op} {right}".strip()
 
+    def __repr__(self):
+        return str(self)
+
     @classmethod
-    def _parse(cls, expr_str, prefix=""):
+    def _parse(cls, expr_str, target_variable=""):
         """Returns an Expression, string, or int, depending on the
         contents of <expr_str>."""
         if not expr_str:
             # empty string
             return None
+        # try to convert it to one of the following classes
+        literal_object = interpret_literal(expr_str, include_version=True)
+        if literal_object is not None:
+            return literal_object
         # brackets or operators => expression
         if ("(" in expr_str) or (")" in expr_str):
-            return Expression(expr_str, prefix)
+            return Expression(expr_str, target_variable)
         for op in cls.operators:
             if expr_str.find(op) != -1:
-                return Expression(expr_str, prefix)
-        # try to convert it to one of the following classes
-        for create_cls in (int, Version):
-            try:
-                return create_cls(expr_str)
-            # failed
-            except ValueError:
-                pass
+                return Expression(expr_str, target_variable)
         # at this point, expr_str is a single attribute
         # apply name filter on each component separately
         # (where a dot separates components)
+        prefix = f"{target_variable}." if target_variable else ""
         return prefix + name_access(expr_str)
 
     @classmethod
@@ -169,7 +218,7 @@ class Expression(object):
             for op_startpos, ch in enumerate(expr_str):
                 if ch == ' ': continue
                 if ch == '(' or ch == ')':
-                    raise ValueError("expression syntax error: expected operator before '%s'" % expr_str[op_startpos:])
+                    raise ValueError(f"expression syntax error: expected operator before '{expr_str[op_startpos:]}'")
                 # to avoid confusion between && and &, and || and |,
                 # let's first scan for operators of two characters
                 for op_endpos in range(op_startpos + 1, op_startpos - 1, -1):
@@ -203,7 +252,7 @@ class Expression(object):
                         break
                 else:
                     raise ValueError(
-                        "expression syntax error: unexpected trailing characters '%s'" % expr_str[right_endpos + 1:])
+                        f"expression syntax error: unexpected trailing characters '{expr_str[right_endpos + 1:]}'")
                 # trailing characters contain an operator: do not remove
                 # brackets but take
                 # everything to be the right hand side (this happens for
@@ -214,7 +263,7 @@ class Expression(object):
             right_str = expr_str[op_endpos + 1:].strip()
             # check that it is a valid expression
             if ("(" in right_str) or (")" in right_str):
-                raise ValueError("expression syntax error: unexpected brackets in '%s'" % right_str)
+                raise ValueError(f"expression syntax error: unexpected brackets in '{right_str}'")
         return left_str, op_str, right_str
 
     @staticmethod
@@ -250,6 +299,23 @@ class Expression(object):
             if start_pos != -1 or end_pos != -1:
                 raise ValueError("expression syntax error (non-matching brackets?)")
         return start_pos, end_pos
+
+    @staticmethod
+    def eval_part(part, namespace):
+        if isinstance(part, Expression):
+            return part.eval(namespace)
+        elif isinstance(part, str):
+            return namespace[part.strip()]
+        else:
+            # use conversion to str to autoconvert Version to int
+            return ast.literal_eval(str(part))
+
+    def eval(self, namespace={}):
+        left = self.eval_part(self._left, namespace)
+        if not self._op:
+            return left
+        right = self.eval_part(self._right, namespace)
+        return self.operators[self._op.strip()](left, right)
 
 
 if __name__ == "__main__":

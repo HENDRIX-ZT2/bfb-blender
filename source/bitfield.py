@@ -1,5 +1,15 @@
 import logging
+from bfb_gen.base_struct import StructMetaClass
 
+
+class BitfieldMetaClass(StructMetaClass):
+
+    def __init__(cls, name, bases, dict, **kwds):
+        total_members = []
+        for key, value in dict.items():
+            if isinstance(value, BitfieldMember):
+                total_members.append(key)
+        cls.__members__ = total_members
 
 class BitfieldMember(object):
 
@@ -15,25 +25,25 @@ class BitfieldMember(object):
 
     def __set__(self, instance, value):
         # Clear the current value
-        instance._value = instance._value & ~self.mask
+        instance._value = int(instance._value & ~self.mask)
         # Update with the new value
-        instance._value |= (value << self.pos) & self.mask
+        instance._value |= int((value << self.pos) & self.mask)
 
 
-class BasicBitfield(object):
+class BasicBitfield(object, metaclass=BitfieldMetaClass):
     _value: int = 0
     # must be overwritten by concrete implementation
-    storage = None
+    _storage = None
 
     def set_defaults(self):
         """This function has to be overwritten by concrete implementations to set defaults for the bitfield."""
         raise NotImplementedError
 
-    def __hash__(self):
-        return self._value.__hash__()
-
     def __int__(self):
         return self._value
+
+    def __bool__(self):
+        return bool(self._value)
 
     def __init__(self, context=None, arg=0, template=None, set_default=True):
         if set_default:
@@ -43,31 +53,45 @@ class BasicBitfield(object):
 
     @classmethod
     def from_stream(cls, stream, context=None, arg=0, template=None):
-        return cls.from_value(cls.storage.from_stream(stream, context=None, arg=0, template=None))
+        return cls.from_value(cls._storage.from_stream(stream, context, arg, template))
 
     @classmethod
-    def to_stream(cls, stream, instance):
-        cls.storage.to_stream(stream, instance._value)
+    def to_stream(cls, instance, stream, context, arg=0, template=None):
+        cls._storage.to_stream(int(instance), stream, context, arg, template)
+
+    @classmethod
+    def get_size(cls, instance, context, arg=0, template=None):
+        return cls._storage.get_size(instance, context)
 
     @classmethod
     def from_value(cls, value):
         instance = cls(None, set_default=False)
-        instance._value = value
+        instance._value = int(value)
         return instance
 
     @classmethod
-    def from_xml(cls, target, elem, prop, arguments=None):
+    def from_xml(cls, target, elem, prop, arg=0, template=None):
         return cls.from_value(int(elem.attib[prop], 0))
 
     @staticmethod
-    def to_xml(elem, prop, instance, arguments, debug):
+    def to_xml(elem, prop, instance, arg, template, debug):
         elem.attrib[prop] = str(instance._value)
+
+    @staticmethod
+    def format_indented(member, indent=0):
+        lines = str(member).split("\n")
+        lines_new = [lines[0], ] + ["\t" * indent + line for line in lines[1:]]
+        return "\n".join(lines_new)
+
+    @classmethod
+    def validate_instance(cls, instance, context, arg, template):
+        cls._storage.validate_instance(int(instance))
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        fields = [(key, getattr(self, key)) for key, value in self.__class__.__dict__.items() if isinstance(value, BitfieldMember)]
+        fields = [(key, getattr(self, key)) for key in self.__members__]
         items = [f"{key} = {str(val)}" for key, val in fields if val is not False]
         info = f"{self.__class__.__name__}: {self._value} {bin(self._value)} {items}"
         # print(info)

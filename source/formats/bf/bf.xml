@@ -2,7 +2,7 @@
 <!DOCTYPE niftoolsxml>
 <niftoolsxml version="0.7.1.0">
 
-	<xi:include href="../ovl_base/ovl_base.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="xpointer(*/*)" />
+	<xi:include href="../base/base.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="xpointer(*/*)" />
 
     <basic name="ubyte50" integral="true" countable="true">
         An unsigned 16-bit integer.
@@ -70,7 +70,6 @@
     </compound>
 	
     <compound name="BfModifier">
-<!--        <add name="key_type" type="short" />-->
         <add name="key_type" type="KeyType" />
         <add name="num_keys" type="short" />
         <add name="num_bytes" type="uint" />

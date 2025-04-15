@@ -1,4 +1,4 @@
-from generated.formats.bf import BfFile
+from bfb_gen.formats.bf import BfFile
 import os
 from root_path import root_dir
 
@@ -23,3 +23,4 @@ for root, dirs, files in os.walk(in_dir):
 			bf.header.version = 2
 			bf.context.version = 2
 			bf.save(out_path)
+

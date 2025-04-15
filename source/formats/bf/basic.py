@@ -1,4 +1,4 @@
-from generated.formats.base.basic import Ushort, Float, Short, Ubyte
+from bfb_gen.formats.base.basic import Ushort, Float, Short, Ubyte
 
 
 class Ubyte50(Float):
@@ -7,8 +7,8 @@ class Ubyte50(Float):
         return Ubyte.from_stream(stream, context, arg, template) / 50
 
     @staticmethod
-    def to_stream(stream, instance):
-        Ubyte.to_stream(stream, Ubyte.from_value(round(instance * 50)))
+    def to_stream(instance, stream, context=None, arg=0, template=None):
+        Ubyte.to_stream(Ubyte.from_value(round(instance * 50)), stream)
 
 
 class Ushort1000(Float):
@@ -17,8 +17,8 @@ class Ushort1000(Float):
         return Ushort.from_stream(stream, context, arg, template) / 1000
 
     @staticmethod
-    def to_stream(stream, instance):
-        Ushort.to_stream(stream, Ushort.from_value(round(instance * 1000)))
+    def to_stream(instance, stream, context=None, arg=0, template=None):
+        Ushort.to_stream(Ushort.from_value(round(instance * 1000)), stream)
 
 
 class Short1000(Float):
@@ -27,8 +27,8 @@ class Short1000(Float):
         return Short.from_stream(stream, context, arg, template) / 1000
 
     @staticmethod
-    def to_stream(stream, instance):
-        Short.to_stream(stream, Short.from_value(round(instance * 1000)))
+    def to_stream(instance, stream, context=None, arg=0, template=None):
+        Short.to_stream(Short.from_value(round(instance * 1000)), stream)
 
 
 class Short10000(Float):
@@ -37,5 +37,5 @@ class Short10000(Float):
         return Short.from_stream(stream, context, arg, template) / 10000
 
     @staticmethod
-    def to_stream(stream, instance):
-        Short.to_stream(stream, Short.from_value(round(instance * 10000)))
+    def to_stream(instance, stream, context=None, arg=0, template=None):
+        Short.to_stream(Short.from_value(round(instance * 10000)), stream)
