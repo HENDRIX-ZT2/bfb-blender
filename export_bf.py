@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import bpy
@@ -28,7 +29,7 @@ def export_keymat(rest_rot, key_matrix):
 
 
 def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_power=2):
-	starttime = time.time()
+	start_time = time.time()
 	errors = []
 	if bake_actions:
 		from . import bake_clean_actions
@@ -36,7 +37,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 
 	dirname = os.path.dirname(filepath)
 
-	print('Exporting BF animations into', dirname, '...')
+	logging.info(f'Exporting BF animations into {dirname}')
 
 	fps = bpy.context.scene.render.fps
 	fpms = fps / 1000
@@ -62,7 +63,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 
 				#skip IKed / unbaked versions
 				if "*" in action.name: continue
-				print("Exporting", action.name)
+				logging.info(f"Exporting {action.name}")
 
 				#does an unbaked version exist, then store it
 				if "*" + action.name in bpy.data.actions and "secondary_" in action.name.lower():
@@ -95,7 +96,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 
 						#force export of scale for Bip01
 						if not scales and group.name == "Bip01":
-							print("Adding scale curves for Bip01 in " + group.name)
+							logging.debug(f"Adding scale curves for Bip01 in {group.name}")
 							scales = [
 								action.fcurves.new(data_path='pose.bones["Bip01"].scale', index=i, action_group="Bip01")
 								for i in range(3)]
@@ -107,7 +108,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 							same_amount_of_keys = all(
 								len(fcu.keyframe_points) == len(fcurves[0].keyframe_points) for fcu in fcurves)
 							if not same_amount_of_keys:
-								print(group.name + " has differing keyframe numbers for each fcurve")
+								logging.debug(f"{group.name} has differing keyframe numbers for each fcurve")
 								times = []
 								#get all times
 								for fcu in fcurves:
@@ -135,7 +136,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 						if rotations:
 							if len(rotations) != 4:
 								errors.append(
-									"Incomplete ROT key set in bone " + group.name + " for action " + action.name)
+									f"Incomplete ROT key set in bone {group.name} for action {action.name}")
 							else:
 								num_keys = len(rotations[0].keyframe_points)
 								num_mod_types += 1
@@ -152,7 +153,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 						if translations:
 							if len(translations) != 3:
 								errors.append(
-									"Incomplete LOC key set in bone " + group.name + " for action " + action.name)
+									f"Incomplete LOC key set in bone {group.name} for action {action.name}")
 							else:
 								num_keys = len(translations[0].keyframe_points)
 								num_mod_types += 1
@@ -168,7 +169,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 						if eulers:
 							if len(eulers) != 3:
 								errors.append(
-									"Incomplete EULER key set in bone " + group.name + " for action " + action.name)
+									f"Incomplete EULER key set in bone {group.name} for action {action.name}")
 							else:
 								num_keys = len(eulers[0].keyframe_points)
 								num_mod_types += 1
@@ -198,15 +199,15 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 												 num_mod_types, 204, 204, 44 + len(key_bytes), 0, 204, 204) + key_bytes)
 				write_nodes(dirname, action, nodes, fps)
 		except struct.error:
-			errors.append(group.name + " in " + action.name + " exceeded the vaild key value range.")
+			errors.append(f"{group.name} in {action.name} exceeded the valid key value range.")
 			if armature.matrix_world.to_scale().length < 1:
 				errors.append(
 					"Likely reason: Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
 			return errors
 	else:
-		print("There's no armature, but are there animations at all (docking)?")
+		logging.info("There's no armature, but are there animations at all (docking)?")
 		for action in bpy.data.actions:
-			print("Exporting", action.name)
+			logging.info(f"Exporting {action.name}")
 			nodes = []
 			#these so-called action groups are the bones, ie one group contains all fcurves of one bone
 			for group in action.groups:
@@ -246,6 +247,5 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 					struct.pack('=32s H 2B H I 2B', blendername_to_bfbname(action.name).encode('utf-8'), num_mod_types,
 								204, 204, 44 + len(key_bytes), 0, 204, 204) + key_bytes)
 			write_nodes(dirname, action, nodes, fps)
-	success = '\nFinished BF Export in %.2f seconds\n' % (time.time() - starttime)
-	print(success)
+	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")
 	return errors
