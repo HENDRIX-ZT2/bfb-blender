@@ -66,8 +66,7 @@ def write_nodes(dir_path, action, nodes, bones_data):
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					bf_key.time = frame / fps
-					bf_key.x = key[0]
-
+					bf_key.scale = key[0]
 	bf.footer.start_time = 0.0
 	bf.footer.end_time = duration
 	bf.save(file_path)
