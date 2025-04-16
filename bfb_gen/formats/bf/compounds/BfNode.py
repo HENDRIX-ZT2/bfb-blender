@@ -14,6 +14,8 @@ class BfNode(BaseStruct):
 		self.num_mod_types = name_type_map['Ushort'](self.context, 0, None)
 		self.unk_0 = name_type_map['Ubyte'].from_value(204)
 		self.unk_1 = name_type_map['Ubyte'].from_value(204)
+
+		# 44 + len(key_bytes)
 		self.num_bytes = name_type_map['Uint'](self.context, 0, None)
 
 		# unused
