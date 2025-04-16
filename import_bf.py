@@ -123,10 +123,10 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			# Have we just read the Euler Z curve data?
 			elif modifier.key_type == 8:
 				# get all times and resample the keys
-				all = set()
+				all_keys = set()
 				for v in dict_times.values():
-					all.update(v)
-				times = sorted(all)
+					all_keys.update(v)
+				times = sorted(all_keys)
 				keys = np.stack(list(
 					np.interp(times, dict_times[x], dict_eulers[x].flat) for x in range(6, 9)), axis=1)
 				for i, key in enumerate(keys):
