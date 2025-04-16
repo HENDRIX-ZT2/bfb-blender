@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE niftoolsxml>
+<niftoolsxml version="0.7.1.0">
+
+	<xi:include href="../base/base.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="xpointer(*/*)" />
+
+    <basic name="ubyte50" integral="true" countable="true">
+        An unsigned 16-bit integer.
+    </basic>
+
+	<enum name="KeyType" storage="ushort">
+		<option value="1" name="LocQuadratic" />
+		<option value="2" name="LocLinear" />
+		<option value="6" name="EulerXQuadratic" />
+		<option value="7" name="EulerYQuadratic" />
+		<option value="8" name="EulerZQuadratic" />
+        <option value="12" name="QuaternionQuadratic"/>
+        <option value="14" name="QuaternionLinear"/>
+        <option value="16" name="ScaleQuadratic"/>
+        <option value="17" name="ScaleLinear"/>
+	</enum>
+
+    <compound name="Sphere">
+        <add name="flag" type="ushort" default="1"/>
+        <add name="pos" type="Vector3" />
+        <add name="radius" type="float" />
+    </compound>
+
+    <compound name="BoundingBox">
+        <add name="flag" type="ushort" default="1"/>
+        <add name="matrix" type="Matrix44" />
+        <add name="extent" type="Vector3" />
+    </compound>
+
+    <compound name="Capsule">
+        <add name="flag" type="ushort" default="1"/>
+        <add name="pos" type="Vector3" />
+        <add name="extent" type="Vector3" />
+        <add name="radius" type="float" />
+    </compound>
+
+    <compound name="MeshData">
+        <add name="flag" type="ubyte" default="8"/>
+        <add name="BFRVertex" type="FixedString" arg="64"/>
+        <add name="v_len" type="uint" />
+        <add name="v_num" type="uint" />
+        <add name="verts" type="ubyte" arr1="v_num" arr2="v_len"/>
+        <add name="u_cha" type="byte" default="2"/>
+        <add name="t_num" type="uint" />
+        <add name="tris" type="ushort" arr1="t_num"/>
+    </compound>
+
+    <compound name="Mesh">
+        <add name="flag" type="ubyte" default="0"/>
+        <add name="dataid" type="uint" />
+        <add name="u_int" type="uint" />
+        <add name="t_sta" type="uint" />
+        <add name="t_num" type="uint" />
+        <add name="v_sta" type="uint" />
+        <add name="v_num" type="uint" />
+        <add name="f_num" type="uint" />
+        <add name="bounds_extent" type="Vector3" />
+        <add name="bounds_radius" type="float" />
+    </compound>
+
+    <compound name="Bone">
+        <add name="id" type="ubyte" />
+        <add name="parent_id" type="ubyte" />
+        <add name="group" type="ubyte" />
+        <add name="name" type="FixedString" arg="64" default=""/>
+        <add name="matrix" type="Matrix44" />
+    </compound>
+
+    <compound name="Weight">
+        <add name="b0" type="ubyte" />
+        <add name="b1" type="ubyte" />
+        <add name="b2" type="ubyte" />
+        <add name="b3" type="ubyte" />
+        <add name="w0" type="float" />
+        <add name="w1" type="float" />
+        <add name="w2" type="float" />
+    </compound>
+
+    <compound name="MeshSkinned" inherit="Mesh">
+        <add name="num_bones" type="uint" />
+        <add name="num_weights" type="uint" />
+        <add name="bones" type="Bone" arr1="num_bones" />
+        <add name="weights" type="Weight" arr1="num_weights" />
+    </compound>
+
+	<compound name="BfbBlock">
+        <add name="id" type="uint"/>
+        <add name="type_id" type="ushort"/>
+        <add name="flag" type="ushort" default="32768"/>
+        <add name="end" type="uint"/>
+        <add name="name" type="FixedString" arg="64"/>
+
+        <add name="data" cond="type_id == 1" type="Sphere"/>
+        <add name="data" cond="type_id == 3" type="BoundingBox"/>
+        <add name="data" cond="type_id == 4" type="Capsule"/>
+        <add name="data" cond="type_id == 5" type="Mesh"/>
+        <add name="data" cond="type_id == 6" type="MeshData"/>
+        <add name="data" cond="type_id == 8" type="MeshSkinned"/>
+    </compound>
+
+	<compound name="Node">
+        <add name="unk 0" type="uint" />
+        <add name="unk 1" type="uint" />
+        <add name="has_collision" type="uint"/>
+        <add name="collision_id" type="uint" cond="has_collision"/>
+    </compound>
+
+	<compound name="LodGroup" inherit="Node">
+        <add name="lodgroup" type="FixedString" arg="64" default="lodgroup"/>
+    </compound>
+
+	<compound name="MeshLink">
+        <add name="u0" type="uint" default="1"/>
+        <add name="u1" type="uint" default="1"/>
+        <add name="collision_id" type="uint" />
+        <add name="u2" type="uint" default="1"/>
+        <add name="ob_id" type="uint" />
+        <add name="u3" type="uint" default="1"/>
+        <add name="material" type="FixedString" arg="128" />
+    </compound>
+
+	<compound name="BillboardLink">
+        <add name="u0" type="uint"/>
+        <add name="has_obj" type="uint"/>
+        <add name="u1" type="uint64"/>
+        <add name="u2" type="uint64"/>
+        <add name="u3" type="uint64"/>
+        <add name="objID" type="uint"/>
+        <add name="material" type="FixedString" arg="128" />
+    </compound>
+
+	<compound name="CapsuleLink">
+        <add name="u0" type="uint" default="1"/>
+        <add name="u1" type="uint" default="1"/>
+        <add name="u2" type="uint" default="1"/>
+        <add name="collision_id" type="uint"/>
+        <add name="bone_name" type="FixedString" arg="64" />
+    </compound>
+
+	<compound name="BfbNode">
+        <add name="id" type="uint"/>
+        <add name="type_id" type="uint"/>
+        <add name="childstart" type="uint"/>
+        <add name="nextblockstart" type="uint"/>
+        <add name="unk" type="ubyte" />
+        <add name="name" type="FixedString" arg="64"/>
+        <add name="matrix" type="Matrix44" />
+
+        <add name="data" cond="type_id == 1" type="Node"/>
+        <add name="data" cond="type_id == 2" type="LodGroup"/>
+        <add name="data" cond="type_id == 3" type="MeshLink"/>
+        <add name="data" cond="type_id == 4" type="BillboardLink"/>
+        <add name="data" cond="type_id == 5" type="CapsuleLink"/>
+
+<!--        <add name="children" type="BfbNode" cond="childstart"/>-->
+<!--        <add name="next_block" type="BfbNode" cond="nextblockstart"/>-->
+    </compound>
+
+	<compound name="BfbHeader">
+        <add name="magic" type="FixedString" arg="8" default="BFB!*000"/>
+        <add name="version" type="uint64" default="4295098369"/>
+        <add name="author" type="FixedString" arg="64" />
+        <add name="num_blocks" type="uint"/>
+        <add name="num_blocks2" type="uint"/>
+    </compound>
+
+	<compound name="BfbRoot">
+        <add name="header" type="BfbHeader"/>
+        <add name="blocks" type="BfbBlock" arr1="header \ num_blocks"/>
+<!--        <add name="tree" type="BfbNode" arr1="5"/>-->
+        <add name="tree" type="BfbNode" />
+    </compound>
+
+</niftoolsxml>
