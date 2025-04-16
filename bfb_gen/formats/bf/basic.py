@@ -1,5 +1,11 @@
 from bfb_gen.formats.base.basic import Ushort, Float, Short, Ubyte
 
+class PackedUshort(Float):
+
+    @staticmethod
+    def get_size(instance, context, arg=0, template=None):
+        return 2
+
 
 class Ubyte50(Float):
     @staticmethod
@@ -10,8 +16,11 @@ class Ubyte50(Float):
     def to_stream(instance, stream, context=None, arg=0, template=None):
         Ubyte.to_stream(Ubyte.from_value(round(instance * 50)), stream)
 
+    @staticmethod
+    def get_size(instance, context, arg=0, template=None):
+        return 1
 
-class Ushort1000(Float):
+class Ushort1000(PackedUshort):
     @staticmethod
     def from_stream(stream, context=None, arg=0, template=None):
         return Ushort.from_stream(stream, context, arg, template) / 1000
@@ -21,7 +30,7 @@ class Ushort1000(Float):
         Ushort.to_stream(Ushort.from_value(round(instance * 1000)), stream)
 
 
-class Short1000(Float):
+class Short1000(PackedUshort):
     @staticmethod
     def from_stream(stream, context=None, arg=0, template=None):
         return Short.from_stream(stream, context, arg, template) / 1000
@@ -31,7 +40,7 @@ class Short1000(Float):
         Short.to_stream(Short.from_value(round(instance * 1000)), stream)
 
 
-class Short10000(Float):
+class Short10000(PackedUshort):
     @staticmethod
     def from_stream(stream, context=None, arg=0, template=None):
         return Short.from_stream(stream, context, arg, template) / 10000

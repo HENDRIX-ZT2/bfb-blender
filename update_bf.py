@@ -20,7 +20,6 @@ for root, dirs, files in os.walk(in_dir):
 			print(f"Converting {src_path} to {out_path}")
 
 			bf.load(src_path)
-			bf.header.version = 2
-			bf.context.version = 2
+			bf.header.version = bf.context.version = 2
 			bf.save(out_path)
 
