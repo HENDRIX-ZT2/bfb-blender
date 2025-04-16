@@ -10,8 +10,6 @@ class BfNode(BaseStruct):
 
 	def __init__(self, context, arg=0, template=None, set_default=True):
 		super().__init__(context, arg, template, set_default=False)
-
-		# start
 		self.name = name_type_map['FixedString'](self.context, 32, None)
 		self.num_mod_types = name_type_map['Ushort'](self.context, 0, None)
 		self.unk_0 = name_type_map['Ubyte'].from_value(204)

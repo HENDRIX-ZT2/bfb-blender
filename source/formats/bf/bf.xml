@@ -32,77 +32,68 @@
         <option value="17" name="ScaleLinear"/>
 	</enum>
 
-    <compound name="ScaleQuadratic">
+    <compound name="BaseKey">
         <add name="time" type="float" until="1" />
+        <add name="time" type="Ushort1000" since="2" />
+    </compound>
+
+    <compound name="ScaleLinear" inherit="BaseKey">
         <add name="scale" type="float" until="1" />
+
+        <add name="scale" type="ubyte50" since="2" />
+    </compound>
+
+    <compound name="ScaleQuadratic" inherit="ScaleLinear">
         <add name="a" type="float" until="1" />
         <add name="b" type="float" until="1" />
 
-        <add name="time" type="Ushort1000" since="2" />
-        <add name="scale" type="ubyte50" since="2" />
         <add name="a" type="Short1000" since="2" />
         <add name="b" type="Short1000" since="2" />
     </compound>
 
-    <compound name="ScaleLinear">
-        <add name="time" type="float" until="1" />
-        <add name="scale" type="float" until="1" />
-
-        <add name="time" type="Ushort1000" since="2" />
-        <add name="scale" type="ubyte50" since="2" />
-    </compound>
-
-    <compound name="EulerQuadratic">
-        <add name="time" type="float" until="1" />
+    <compound name="EulerQuadratic" inherit="BaseKey">
         <add name="value" type="float" until="1" />
         <add name="a" type="float" until="1" />
         <add name="b" type="float" until="1" />
 
-        <add name="time" type="Ushort1000" since="2" />
         <add name="value" type="Short1000" since="2" />
         <add name="a" type="Short1000" since="2" />
         <add name="b" type="Short1000" since="2" />
     </compound>
 
-    <compound name="QuaternionQuadratic">
-        <add name="time" type="float" until="1"/>
+    <compound name="QuaternionLinear" inherit="BaseKey">
         <add name="x" type="float" until="1" />
         <add name="y" type="float" until="1" />
         <add name="z" type="float" until="1" />
         <add name="w" type="float" until="1" />
-        <add name="t" type="float" until="1" />
-        <add name="b" type="float" until="1" />
-        <add name="c" type="float" until="1" />
 
-        <add name="time" type="Ushort1000" since="2" />
         <add name="x" type="Short10000" since="2"/>
         <add name="y" type="Short10000" since="2"/>
         <add name="z" type="Short10000" since="2"/>
         <add name="w" type="Short10000" since="2"/>
+    </compound>
+
+    <compound name="QuaternionQuadratic" inherit="QuaternionLinear">
+        <add name="t" type="float" until="1" />
+        <add name="b" type="float" until="1" />
+        <add name="c" type="float" until="1" />
+
         <add name="t" type="Short10000" since="2"/>
         <add name="b" type="Short10000" since="2"/>
         <add name="c" type="Short10000" since="2"/>
     </compound>
 
-    <compound name="QuaternionLinear">
-        <add name="time" type="float" until="1"/>
+    <compound name="LocLinear" inherit="BaseKey">
         <add name="x" type="float" until="1" />
         <add name="y" type="float" until="1" />
         <add name="z" type="float" until="1" />
-        <add name="w" type="float" until="1" />
 
-        <add name="time" type="Ushort1000" since="2" />
-        <add name="x" type="Short10000" since="2"/>
-        <add name="y" type="Short10000" since="2"/>
-        <add name="z" type="Short10000" since="2"/>
-        <add name="w" type="Short10000" since="2"/>
+        <add name="x" type="Short1000" since="2"/>
+        <add name="y" type="Short1000" since="2"/>
+        <add name="z" type="Short1000" since="2"/>
     </compound>
 
-    <compound name="LocQuadratic">
-        <add name="time" type="float" until="1" />
-        <add name="x" type="float" until="1" />
-        <add name="y" type="float" until="1" />
-        <add name="z" type="float" until="1" />
+    <compound name="LocQuadratic" inherit="LocLinear">
         <add name="x a" type="float" until="1" />
         <add name="y a" type="float" until="1" />
         <add name="z a" type="float" until="1" />
@@ -110,28 +101,12 @@
         <add name="y b" type="float" until="1" />
         <add name="z b" type="float" until="1" />
 
-        <add name="time" type="Ushort1000" since="2" />
-        <add name="x" type="Short1000" since="2"/>
-        <add name="y" type="Short1000" since="2"/>
-        <add name="z" type="Short1000" since="2"/>
         <add name="x a" type="Short1000" since="2"/>
         <add name="y a" type="Short1000" since="2"/>
         <add name="z a" type="Short1000" since="2"/>
         <add name="x b" type="Short1000" since="2"/>
         <add name="y b" type="Short1000" since="2"/>
         <add name="z b" type="Short1000" since="2"/>
-    </compound>
-
-    <compound name="LocLinear">
-        <add name="time" type="float" until="1" />
-        <add name="x" type="float" until="1" />
-        <add name="y" type="float" until="1" />
-        <add name="z" type="float" until="1" />
-
-        <add name="time" type="Ushort1000" since="2" />
-        <add name="x" type="Short1000" since="2"/>
-        <add name="y" type="Short1000" since="2"/>
-        <add name="z" type="Short1000" since="2"/>
     </compound>
 
     <compound name="BfModifier">
@@ -151,7 +126,7 @@
     </compound>
 
     <compound name="BfNode">
-        <add name="name" type="FixedString" arg="32">start</add>
+        <add name="name" type="FixedString" arg="32"/>
         <add name="num_mod_types" type="ushort" />
         <add name="unk 0" type="ubyte" default="204"/>
         <add name="unk 1" type="ubyte" default="204" />
