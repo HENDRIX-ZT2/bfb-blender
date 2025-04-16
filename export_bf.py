@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import os
 import time
@@ -11,8 +10,8 @@ from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, g
 import math
 
 
-def write_nodes(dirname, action, nodes, bones_data):
-	file_path = os.path.join(dirname, f"{action.name}.bf")
+def write_nodes(dir_path, action, nodes, bones_data):
+	file_path = os.path.join(dir_path, f"{action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
 	duration = action.frame_range[1] / fps
@@ -95,9 +94,9 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 		from . import bake_clean_actions
 		errors.extend(bake_clean_actions.bake_and_clean(error, exp_power))
 
-	dir_name = os.path.dirname(filepath)
+	dir_path = os.path.dirname(filepath)
 
-	logging.info(f'Exporting BF animations into {dir_name}')
+	logging.info(f'Exporting BF animations into {dir_path}')
 
 	bones_data = {}
 	armature = get_armature()
@@ -202,6 +201,6 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 					storage.pop(dt)
 
 				nodes.append((group.name, storage))
-		write_nodes(dir_name, action, nodes, bones_data)
+		write_nodes(dir_path, action, nodes, bones_data)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")
 	return errors
