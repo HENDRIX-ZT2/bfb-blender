@@ -16,6 +16,10 @@ type_module_name_map = {
 	'ZString': 'bfb_gen.formats.base.basic',
 	'FixedString': 'bfb_gen.formats.base.basic',
 	'SizedString': 'bfb_gen.formats.base.basic',
+	'Vector3': 'bfb_gen.formats.base.compounds.Vector3',
+	'Matrix': 'bfb_gen.formats.base.compounds.Matrix',
+	'Matrix44': 'bfb_gen.formats.base.compounds.Matrix44',
+	'Matrix33': 'bfb_gen.formats.base.compounds.Matrix33',
 }
 
 name_type_map = {}

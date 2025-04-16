@@ -79,4 +79,25 @@
         Holds a string of a fixed size.
     </basic>
 
+	<compound name="Vector3" size="12">
+		A vector in 3D space (x,y,z).
+		<field name="x" type="float">First coordinate.</field>
+		<field name="y" type="float">Second coordinate.</field>
+		<field name="z" type="float">Third coordinate.</field>
+	</compound>
+
+	<compound name="Matrix" >
+		A generic transformation matrix.
+	</compound>
+
+	<compound name="Matrix44" inherit="Matrix" size="64">
+		A 4x4 transformation matrix.
+		<field name="data" type="float" arr1="4" arr2="4">Stored in OpenGL column-major format.</field>
+	</compound>
+
+	<compound name="Matrix33" inherit="Matrix" size="36">
+		A 3x3 rotation matrix; M^T M=identity, det(M)=1.
+		<field name="data" type="float" arr1="3" arr2="3">Stored in OpenGL column-major format.</field>
+	</compound>
+
 </niftoolsxml>
