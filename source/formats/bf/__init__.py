@@ -18,12 +18,10 @@ class BfFile(BfRoot, IoFile):
 
 	def save(self, filepath):
 		# before saving, update sizes for the structs that have them
-		with io.BytesIO() as dummy:
-			self.to_stream(self, dummy, self.context)
 		for node in self.nodes:
-			node.num_bytes = node.io_size
 			for mod in node.modifiers:
-				mod.num_bytes = mod.io_size
+				mod.num_bytes = mod.get_size(mod, mod.context)
+			node.num_bytes = node.get_size(node, node.context)
 		super().save(filepath)
 
 

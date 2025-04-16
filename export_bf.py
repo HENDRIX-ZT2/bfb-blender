@@ -70,8 +70,6 @@ def write_nodes(dirname, action, nodes, bones_data):
 					bf_key.time = frame / fps
 					bf_key.x = key[0]
 
-			modifier.num_bytes = modifier.get_size(modifier, modifier.context)
-		bf_node.num_bytes = bf_node.get_size(bf_node, bf_node.context)
 	bf.footer.start_time = 0.0
 	bf.footer.end_time = duration
 	bf.save(file_path)
