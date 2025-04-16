@@ -4,7 +4,6 @@ import os
 import time
 import bpy
 import mathutils
-import struct
 
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.enums.KeyType import KeyType
