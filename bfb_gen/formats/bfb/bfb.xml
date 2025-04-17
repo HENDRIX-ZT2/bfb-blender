@@ -44,12 +44,15 @@
         <add name="radius" type="float" />
     </compound>
 
+    <compound name="MeshReader">
+    </compound>
+
     <compound name="MeshData">
         <add name="flag" type="ubyte" default="8"/>
         <add name="BFRVertex" type="FixedString" arg="64"/>
-        <add name="v_len" type="uint" />
-        <add name="v_num" type="uint" />
-        <add name="verts" type="ubyte" arr1="v_num" arr2="v_len"/>
+        <add name="size_of_vertex" type="uint" />
+        <add name="vertex_count" type="uint" />
+        <add name="verts" type="MeshReader" arg="#SELF#"/>
         <add name="u_cha" type="byte" default="2"/>
         <add name="t_num" type="uint" />
         <add name="tris" type="ushort" arr1="t_num"/>

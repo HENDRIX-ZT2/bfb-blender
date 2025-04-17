@@ -26,6 +26,7 @@ type_module_name_map = {
 	'Sphere': 'bfb_gen.formats.bfb.compounds.Sphere',
 	'BoundingBox': 'bfb_gen.formats.bfb.compounds.BoundingBox',
 	'Capsule': 'bfb_gen.formats.bfb.compounds.Capsule',
+	'MeshReader': 'bfb_gen.formats.bfb.compounds.MeshReader',
 	'MeshData': 'bfb_gen.formats.bfb.compounds.MeshData',
 	'Mesh': 'bfb_gen.formats.bfb.compounds.Mesh',
 	'Bone': 'bfb_gen.formats.bfb.compounds.Bone',
