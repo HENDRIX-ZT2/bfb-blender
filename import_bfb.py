@@ -1,8 +1,12 @@
+import logging
 import os
 import time
 import bpy
 import mathutils
 from struct import iter_unpack, unpack_from
+
+from bfb_gen.formats.bfb import BfbFile
+from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from .common_bfb import *
 from .bfmat import bfmat
 from .util import node_arrange, node_util
@@ -14,7 +18,8 @@ def getstring128(x): return datastream[x:x + 128].rstrip(b"\x00").decode("utf-8"
 def getint(x): return unpack_from('i', datastream, x)[0]
 
 
-def get_matrix(x): return mathutils.Matrix(list(iter_unpack('4f', datastream[x:x + 64])))
+def get_matrix(x):
+	return mathutils.Matrix(list(iter_unpack('4f', datastream[x:x + 64])))
 
 
 def log_error(error):
@@ -152,7 +157,7 @@ def create_material(ob, matname):
 				tex.name = "Texture" + str(i)
 				# #eg. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (
-							material.AlphaTestEnable is False and material.AlphaBlendEnable is False)) else "REPEAT"
+						material.AlphaTestEnable is False and material.AlphaBlendEnable is False)) else "REPEAT"
 				# use generated UV coords for reflection maps
 				if tex_shaders[i] == "Reflect":
 					uv = tree.nodes.new('ShaderNodeTexCoord')
@@ -288,89 +293,39 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 	armature = None
 	camera = None
 	dirname, basename = os.path.split(filepath)
+	#used to access data from the BFB by ID
 	id2data = {}
+	scales = {}
 	skinned_meshes = []
 	#when no object exists, or when we are in edit mode when script is run
 	try:
 		bpy.ops.object.mode_set(mode='OBJECT')
 	except:
 		pass
-	print("\nImporting", basename)
-	with open(filepath, 'rb') as f:
-		datastream = f.read()
-	#used to access data from the BFB by ID
-	version, u_int, author, blockcount = unpack_from("i i 64s i", datastream, 8)
-	if version != 131073: log_error("Unsupported BFB version: " + str(version))
-	pos = 88
-	print("BFB Version:", version)
-	print("BFB Author:", author.rstrip(b"\x00").decode("utf-8"))
-	print("\nReading object blocks...")
-	for b in range(0, blockcount):
-		blockid, typeid, blockend, name = unpack_from("i h i 64s", datastream, pos)
-		try:
-			name = name.rstrip(b"\x00").decode("utf-8")
-		except:
-			name = "NONE"
-		if typeid == 1:
-			type_name = "SphereCollider"
-			x, y, z, r = unpack_from("4f", datastream, pos + 78)
-			id2data[blockid] = create_sphere(name, x, y, z, r)
-		elif typeid == 3:
-			type_name = "BoundingBox"
-			matrix = get_matrix(pos + 78)
-			x, y, z = unpack_from("3f", datastream, pos + 142)
-			id2data[blockid] = create_bounding_box(name, matrix.transposed(), x, y, z)
-		elif typeid == 4:
-			type_name = "Capsule"
-			s_x, s_y, s_z, e_x, e_y, e_z, r = unpack_from("3f 3f f", datastream, pos + 78)
-			id2data[blockid] = create_capsule(name, mathutils.Vector((s_x, s_y, s_z)),
-											  mathutils.Vector((e_x, e_y, e_z)), r)
-		elif typeid == 6:
-			type_name = "MeshData"
-			BFRVertex, v_len, v_num = unpack_from("64s 2i", datastream, pos + 77)
-			pos += 149
-			BFRVertex = BFRVertex.rstrip(b"\x00").decode("utf-8")[9:]
-			#This decodes the vertex format on the fly, should work on most if not all models. Some uncertainities about the last two, rare options.
-			formatstr = BFRVertex.replace("P", "3f").replace("N", "3f").replace("T0", "2f").replace("T1", "2f").replace(
-				"T2", "2f").replace("T30", "3f").replace("T31", "3f").replace("T3D1", "2f4B").replace("D", "4B")
-			vertlist = list(iter_unpack(formatstr, datastream[pos: pos + v_len * v_num]))
-			u_cha, t_num = unpack_from("=b i", datastream, pos + v_len * v_num)
-			trilist = list(iter_unpack("3h", datastream[pos + v_len * v_num + 5: pos + v_len * v_num + 5 + t_num * 2]))
-			#there are some dummies that do not work as they should but most seems to work.
-			#perhaps find a solution for D that works without texture
-			#4/17: changed vcol to ND to make it work without tex!
-			meshtypes = (
-			("P", ("ver",)), ("N", ("nor",)), ("ND", ("rgba",)), ("T0", ("u0",)), ("T1", ("u1",)), ("T2", ("u2",)),
-			("T30", ("u0", "w",)), ("T31", ("u1", "c",)), ("T3D1", ("u3", "abcd",)),)
-			mesh_data = {"tri": trilist, "we": []}
-			meshformat = []
-			#parse the meshtypes from the BFRVertex into dict and list for correct sorting
-			for letter, typetuple in meshtypes:
-				for meshtype in typetuple:
-					mesh_data[meshtype] = []
-					if letter in BFRVertex: meshformat.append(meshtype)
-			#sort the mesh_vert into the right mesh_data lists
-			for vert in vertlist:
-				x = 0
-				for meshtype in meshformat:
-					mesh_data[meshtype].append(vert[x: x + len(meshtype)])
-					x += len(meshtype)
-			id2data[blockid] = mesh_data
-		elif typeid in (5, 8):
-			type_name = "Mesh"
-			dataid, u_int, t_sta, t_num, v_sta, v_num, f_num, x, y, z, s = unpack_from("7i 4f", datastream, pos + 77)
-			mesh_data = id2data[dataid]
-			#this could be integrated in the mesh creator further down?
-			mesh = {}
-			for key in mesh_data:
-				if key == "tri":
-					mesh[key] = mesh_data[key][t_sta // 3:(t_sta + t_num) // 3]
-				else:
-					mesh[key] = mesh_data[key][v_sta:v_sta + v_num]
-			if typeid == 8:
-				type_name = "Mesh (skinned)"
-				numbones, numweights = unpack_from("2i", datastream, pos + 121)
-				pos += 129
+	logging.info(f"Importing {basename}")
+	bfb = BfbFile()
+	bfb.load(filepath)
+	if bfb.header.version != 4295098369:
+		log_error(f"Unsupported BFB version: {bfb.header.version}")
+	logging.debug(f"BFB Version: {bfb.header.version}")
+	logging.debug(f"BFB Author: {bfb.header.author}")
+	logging.info("Reading object blocks...")
+	for block in bfb.blocks:
+		data = block.data
+		if block.type_id == BlockType.SPHERE:
+			id2data[block.id] = create_sphere(block.name, data.pos.x, data.pos.y, data.pos.z, data.radius)
+		elif block.type_id == BlockType.BOUNDING_BOX:
+			id2data[block.id] = create_bounding_box(block.name, mathutils.Matrix(data.matrix.data).transposed(),
+													data.extent.x, data.extent.y, data.extent.z)
+		elif block.type_id == BlockType.CAPSULE:
+			id2data[block.id] = create_capsule(block.name, mathutils.Vector(data.start),
+											   mathutils.Vector(data.end), data.radius)
+		elif block.type_id == BlockType.MESH_DATA:
+			id2data[block.id] = data
+		elif block.type_id in (BlockType.MESH, BlockType.MESH_SKINNED):
+			mesh_data = id2data[data.data_id]
+
+			if block.type_id == BlockType.MESH_SKINNED:
 				if not armature:
 					#create the armature
 					armData = bpy.data.armatures.new(basename[:-4])
@@ -381,28 +336,25 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 					bpy.ops.object.mode_set(mode='EDIT')
 					#read the armature block
 					mat_storage = {}
-					scales = {}
-					for x in range(0, numbones):
-						boneid, parentid, bonegroup, bonename = unpack_from("3b 64s", datastream, pos + x * 131)
-						bonename = bfbname_to_blendername(bonename)
-						bind = mathutils.Matrix(
-							list(iter_unpack('4f', datastream[pos + 67 + x * 131:pos + 67 + x * 131 + 64])))
+					for bfb_bone in data.bones:
+						bone_name = name_import(bfb_bone.name)
+						bind = mathutils.Matrix(bfb_bone.matrix.data)
 						# blender transposes matrices
 						bind.transpose()
 						# new support for bone scale
 						scale = bind.to_scale()[0]
 						if int(round(scale * 1000)) != 1000:
 							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
-							scales[bonename] = scale
+							scales[bone_name] = scale
 						#create a bone
-						b_edit_bone = armData.edit_bones.new(bonename)
+						b_edit_bone = armData.edit_bones.new(bone_name)
 						#parent it and get the armature space matrix
-						if parentid > 0:
+						if bfb_bone.parent_id > 0:
 							# calculate bfb armature space matrix
-							bind = mat_storage[parentid] @ bind
-							b_edit_bone.parent = armData.edit_bones[parentid - 1]
+							bind = mat_storage[bfb_bone.parent_id] @ bind
+							b_edit_bone.parent = armData.edit_bones[bfb_bone.parent_id - 1]
 						# we store the bfb space armature matrix of each bone
-						mat_storage[boneid] = bind.copy()
+						mat_storage[bfb_bone.id] = bind.copy()
 						#set transformation
 						bind = correction_global @ correction_local @ bind @ correction_local.inverted()
 						tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
@@ -413,54 +365,67 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 					for edit_bone in armData.edit_bones:
 						fix_bone_length(edit_bone)
 					bpy.ops.object.mode_set(mode='OBJECT')
-				pos += numbones * 131
-				bonenames = armature.data.bones.keys()
-				for vert in [((b0, w0), (b1, w1), (b2, w2), (b3, 1 - w0 - w1 - w2)) for b0, b1, b2, b3, w0, w1, w2 in
-							 list(iter_unpack("4b 3f", datastream[pos:pos + numweights * 16]))]:
-					mesh["we"].append([(bonenames[id], weight) for id, weight in vert if id > 0])
-			ob, me = mesh_from_data(name, mesh["ver"], mesh["tri"], False)
-			id2data[blockid] = ob
-			if mesh["we"]:
-				skinned_meshes.append(ob)
-				for i, vert in enumerate(mesh["we"]):
-					for bonename, weight in vert:
-						if bonename not in ob.vertex_groups: ob.vertex_groups.new(name=bonename)
-						ob.vertex_groups[bonename].add([i], weight, 'REPLACE')
-			#Do we have weights for the wind vertex shader? (UVW coordinates if you like) We store them as a vertex group so they can be easily modified.
-			if mesh["w"]:
-				print("Found fx_wind weights!")
+			# build mesh
+			tris = mesh_data.tris[data.t_sta // 3:(data.t_sta + data.t_num) // 3]
+			verts = mesh_data.verts.verts_data[data.vertex_offset: data.vertex_offset + data.vertex_count]
+			ob, b_me = mesh_from_data(block.name, verts["pos"], tris, False)
+			id2data[block.id] = ob
+			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
+			# We store them as a vertex group so they can be easily modified.
+			if "w" in verts.dtype.fields:
+				logging.debug("Found fx_wind weights!")
 				ob.vertex_groups.new(name="fx_wind")
-				for i, vert in enumerate(mesh["w"]):
+				for i, vert in enumerate(verts["w"]):
 					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
-			for face in me.polygons:
+			for face in b_me.polygons:
 				face.use_smooth = True
 				face.material_index = 0
 
 			if use_custom_normals:
-				me.use_auto_smooth = True
-				me.normals_split_custom_set_from_vertices(mesh["nor"])
+				b_me.use_auto_smooth = True
+				b_me.normals_split_custom_set_from_vertices(verts["normal"])
 
 			#UV: 1-V coordinate
 			for uv_layer in ("u0", "u1", "u2"):
-				if mesh[uv_layer]:
-					me.uv_layers.new(name=uv_layer[-1])
-					me.uv_layers[-1].data.foreach_set("uv",
-													  [uv for pair in [mesh[uv_layer][l.vertex_index] for l in me.loops]
-													   for uv in (pair[0], 1 - pair[1])])
-			#2.8: vcol now uses RGBA colors, maintain old 2-layer setup until implementation is fully functional
-			if mesh["rgba"]:
-				me.vertex_colors.new(name="RGB")
-				me.vertex_colors[-1].data.foreach_set("color",
-													  [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for
-													   c in (col[2] / 255, col[1] / 255, col[0] / 255, 1)])
-				me.vertex_colors.new(name="AAA")
-				me.vertex_colors[-1].data.foreach_set("color",
-													  [c for col in [mesh["rgba"][l.vertex_index] for l in me.loops] for
-													   c in (col[3] / 255, col[3] / 255, col[3] / 255, 1)])
+				if uv_layer in verts.dtype.fields:
+					b_me.uv_layers.new(name=uv_layer[-1])
+					b_me.uv_layers[-1].data.foreach_set("uv",
+														[uv for pair in
+														 [verts[uv_layer][l.vertex_index] for l in b_me.loops]
+														 for uv in (pair[0], 1 - pair[1])])
+			if "rgba" in verts.dtype.fields:
+				rgba = verts["rgba"].astype(float) / 255.0
+				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
+				cols.data.foreach_set("color", per_loop(b_me, rgba))
+
+			if block.type_id == BlockType.MESH_SKINNED:
+				bone_names = armature.data.bones.keys()
+				for i, vert in enumerate([(
+						(w.b_0, w.w_0),
+						(w.b_1, w.w_1),
+						(w.b_2, w.w_2),
+						(w.b_3, 1.0 - w.w_0 - w.w_1 - w.w_2)) for w in data.weights]):
+					for bone_id, weight in vert:
+						if bone_id < 255 and weight > 0.0:
+							bone_name = bone_names[bone_id]
+							if bone_name not in ob.vertex_groups:
+								ob.vertex_groups.new(name=bone_name)
+							ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
+				skinned_meshes.append(ob)
+				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
+				mod.object = armature
 
 			bpy.ops.object.mode_set(mode='EDIT')
-			if mirror_mesh and mesh["we"]:
+			# implement a custom remove doubles algorithm
+			# see which verts can be removed, find their indices and then make a new custom normals list
+			if not use_custom_normals:
+				bpy.ops.mesh.remove_doubles(threshold=0.0001, use_unselected=False)
+			try:
+				bpy.ops.uv.seams_from_islands()
+			except:
+				log_error(f"{ob.name} has no UV coordinates!")
+			if mirror_mesh:
 				bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(1, 0, 0), clear_inner=True)
 				bpy.ops.mesh.select_all(action='SELECT')
 				mod = ob.modifiers.new('Mirror', 'MIRROR')
@@ -469,34 +434,18 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 				mod.use_mirror_vertex_groups = True
 				mod.use_x = True
 				mod.merge_threshold = 0.001
-			#implement a custom remove doubles algorithm
-			#see which verts can be removed, find their indices and then make a new custom normals list
-			if not use_custom_normals:
-				bpy.ops.mesh.remove_doubles(threshold=0.0001, use_unselected=False)
-			try:
-				bpy.ops.uv.seams_from_islands()
-			except:
-				log_error(ob.name + " has no UV coordinates!")
 			bpy.ops.object.mode_set(mode='OBJECT')
-			if mesh["we"]:
-				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
-				mod.object = armature
-		# me.calc_normals()
-		else:
-			type_name = "unknown ID: " + str(typeid)
+		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
-		print('ID: %.i, Type: ' % int(blockid) + type_name + ', End: %.i, Name: ' % int(blockend) + str(name))
-		pos = blockend
-
-	#Now comes the linked list part, it starts with the root block.
-	print("\nReading object hierarchy and creating blender objects...")
-	read_linked_list(pos, None, 0)
-
+	# #Now comes the linked list part, it starts with the root block.
+	# print("\nReading object hierarchy and creating blender objects...")
+	# read_linked_list(pos, None, 0)
+	#
 	#handle scale on armature and meshes
 	if armature and scales:
 		#set inverse scale to all bones
-		for bonename, scale in scales.items():
-			pbone = armature.pose.bones[bonename]
+		for bone_name, scale in scales.items():
+			pbone = armature.pose.bones[bone_name]
 			pbone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
 		depsgraph = context.evaluated_depsgraph_get()
 		#apply skin deformation
@@ -510,11 +459,11 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 		bpy.ops.object.mode_set(mode='OBJECT')
 		#add scale back in as dummy action
 		scale_action = create_anim(armature, "!scale!")
-		for bonename, scale in scales.items():
-			fcurves = [scale_action.fcurves.new(data_path='pose.bones["' + bonename + '"].scale', index=i,
-												action_group=bonename) for i in range(0, 3)]
-			for fcurve in fcurves: fcurve.keyframe_points.insert(0, scale)
+		for bone_name, scale in scales.items():
+			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,
+												action_group=bone_name) for i in range(3)]
+			for fcurve in fcurves:
+				fcurve.keyframe_points.insert(0, scale)
 
-	success = '\nFinished BFB Import in %.2f seconds\n' % (time.time() - starttime)
-	print(success)
+	logging.info(f'Finished BFB Import in {time.time() - starttime:.2f} seconds')
 	return errors

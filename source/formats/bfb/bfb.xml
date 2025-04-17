@@ -39,8 +39,8 @@
 
     <compound name="Capsule">
         <add name="flag" type="ushort" default="1"/>
-        <add name="pos" type="Vector3" />
-        <add name="extent" type="Vector3" />
+        <add name="start" type="Vector3" />
+        <add name="end" type="Vector3" />
         <add name="radius" type="float" />
     </compound>
 
@@ -53,19 +53,19 @@
         <add name="size_of_vertex" type="uint" />
         <add name="vertex_count" type="uint" />
         <add name="verts" type="MeshReader" arg="#SELF#"/>
-        <add name="u_cha" type="byte" default="2"/>
-        <add name="t_num" type="uint" />
-        <add name="tris" type="ushort" arr1="t_num"/>
+        <add name="size_of_tri_index" type="byte" default="2"/>
+        <add name="num_tri_indices" type="uint" />
+        <add name="tris" type="ushort" arr1="num_tri_indices #DIV# 3" arr2="3"/>
     </compound>
 
     <compound name="Mesh">
         <add name="flag" type="ubyte" default="0"/>
-        <add name="dataid" type="uint" />
+        <add name="data_id" type="uint" />
         <add name="u_int" type="uint" />
         <add name="t_sta" type="uint" />
         <add name="t_num" type="uint" />
-        <add name="v_sta" type="uint" />
-        <add name="v_num" type="uint" />
+        <add name="vertex_offset" type="uint" />
+        <add name="vertex_count" type="uint" />
         <add name="f_num" type="uint" />
         <add name="bounds_extent" type="Vector3" />
         <add name="bounds_radius" type="float" />

@@ -22,12 +22,12 @@ class MeshReader(BaseStruct):
 			"P": [("pos", np.float32, (3,))],
 			"N": [("normal", np.float32, (3,))],
 			"D": [("rgba", np.ubyte, (4,))],
-			"T0": [("uv0", np.float32, (2,))],
-			"T1": [("uv1", np.float32, (2,))],
-			"T2": [("uv2", np.float32, (2,))],
-			"T30": [("uv0", np.float32, (2,)), ("w", np.float32)],
-			"T31": [("uv1", np.float32, (2,)), ("c", np.float32)],
-			"T3D1": [("uv3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
+			"T0": [("u0", np.float32, (2,))],
+			"T1": [("u1", np.float32, (2,))],
+			"T2": [("u2", np.float32, (2,))],
+			"T30": [("u0", np.float32, (2,)), ("w", np.float32)],
+			"T31": [("u1", np.float32, (2,)), ("c", np.float32)],
+			"T3D1": [("u3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
 		}
 		dt = []
 		cur = 0
