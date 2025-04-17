@@ -13,7 +13,7 @@ from .util import node_arrange, node_util
 
 
 def log_error(error):
-	print(error)
+	logging.warning(error)
 	global errors
 	errors.append(error)
 
@@ -100,7 +100,7 @@ def create_material(ob, matname):
 	shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
 	tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
 
-	print("MATERIAL:", matname)
+	logging.info(f"MATERIAL: {matname}")
 	#only create the material if we haven't already created it, then just grab it
 	if matname not in bpy.data.materials:
 		mat = bpy.data.materials.new(matname)
