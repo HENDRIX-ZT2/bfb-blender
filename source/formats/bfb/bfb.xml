@@ -8,16 +8,21 @@
         An unsigned 16-bit integer.
     </basic>
 
-	<enum name="KeyType" storage="ushort">
-		<option value="1" name="LocQuadratic" />
-		<option value="2" name="LocLinear" />
-		<option value="6" name="EulerXQuadratic" />
-		<option value="7" name="EulerYQuadratic" />
-		<option value="8" name="EulerZQuadratic" />
-        <option value="12" name="QuaternionQuadratic"/>
-        <option value="14" name="QuaternionLinear"/>
-        <option value="16" name="ScaleQuadratic"/>
-        <option value="17" name="ScaleLinear"/>
+	<enum name="BlockType" storage="ushort">
+		<option value="1" name="Sphere" />
+		<option value="3" name="BoundingBox" />
+		<option value="4" name="Capsule" />
+		<option value="5" name="Mesh" />
+		<option value="6" name="MeshData" />
+		<option value="8" name="MeshSkinned" />
+	</enum>
+
+	<enum name="NodeType" storage="uint">
+		<option value="1" name="Node" />
+		<option value="2" name="LodGroup" />
+		<option value="3" name="MeshLink" />
+		<option value="4" name="BillboardLink" />
+		<option value="5" name="CapsuleLink" />
 	</enum>
 
     <compound name="Sphere">
@@ -90,7 +95,7 @@
 
 	<compound name="BfbBlock">
         <add name="id" type="uint"/>
-        <add name="type_id" type="ushort"/>
+        <add name="type_id" type="BlockType"/>
         <add name="flag" type="ushort" default="32768"/>
         <add name="end" type="uint"/>
         <add name="name" type="FixedString" arg="64"/>
@@ -144,7 +149,7 @@
 
 	<compound name="BfbNode">
         <add name="id" type="uint"/>
-        <add name="type_id" type="uint"/>
+        <add name="type_id" type="NodeType"/>
         <add name="childstart" type="uint"/>
         <add name="nextblockstart" type="uint"/>
         <add name="unk" type="ubyte" />
@@ -157,8 +162,7 @@
         <add name="data" cond="type_id == 4" type="BillboardLink"/>
         <add name="data" cond="type_id == 5" type="CapsuleLink"/>
 
-<!--        <add name="children" type="BfbNode" cond="childstart"/>-->
-<!--        <add name="next_block" type="BfbNode" cond="nextblockstart"/>-->
+        <add name="children" type="BfbNode" arr1="0" abstract="True"/>
     </compound>
 
 	<compound name="BfbHeader">
@@ -172,7 +176,6 @@
 	<compound name="BfbRoot">
         <add name="header" type="BfbHeader"/>
         <add name="blocks" type="BfbBlock" arr1="header \ num_blocks"/>
-<!--        <add name="tree" type="BfbNode" arr1="5"/>-->
         <add name="tree" type="BfbNode" />
     </compound>
 

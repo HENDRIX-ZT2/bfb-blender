@@ -176,21 +176,18 @@ class FixedString(ZString):
 
 	@staticmethod
 	def from_stream(stream, context=None, arg=0, template=None):
-		pos = stream.tell()
-		data = r_zstr(stream.read)
-		stream.seek(pos + arg)
-		return data
+		data = stream.read(arg).rstrip(b"\x00")
+		return data.decode(errors="surrogateescape")
 
 	@staticmethod
 	def to_stream(instance, stream, context=None, arg=0, template=None):
-		pos = stream.tell()
-		w_zstr(stream.write, instance)
-		padding = arg - (stream.tell() - pos)
+		stream.write(instance.encode(errors="surrogateescape"))
+		padding = arg - len(instance)
 		stream.write(b'\x00' * padding)
 
 	@staticmethod
 	def get_size(instance, context, arg=0, template=None):
-		assert arg > (len(instance) + 1)
+		assert arg >= len(instance)
 		return arg
 
 

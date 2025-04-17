@@ -10,7 +10,7 @@ class BfbBlock(BaseStruct):
 	def __init__(self, context, arg=0, template=None, set_default=True):
 		super().__init__(context, arg, template, set_default=False)
 		self.id = name_type_map['Uint'](self.context, 0, None)
-		self.type_id = name_type_map['Ushort'](self.context, 0, None)
+		self.type_id = name_type_map['BlockType'](self.context, 0, None)
 		self.flag = name_type_map['Ushort'].from_value(32768)
 		self.end = name_type_map['Uint'](self.context, 0, None)
 		self.name = name_type_map['FixedString'](self.context, 64, None)
@@ -22,7 +22,7 @@ class BfbBlock(BaseStruct):
 	def _get_attribute_list(cls):
 		yield from super()._get_attribute_list()
 		yield 'id', name_type_map['Uint'], (0, None), (False, None), (None, None)
-		yield 'type_id', name_type_map['Ushort'], (0, None), (False, None), (None, None)
+		yield 'type_id', name_type_map['BlockType'], (0, None), (False, None), (None, None)
 		yield 'flag', name_type_map['Ushort'], (0, None), (False, 32768), (None, None)
 		yield 'end', name_type_map['Uint'], (0, None), (False, None), (None, None)
 		yield 'name', name_type_map['FixedString'], (64, None), (False, None), (None, None)
@@ -37,7 +37,7 @@ class BfbBlock(BaseStruct):
 	def _get_filtered_attribute_list(cls, instance, include_abstract=True):
 		yield from super()._get_filtered_attribute_list(instance, include_abstract)
 		yield 'id', name_type_map['Uint'], (0, None), (False, None)
-		yield 'type_id', name_type_map['Ushort'], (0, None), (False, None)
+		yield 'type_id', name_type_map['BlockType'], (0, None), (False, None)
 		yield 'flag', name_type_map['Ushort'], (0, None), (False, 32768)
 		yield 'end', name_type_map['Uint'], (0, None), (False, None)
 		yield 'name', name_type_map['FixedString'], (64, None), (False, None)
