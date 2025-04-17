@@ -13,6 +13,8 @@ class CapsuleLink(BaseStruct):
 		self.u_1 = name_type_map['Uint'].from_value(1)
 		self.u_2 = name_type_map['Uint'].from_value(1)
 		self.collision_id = name_type_map['Uint'](self.context, 0, None)
+
+		# case-sensitive
 		self.bone_name = name_type_map['FixedString'](self.context, 64, None)
 		if set_default:
 			self.set_defaults()

@@ -4,7 +4,7 @@ import mathutils
 import time
 
 from .common_bfb import *
-from .import_bfb import LOD
+from .import_bfb import assign_to_lod
 
 def clear_scene():
 	#set the visible layers for this scene
@@ -103,7 +103,7 @@ def add_lods(numlods, rate):
 					lod.data = ob.data.copy()
 					lod.name = ob.name + "_LOD"+str(i)
 					bpy.context.scene.collection.objects.link(lod)
-					LOD(lod, i)
+					assign_to_lod(lod, i)
 					lod.parent = parent
 					mod = lod.modifiers.new('Decimator', 'DECIMATE')
 					mod.ratio = 1/(i+rate)

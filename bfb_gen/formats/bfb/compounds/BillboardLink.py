@@ -14,7 +14,7 @@ class BillboardLink(BaseStruct):
 		self.u_1 = name_type_map['Uint64'](self.context, 0, None)
 		self.u_2 = name_type_map['Uint64'](self.context, 0, None)
 		self.u_3 = name_type_map['Uint64'](self.context, 0, None)
-		self.obj_i_d = name_type_map['Uint'](self.context, 0, None)
+		self.object_id = name_type_map['Uint'](self.context, 0, None)
 		self.material = name_type_map['FixedString'](self.context, 128, None)
 		if set_default:
 			self.set_defaults()
@@ -27,7 +27,7 @@ class BillboardLink(BaseStruct):
 		yield 'u_1', name_type_map['Uint64'], (0, None), (False, None), (None, None)
 		yield 'u_2', name_type_map['Uint64'], (0, None), (False, None), (None, None)
 		yield 'u_3', name_type_map['Uint64'], (0, None), (False, None), (None, None)
-		yield 'obj_i_d', name_type_map['Uint'], (0, None), (False, None), (None, None)
+		yield 'object_id', name_type_map['Uint'], (0, None), (False, None), (None, None)
 		yield 'material', name_type_map['FixedString'], (128, None), (False, None), (None, None)
 
 	@classmethod
@@ -38,5 +38,5 @@ class BillboardLink(BaseStruct):
 		yield 'u_1', name_type_map['Uint64'], (0, None), (False, None)
 		yield 'u_2', name_type_map['Uint64'], (0, None), (False, None)
 		yield 'u_3', name_type_map['Uint64'], (0, None), (False, None)
-		yield 'obj_i_d', name_type_map['Uint'], (0, None), (False, None)
+		yield 'object_id', name_type_map['Uint'], (0, None), (False, None)
 		yield 'material', name_type_map['FixedString'], (128, None), (False, None)

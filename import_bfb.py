@@ -3,23 +3,13 @@ import os
 import time
 import bpy
 import mathutils
-from struct import iter_unpack, unpack_from
 
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
+from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from .common_bfb import *
 from .bfmat import bfmat
 from .util import node_arrange, node_util
-
-
-def getstring128(x): return datastream[x:x + 128].rstrip(b"\x00").decode("utf-8")
-
-
-def getint(x): return unpack_from('i', datastream, x)[0]
-
-
-def get_matrix(x):
-	return mathutils.Matrix(list(iter_unpack('4f', datastream[x:x + 64])))
 
 
 def log_error(error):
@@ -28,68 +18,54 @@ def log_error(error):
 	errors.append(error)
 
 
-def read_linked_list(pos, parent, level):
-	blockid, typeid, childstart, nextblockstart, u_cha, name = unpack_from("=4i b 64s", datastream, pos)
-	name = name.rstrip(b"\x00").decode("utf-8")
-	matrix = get_matrix(pos + 81)
+def import_scene_graph(b_parent, node, lod_level):
+	ob = None
+	matrix = mathutils.Matrix(node.matrix.data)
 	matrix.transpose()
-	#ordinary node, node with collision or lod level
-	if typeid == 1:
-		print("NODE:", name)
-		if armature and not parent:
+	logging.info(f"{node.type_id}: {node.name}")
+	# ordinary node, node with collision or lod level
+	if node.type_id == NodeType.NODE:
+		if armature and not b_parent:
 			ob = armature
-			ob.name = name
-			ob.data.name = name
+			ob.name = node.name
+			ob.data.name = node.name
 			ob.matrix_local = matrix
 		else:
-			ob = create_empty(parent, name, matrix)
-		hascollision = getint(pos + 153)
-		if hascollision == 1:
-			id2data[getint(pos + 157)].parent = ob
-	#lod group
-	elif typeid == 2:
-		print("LOD GROUP:", name)
-		ob = create_empty(parent, "lodgroup", matrix)
-	#mesh linker
-	elif typeid == 3:
-		print("MESH LINK:", name)
-		objID = getint(pos + 161)
-		matname = getstring128(pos + 169)
-		ob = id2data[objID]
-		ob.name = name
-		if parent:
-			ob.parent = parent
+			ob = create_empty(b_parent, node.name, matrix)
+		if node.data.has_collision == 1:
+			id2data[node.data.collision_id].parent = ob
+	elif node.type_id == NodeType.LOD_GROUP:
+		ob = create_empty(b_parent, "lodgroup", matrix)
+	elif node.type_id == NodeType.MESH_LINK:
+		ob = id2data[node.data.object_id]
+		ob.name = node.name
+		if b_parent:
+			ob.parent = b_parent
 		ob.matrix_local = matrix
-		create_material(ob, matname)
-		LOD(ob, level)
-	elif typeid == 4:
-		print("BILLBOARD:", name)
+		create_material(ob, node.data.material)
+		assign_to_lod(ob, lod_level)
+	elif node.type_id == NodeType.BILLBOARD_LINK:
 		global camera
 		if not camera:
 			camera_data = bpy.data.cameras.new("TrackingCameraData")
 			camera = create_ob("TrackingCamera", camera_data)
 			camera.location = (2, -2, 2)
 			camera.rotation_euler = (1.047, 0.0, 0.785)
-		hasobj = getint(pos + 157)
-		objID = getint(pos + 185)
-		matname = getstring128(pos + 189)
-		ob = id2data[objID]
-		ob.name = name
+		ob = id2data[node.data.object_id]
+		ob.name = node.name
 		ob.matrix_local = matrix
-		ob.parent = parent
-		create_material(ob, matname)
-		LOD(ob, level)
+		ob.parent = node
+		create_material(ob, node.data.material)
+		assign_to_lod(ob, lod_level)
 		const = ob.constraints.new('COPY_ROTATION')
 		const.use_x = False
 		const.use_y = False
 		const.use_z = True
 		const.target = camera
-	#capsule collider link, only in actor meshes
-	elif typeid == 5:
-		collisionid = getint(pos + 157)
-		#case-sensitive name
-		bone_name = bfbname_to_blendername(datastream[pos + 161:pos + 161 + 64])
-		ob = id2data[collisionid]
+	elif node.type_id == NodeType.CAPSULE_LINK:
+		# only in actor meshes
+		bone_name = name_import(node.data.bone_name)
+		ob = id2data[node.data.collision_id]
 		ob.parent = armature
 		ob.parent_bone = bone_name
 		ob.parent_type = 'BONE'
@@ -97,21 +73,13 @@ def read_linked_list(pos, parent, level):
 			ob.location.y = -armature.data.bones[bone_name].length
 		except:
 			ob.parent_bone = "Bip01"
-			log_error("Capsule collider " + name + " has no parent bone, set to Bip01!")
-		print("CAPSULE COLLIDER:", bone_name)
-	else:
-		print("Unknown type ID", typeid, "in block links!")
-	#if we have children, the newly created empty is their parent
-	if childstart != 0:
-		pos = childstart
-		read_linked_list(pos, ob, level)
+			log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
 	#if this is a lod level, move it to its respective layer
-	if parent and parent.name.startswith("lodgroup"):
-		level += 1
-	#for the next block, the old empty is the parent
-	if nextblockstart != 0:
-		pos = nextblockstart
-		read_linked_list(pos, parent, level)
+	if b_parent and b_parent.name.startswith("lodgroup"):
+		lod_level += 1
+	# if we have children, the newly created empty is their parent
+	for child in node.children:
+		import_scene_graph(ob, child, lod_level)
 
 
 def create_material(ob, matname):
@@ -287,7 +255,6 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 	errors = []
 	global armature
 	global camera
-	global datastream
 	global dirname
 	global id2data
 	armature = None
@@ -437,10 +404,10 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 			bpy.ops.object.mode_set(mode='OBJECT')
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
-	# #Now comes the linked list part, it starts with the root block.
-	# print("\nReading object hierarchy and creating blender objects...")
-	# read_linked_list(pos, None, 0)
-	#
+	#Now comes the linked list part, it starts with the root block.
+	logging.info("Reading object hierarchy and creating blender objects...")
+	import_scene_graph(None, bfb.tree, 0)
+
 	#handle scale on armature and meshes
 	if armature and scales:
 		#set inverse scale to all bones

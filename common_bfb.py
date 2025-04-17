@@ -4,7 +4,7 @@ import mathutils
 import os
 
 
-def LOD(ob, level):
+def assign_to_lod(ob, level):
 	"""Adds a newly created object to a lod collection, creates one if neeed, and sets their visibility"""
 	lod_name = "LOD" + str(level)
 	if lod_name not in bpy.data.collections:

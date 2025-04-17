@@ -127,7 +127,7 @@
         <add name="u1" type="uint" default="1"/>
         <add name="collision_id" type="uint" />
         <add name="u2" type="uint" default="1"/>
-        <add name="ob_id" type="uint" />
+        <add name="object_id" type="uint" />
         <add name="u3" type="uint" default="1"/>
         <add name="material" type="FixedString" arg="128" />
     </compound>
@@ -138,7 +138,7 @@
         <add name="u1" type="uint64"/>
         <add name="u2" type="uint64"/>
         <add name="u3" type="uint64"/>
-        <add name="objID" type="uint"/>
+        <add name="object_id" type="uint"/>
         <add name="material" type="FixedString" arg="128" />
     </compound>
 
@@ -147,7 +147,7 @@
         <add name="u1" type="uint" default="1"/>
         <add name="u2" type="uint" default="1"/>
         <add name="collision_id" type="uint"/>
-        <add name="bone_name" type="FixedString" arg="64" />
+        <add name="bone_name" type="FixedString" arg="64" >case-sensitive</add>
     </compound>
 
 	<compound name="BfbNode">

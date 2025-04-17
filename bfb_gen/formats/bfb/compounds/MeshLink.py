@@ -13,7 +13,7 @@ class MeshLink(BaseStruct):
 		self.u_1 = name_type_map['Uint'].from_value(1)
 		self.collision_id = name_type_map['Uint'](self.context, 0, None)
 		self.u_2 = name_type_map['Uint'].from_value(1)
-		self.ob_id = name_type_map['Uint'](self.context, 0, None)
+		self.object_id = name_type_map['Uint'](self.context, 0, None)
 		self.u_3 = name_type_map['Uint'].from_value(1)
 		self.material = name_type_map['FixedString'](self.context, 128, None)
 		if set_default:
@@ -26,7 +26,7 @@ class MeshLink(BaseStruct):
 		yield 'u_1', name_type_map['Uint'], (0, None), (False, 1), (None, None)
 		yield 'collision_id', name_type_map['Uint'], (0, None), (False, None), (None, None)
 		yield 'u_2', name_type_map['Uint'], (0, None), (False, 1), (None, None)
-		yield 'ob_id', name_type_map['Uint'], (0, None), (False, None), (None, None)
+		yield 'object_id', name_type_map['Uint'], (0, None), (False, None), (None, None)
 		yield 'u_3', name_type_map['Uint'], (0, None), (False, 1), (None, None)
 		yield 'material', name_type_map['FixedString'], (128, None), (False, None), (None, None)
 
@@ -37,6 +37,6 @@ class MeshLink(BaseStruct):
 		yield 'u_1', name_type_map['Uint'], (0, None), (False, 1)
 		yield 'collision_id', name_type_map['Uint'], (0, None), (False, None)
 		yield 'u_2', name_type_map['Uint'], (0, None), (False, 1)
-		yield 'ob_id', name_type_map['Uint'], (0, None), (False, None)
+		yield 'object_id', name_type_map['Uint'], (0, None), (False, None)
 		yield 'u_3', name_type_map['Uint'], (0, None), (False, 1)
 		yield 'material', name_type_map['FixedString'], (128, None), (False, None)
