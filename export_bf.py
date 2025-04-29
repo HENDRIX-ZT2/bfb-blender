@@ -83,11 +83,13 @@ def export_keymat(rest_rot, key_matrix):
 	key_matrix = correction_local_inv @ key_matrix @ correction_local
 	return rest_rot @ key_matrix
 
+
 def keys_iter(fcurves):
 	num_keys = len(fcurves[0].keyframe_points)
 	for i in range(0, num_keys):
 		frame = fcurves[0].keyframe_points[i].co[0]
 		yield frame, [fcurve.keyframe_points[i].co[1] for fcurve in fcurves]
+
 
 def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_power=2):
 	start_time = time.time()
@@ -155,7 +157,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 
 				# collect the fcurves here already
 				dtypes = {"rotation_quaternion": 4, "rotation_euler": 3, "location": 3, "scale": 3}
-				storage = {dt : [fcurve for fcurve in group.channels if fcurve.data_path.endswith(dt)] for dt in dtypes}
+				storage = {dt: [fcurve for fcurve in group.channels if fcurve.data_path.endswith(dt)] for dt in dtypes}
 
 				# force export of scale for Bip01
 				if not storage["scale"] and group.name == "Bip01":
