@@ -23,7 +23,7 @@ def write_nodes(dir_path, action, nodes, bones_data):
 		bf_node.name = blendername_to_bfbname(name)
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
-		rest_scale, rest_rot, rest_trans = bones_data[name]
+		rest_scale, rest_rot, rest_trans, rest_quat = bones_data[name]
 		for modifier, dt in zip(bf_node.modifiers, storage):
 			fcurves = storage[dt]
 			modifier.num_keys = len(fcurves[0].keyframe_points)
@@ -33,15 +33,14 @@ def write_nodes(dir_path, action, nodes, bones_data):
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					quat = export_keymat(rest_rot, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
-					set_quat(bf_key, fps, frame, quat)
-
+					set_quat(bf_key, fps, frame, quat, rest_quat)
 			if dt == "rotation_euler":
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					# todo: use to_euler( ) with compatible euler to fix distortions
 					quat = export_keymat(rest_rot, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
-					set_quat(bf_key, fps, frame, quat)
+					set_quat(bf_key, fps, frame, quat, rest_quat)
 
 			if dt == "location":
 				modifier.key_type = KeyType.LOC_LINEAR
@@ -64,11 +63,10 @@ def write_nodes(dir_path, action, nodes, bones_data):
 	bf.save(file_path)
 
 
-def set_quat(bf_key, fps, frame, quat):
+def set_quat(bf_key, fps, frame, quat, rest_quat):
 	bf_key.time = frame / fps
-	# not negating apparently breaks bones when applied to nif models
-	if quat.x < 0.0 and quat.y < 0.0 and quat.z < 0.0:
-		quat.negate()
+	# some quats need to be negated to match the rest_quat; otherwise the bf breaks bones when applied to nif models
+	quat.make_compatible(rest_quat)
 	bf_key.x = quat.x
 	bf_key.y = quat.y
 	bf_key.z = quat.z
@@ -110,12 +108,12 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 				"Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
 		for bone in armature.data.bones:
 			rest_scale, rest_rot, rest_trans = decompose_srt(get_bfb_matrix(bone))
-			bones_data[bone.name] = (rest_scale, rest_rot.to_4x4(), rest_trans)
+			bones_data[bone.name] = (rest_scale, rest_rot.to_4x4(), rest_trans, rest_rot.to_quaternion())
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
 			rest_scale, rest_rot, rest_trans = decompose_srt(mathutils.Matrix().to_4x4())
-			bones_data[b_ob.name] = (rest_scale, rest_rot.to_4x4(), rest_trans)
+			bones_data[b_ob.name] = (rest_scale, rest_rot.to_4x4(), rest_trans, rest_rot.to_quaternion())
 
 	for action in bpy.data.actions:
 		# make sure it starts precisely at frame 0
