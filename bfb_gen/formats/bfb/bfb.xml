@@ -123,8 +123,8 @@
     </compound>
 
 	<compound name="MeshLink">
-        <add name="u0" type="uint" default="1"/>
-        <add name="u1" type="uint" default="1"/>
+        <add name="u0" type="uint" default="1"/>anky: lod0 = 0, other lods = 2, unsure about non-lod
+        <add name="u1" type="uint" default="1"/>anky: 0
         <add name="collision_id" type="uint" />
         <add name="u2" type="uint" default="1"/>
         <add name="object_id" type="uint" />
@@ -155,7 +155,7 @@
         <add name="type_id" type="NodeType"/>
         <add name="childstart" type="uint"/>
         <add name="nextblockstart" type="uint"/>
-        <add name="unk" type="ubyte" />
+        <add name="unk" type="ubyte" />anky: lod0 geom + node = 4, other lods = 0, unsure about rest
         <add name="name" type="FixedString" arg="64"/>
         <add name="matrix" type="Matrix44" />
 
