@@ -106,7 +106,7 @@ class ImportMS2(BulkImportOp):
 		name="Use MS2 Normals",
 		description="Applies MS2 normals as custom normals to preserve the original shading. May crash on some meshes due to a blender bug",
 		default=False)
-	mirror_mesh: BoolProperty(
+	use_mirror_mesh: BoolProperty(
 		name="Mirror Meshes",
 		description="Mirrors models. Careful, sometimes bones don't match",
 		default=False)

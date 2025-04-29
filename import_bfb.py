@@ -7,6 +7,8 @@ import mathutils
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
+from modules_import.geometry import ob_postpro, set_auto_smooth_safe
+from util.fast_mesh import FastMesh
 from .common_bfb import *
 from .bfmat import bfmat
 from .util import node_arrange, node_util
@@ -251,7 +253,7 @@ def create_material(ob, matname):
 	me.materials.append(mat)
 
 
-def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=False):
+def load(operator, context, filepath="", use_custom_normals=False, use_mirror_mesh=False):
 	starttime = time.time()
 	global errors
 	errors = []
@@ -337,36 +339,49 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 			# build mesh
 			tris = mesh_data.tris[data.t_sta // 3:(data.t_sta + data.t_num) // 3]
 			verts = mesh_data.verts.verts_data[data.vertex_offset: data.vertex_offset + data.vertex_count]
-			ob, b_me = mesh_from_data(block.name, verts["pos"], tris, False)
+
+			vertices = verts["pos"].copy()
+			verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
+			sorted_indices = np.sort(unique_indices)
+			verts_unique = vertices[sorted_indices]
+			transsort = np.argsort(unique_indices)
+			i_rev = transsort.copy()
+			i_rev[transsort] = np.arange(len(i_rev))
+			unique_inverse = i_rev[unique_inverse]
+			tris_sorted = np.take(unique_inverse, tris)
+			mesh_tris_flat = tris.flatten()
+
+			b_me = FastMesh.new(block.name)
+			b_me.from_pydata(verts_unique, [], tris_sorted)
+			ob = create_ob(block.name, b_me)
+			# ob, b_me = mesh_from_data(block.name, verts_unique, tris, False)
 			id2data[block.id] = ob
 			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
 			# We store them as a vertex group so they can be easily modified.
 			if "w" in verts.dtype.fields:
 				logging.debug("Found fx_wind weights!")
 				ob.vertex_groups.new(name="fx_wind")
-				for i, vert in enumerate(verts["w"]):
+				for i, vert in enumerate(verts["w"][sorted_indices]):
 					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
+			b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
 			for face in b_me.polygons:
-				face.use_smooth = True
 				face.material_index = 0
 
 			if use_custom_normals:
-				b_me.use_auto_smooth = True
-				b_me.normals_split_custom_set_from_vertices(verts["normal"])
+				set_auto_smooth_safe(b_me)
+				b_me.normals_split_custom_set(per_loop(mesh_tris_flat, verts["normal"]))
 
-			# UV: 1-V coordinate
 			for uv_layer in ("u0", "u1", "u2"):
 				if uv_layer in verts.dtype.fields:
 					b_me.uv_layers.new(name=uv_layer[-1])
-					b_me.uv_layers[-1].data.foreach_set("uv",
-														[uv for pair in
-														 [verts[uv_layer][l.vertex_index] for l in b_me.loops]
-														 for uv in (pair[0], 1 - pair[1])])
+					uvs = verts[uv_layer].copy()
+					uvs[:, 1] = 1.0 - uvs[:, 1]
+					b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
 			if "rgba" in verts.dtype.fields:
 				rgba = verts["rgba"].astype(float) / 255.0
 				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
-				cols.data.foreach_set("color", per_loop(b_me, rgba))
+				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba).flatten())
 
 			if block.type_id == BlockType.MESH_SKINNED:
 				bone_names = b_armature_ob.data.bones.keys()
@@ -374,7 +389,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 						(w.b_0, w.w_0),
 						(w.b_1, w.w_1),
 						(w.b_2, w.w_2),
-						(w.b_3, 1.0 - w.w_0 - w.w_1 - w.w_2)) for w in data.weights]):
+						(w.b_3, 1.0 - w.w_0 - w.w_1 - w.w_2)) for w in data.weights[sorted_indices]]):
 					for bone_id, weight in vert:
 						if bone_id < 255 and weight > 0.0:
 							bone_name = bone_names[bone_id]
@@ -385,25 +400,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
 				mod.object = b_armature_ob
 
-			bpy.ops.object.mode_set(mode='EDIT')
-			# implement a custom remove doubles algorithm
-			# see which verts can be removed, find their indices and then make a new custom normals list
-			if not use_custom_normals:
-				bpy.ops.mesh.remove_doubles(threshold=0.0001, use_unselected=False)
-			try:
-				bpy.ops.uv.seams_from_islands()
-			except:
-				log_error(f"{ob.name} has no UV coordinates!")
-			if mirror_mesh:
-				bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(1, 0, 0), clear_inner=True)
-				bpy.ops.mesh.select_all(action='SELECT')
-				mod = ob.modifiers.new('Mirror', 'MIRROR')
-				mod.use_clip = True
-				mod.use_mirror_merge = True
-				mod.use_mirror_vertex_groups = True
-				mod.use_x = True
-				mod.merge_threshold = 0.001
-			bpy.ops.object.mode_set(mode='OBJECT')
+			ob_postpro(use_mirror_mesh)
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
 	# Now comes the linked list part, it starts with the root block.

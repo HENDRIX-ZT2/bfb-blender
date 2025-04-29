@@ -2,6 +2,7 @@ import math
 import bpy
 import mathutils
 import os
+import numpy as np
 
 
 def assign_to_lod(ob, level):
@@ -41,7 +42,7 @@ def ensure_active_object():
 
 
 def fix_bone_length(edit_bone):
-	#don't change Bip01
+	# don't change Bip01
 	if edit_bone.parent:
 		if edit_bone.children:
 			childheads = mathutils.Vector()
@@ -106,13 +107,14 @@ def create_anim(ob, anim_name):
 	ob.animation_data.action = action
 	return action
 
-def per_loop(b_me, per_vertex_input):
-	return [c for col in [per_vertex_input[l.vertex_index] for l in b_me.loops] for c in col]
+
+def per_loop(flattened_tris, per_vertex_input):
+	return np.take(per_vertex_input, flattened_tris, axis=0)
+
 
 def mesh_from_data(name, verts, faces, wireframe=True):
 	me = bpy.data.meshes.new(name)
 	me.from_pydata(verts, [], faces)
-	me.update()
 	ob = create_ob(name, me)
 	if wireframe:
 		ob.display_type = 'WIRE'
@@ -156,9 +158,9 @@ def create_bounding_box(name, matrix, x, y, z):
 
 
 def create_capsule(name, start, end, r):
-	#print(start,end,r)
+	# print(start,end,r)
 	l = end.length
-	#this primitive stands up and has radius of 0.5, height 1, the caps extend outward
+	# this primitive stands up and has radius of 0.5, height 1, the caps extend outward
 	verts = [(1.00 * r, 0.00 * r, -0.00 * r), (0.87 * r, 0.00 * r, -0.50 * r), (0.50 * r, 0.00 * r, -0.87 * r),
 			 (0.35 * r, 0.35 * r, -0.87 * r), (0.61 * r, 0.61 * r, -0.50 * r), (0.71 * r, 0.71 * r, 0.00 * r),
 			 (-0.00 * r, 1.00 * r, 0.00 * r), (-0.00 * r, 0.87 * r, -0.50 * r), (-0.00 * r, 0.50 * r, -0.87 * r),
@@ -189,9 +191,9 @@ def create_capsule(name, start, end, r):
 			 (45, 42, 43, 44), (44, 49, 48, 45), (47, 46, 45, 48), (34, 46, 47), (18, 19, 30, 31), (19, 24, 25, 30),
 			 (0, 49, 25, 24), (0, 5, 44, 49), (5, 6, 43, 44), (6, 11, 38, 43), (11, 12, 37, 38), (12, 18, 31, 37)]
 	ob, me = mesh_from_data(name, verts, faces)
-	#we want a rotation that, when multiplied with the up vector, equals the end vector
+	# we want a rotation that, when multiplied with the up vector, equals the end vector
 	rot = end.to_track_quat("Z", "Y")
-	#this shows our rotation is correct	#up = mathutils.Vector((0,0,1))	#result = rot*up*l	#print(result)	#print(end)	#these are all working = identical
+	# this shows our rotation is correct	#up = mathutils.Vector((0,0,1))	#result = rot*up*l	#print(result)	#print(end)	#these are all working = identical
 	for v in me.vertices:
 		v.co = rot @ v.co + start
 	ob.rotation_euler.z = 1.5708
@@ -260,9 +262,9 @@ def name_import(s: str):
 
 def get_armature():
 	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature]
-	#do we have armatures?
+	# do we have armatures?
 	if src_armatures:
-		#see if one of these is selected -> get only that one
+		# see if one of these is selected -> get only that one
 		if len(src_armatures) > 1:
 			sel_armatures = [ob for ob in src_armatures if ob.select]
 			if sel_armatures:

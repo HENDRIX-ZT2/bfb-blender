@@ -79,7 +79,7 @@
         <add name="matrix" type="Matrix44" />
     </compound>
 
-    <compound name="Weight">
+    <compound name="Weight" allow_np="true">
         <add name="b0" type="ubyte" />
         <add name="b1" type="ubyte" />
         <add name="b2" type="ubyte" />

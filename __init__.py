@@ -143,8 +143,8 @@ class ImportBFB(bpy.types.Operator, ImportHelper):
 	filename_ext = ".bfb"
 	filter_glob: StringProperty(default="*.bfb", options={'HIDDEN'})
 	use_custom_normals: BoolProperty(name="Use BFB Normals", description="Preserves the original shading of a BFB.",
-									 default=False)
-	mirror_mesh: BoolProperty(name="Mirror Rigged Meshes",
+									 default=True)
+	use_mirror_mesh: BoolProperty(name="Mirror Rigged Meshes",
 							  description="Mirrors models with a skeleton. Careful, sometimes bones don't match!",
 							  default=False)
 
