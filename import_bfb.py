@@ -25,8 +25,8 @@ def import_scene_graph(b_parent, node, lod_level):
 	logging.info(f"{node.type_id}: {node.name}")
 	# ordinary node, node with collision or lod level
 	if node.type_id == NodeType.NODE:
-		if armature and not b_parent:
-			ob = armature
+		if b_armature_ob and not b_parent:
+			ob = b_armature_ob
 			ob.name = node.name
 			ob.data.name = node.name
 			ob.matrix_local = matrix
@@ -66,11 +66,11 @@ def import_scene_graph(b_parent, node, lod_level):
 		# only in actor meshes
 		bone_name = name_import(node.data.bone_name)
 		ob = id2data[node.data.collision_id]
-		ob.parent = armature
+		ob.parent = b_armature_ob
 		ob.parent_bone = bone_name
 		ob.parent_type = 'BONE'
 		try:
-			ob.location.y = -armature.data.bones[bone_name].length
+			ob.location.y = -b_armature_ob.data.bones[bone_name].length
 		except:
 			ob.parent_bone = "Bip01"
 			log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
@@ -150,7 +150,8 @@ def create_material(ob, matname):
 								for key in tex_anim[dtype]:
 									transform.translation[j] = key[1]
 									# note that since we are dealing with UV coordinates, V has to be negated
-									if j == 1: transform.translation[j] *= -1
+									if j == 1:
+										transform.translation[j] *= -1
 									transform.keyframe_insert("translation", index=j, frame=int(key[0] * fps))
 						tree.links.new(uv.outputs[0], transform.inputs[0])
 						tree.links.new(transform.outputs[0], tex.inputs[0])
@@ -254,11 +255,11 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 	starttime = time.time()
 	global errors
 	errors = []
-	global armature
+	global b_armature_ob
 	global camera
 	global dirname
 	global id2data
-	armature = None
+	b_armature_ob = None
 	camera = None
 	dirname, basename = os.path.split(filepath)
 	# used to access data from the BFB by ID
@@ -294,15 +295,15 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 			mesh_data = id2data[data.data_id]
 
 			if block.type_id == BlockType.MESH_SKINNED:
-				if not armature:
-					# create the armature
-					armData = bpy.data.armatures.new(basename[:-4])
-					armData.show_axes = True
-					armData.display_type = 'STICK'
-					armature = create_ob(basename[:-4], armData)
-					# armature.show_x_ray = True
+				if not b_armature_ob:
+					# create the b_armature_ob
+					b_armature_data = bpy.data.armatures.new(basename[:-4])
+					b_armature_data.show_axes = True
+					b_armature_data.display_type = 'STICK'
+					b_armature_ob = create_ob(basename[:-4], b_armature_data)
+					# b_armature_ob.show_x_ray = True
 					bpy.ops.object.mode_set(mode='EDIT')
-					# read the armature block
+					# read the b_armature_ob block
 					mat_storage = {}
 					for bfb_bone in data.bones:
 						bone_name = name_import(bfb_bone.name)
@@ -315,12 +316,12 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
 							scales[bone_name] = scale
 						# create a bone
-						b_edit_bone = armData.edit_bones.new(bone_name)
+						b_edit_bone = b_armature_data.edit_bones.new(bone_name)
 						# parent it and get the armature space matrix
 						if bfb_bone.parent_id > 0:
 							# calculate bfb armature space matrix
 							bind = mat_storage[bfb_bone.parent_id] @ bind
-							b_edit_bone.parent = armData.edit_bones[bfb_bone.parent_id - 1]
+							b_edit_bone.parent = b_armature_data.edit_bones[bfb_bone.parent_id - 1]
 						# we store the bfb space armature matrix of each bone
 						mat_storage[bfb_bone.id] = bind.copy()
 						# set transformation
@@ -330,7 +331,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 						b_edit_bone.tail = tail + b_edit_bone.head
 						b_edit_bone.roll = roll
 					# fix the bone length
-					for edit_bone in armData.edit_bones:
+					for edit_bone in b_armature_data.edit_bones:
 						fix_bone_length(edit_bone)
 					bpy.ops.object.mode_set(mode='OBJECT')
 			# build mesh
@@ -368,7 +369,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 				cols.data.foreach_set("color", per_loop(b_me, rgba))
 
 			if block.type_id == BlockType.MESH_SKINNED:
-				bone_names = armature.data.bones.keys()
+				bone_names = b_armature_ob.data.bones.keys()
 				for i, vert in enumerate([(
 						(w.b_0, w.w_0),
 						(w.b_1, w.w_1),
@@ -382,7 +383,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 							ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
 				skinned_meshes.append(ob)
 				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
-				mod.object = armature
+				mod.object = b_armature_ob
 
 			bpy.ops.object.mode_set(mode='EDIT')
 			# implement a custom remove doubles algorithm
@@ -410,10 +411,10 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 	import_scene_graph(None, bfb.tree, 0)
 
 	# handle scale on armature and meshes
-	if armature and scales:
+	if b_armature_ob and scales:
 		# set inverse scale to all bones
 		for bone_name, scale in scales.items():
-			pbone = armature.pose.bones[bone_name]
+			pbone = b_armature_ob.pose.bones[bone_name]
 			pbone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
 		depsgraph = context.evaluated_depsgraph_get()
 		# apply skin deformation
@@ -421,12 +422,12 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 			object_eval = ob.evaluated_get(depsgraph)
 			ob.data = bpy.data.meshes.new_from_object(object_eval)
 		# remove scales from armature
-		bpy.context.view_layer.objects.active = armature
+		bpy.context.view_layer.objects.active = b_armature_ob
 		bpy.ops.object.mode_set(mode='POSE')
 		bpy.ops.pose.armature_apply()
 		bpy.ops.object.mode_set(mode='OBJECT')
 		# add scale back in as dummy action
-		scale_action = create_anim(armature, "!scale!")
+		scale_action = create_anim(b_armature_ob, "!scale!")
 		for bone_name, scale in scales.items():
 			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,
 												action_group=bone_name) for i in range(3)]
