@@ -88,9 +88,10 @@ def create_material(ob, matname):
 		for error in material.errors:
 			log_error(error)
 	except Exception as error:
-		log_error(error)
+		log_error(str(error))
 		return
-	if not material.root: return
+	if not material.root:
+		return
 	fx = material.fx
 	cull_mode = material.CullMode
 	alpha_ref = material.AlphaRef
