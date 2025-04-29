@@ -82,7 +82,7 @@ def load(operator, context, filepath = ""):
 	for face in me.polygons:
 		face.use_smooth = True
 	
-	for biome in lutbiomes: map_ob.vertex_groups.new(biome)
+	for biome in lutbiomes: map_ob.vertex_groups.new(name=biome)
 	for t, key in enumerate(info):
 		if key == "00_f_height": pass
 		elif key == "08_b_biome":
@@ -90,7 +90,7 @@ def load(operator, context, filepath = ""):
 				biome = lutbiomes[vertlist[i][t]]
 				map_ob.vertex_groups[biome].add([i], 1, 'REPLACE')
 		else:
-			map_ob.vertex_groups.new(key)
+			map_ob.vertex_groups.new(name=key)
 			for i in range(len(vertlist)):
 				#prevent clipping
 				if "_f_" in key:
@@ -99,7 +99,7 @@ def load(operator, context, filepath = ""):
 					map_ob.vertex_groups[key].add([i], vertlist[i][t], 'REPLACE')
 	#for compatibility with export
 	for key in reversed(missing):
-		map_ob.vertex_groups.new(key)
+		map_ob.vertex_groups.new(name=key)
 	
 	p += calcsize(formatstr)*x_verts*y_verts
 	num_water_bodies = unpack_from('=I',datastream, p)[0]
@@ -118,7 +118,7 @@ def load(operator, context, filepath = ""):
 		for i in entries:
 			water_me.vertices[i].co[2] = height-7
 		group_name = str(body)+"_"+water_biome
-		water_ob.vertex_groups.new(group_name)
+		water_ob.vertex_groups.new(name=group_name)
 		water_ob.vertex_groups[group_name].add(entries, 1, 'REPLACE')
 
 	success = 'Finished DAT Import in %.2f seconds\n' %(time.time()-starttime)

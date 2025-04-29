@@ -292,7 +292,7 @@ def save(operator, context, filepath = '', author_name = "HENDRIX", export_mater
 			if ob.parent_type == "BONE" and not ob.name.startswith('capsule'):
 				log_error(ob.name+" was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
 				bonename = ob.parent_bone
-				ob.vertex_groups.new(bonename)
+				ob.vertex_groups.new(name=bonename)
 				try: ob.data.transform( ob.parent.data.bones[bonename].matrix_local )
 				except: pass
 				ob.vertex_groups[bonename].add( range(len(ob.data.vertices)), 1.0, 'REPLACE' )
