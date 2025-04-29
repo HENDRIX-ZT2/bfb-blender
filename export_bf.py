@@ -67,7 +67,7 @@ def write_nodes(dir_path, action, nodes, bones_data):
 def set_quat(bf_key, fps, frame, quat):
 	bf_key.time = frame / fps
 	# not negating apparently breaks bones when applied to nif models
-	if quat.x < 0 and quat.y < 0 and quat.z < 0:
+	if quat.x < 0.0 and quat.y < 0.0 and quat.z < 0.0:
 		quat.negate()
 	bf_key.x = quat.x
 	bf_key.y = quat.y
