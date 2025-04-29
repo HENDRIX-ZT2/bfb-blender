@@ -74,12 +74,12 @@ def import_scene_graph(b_parent, node, lod_level):
 		except:
 			ob.parent_bone = "Bip01"
 			log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
-	#if this is a lod level, move it to its respective layer
-	if b_parent and b_parent.name.startswith("lodgroup"):
-		lod_level += 1
 	# if we have children, the newly created empty is their parent
 	for child in node.children:
 		import_scene_graph(ob, child, lod_level)
+		# if this is a lod level, move next child to its respective layer
+		if ob.name.startswith("lodgroup"):
+			lod_level += 1
 
 
 def create_material(ob, matname):
@@ -97,12 +97,12 @@ def create_material(ob, matname):
 	alpha_ref = material.AlphaRef
 	fps = bpy.context.scene.render.fps
 
-	#see which sub-shaders are used by this fx shader, and get the used ones in order
+	# see which sub-shaders are used by this fx shader, and get the used ones in order
 	shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
 	tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
 
 	logging.info(f"MATERIAL: {matname}")
-	#only create the material if we haven't already created it, then just grab it
+	# only create the material if we haven't already created it, then just grab it
 	if matname not in bpy.data.materials:
 		mat = bpy.data.materials.new(matname)
 		mat.use_nodes = True
@@ -138,7 +138,7 @@ def create_material(ob, matname):
 					uv.uv_map = tex_index if tex_index else str(i)
 					if tex_transform or tex_anim:
 						transform = tree.nodes.new('ShaderNodeMapping')
-						#todo: negate V coordinate
+						# todo: negate V coordinate
 						if tex_transform:
 							matrix_4x4 = mathutils.Matrix(tex_transform)
 							transform.scale = matrix_4x4.to_scale()
@@ -149,7 +149,7 @@ def create_material(ob, matname):
 							for j, dtype in enumerate(("offsetu", "offsetv")):
 								for key in tex_anim[dtype]:
 									transform.translation[j] = key[1]
-									#note that since we are dealing with UV coordinates, V has to be negated
+									# note that since we are dealing with UV coordinates, V has to be negated
 									if j == 1: transform.translation[j] *= -1
 									transform.keyframe_insert("translation", index=j, frame=int(key[0] * fps))
 						tree.links.new(uv.outputs[0], transform.inputs[0])
@@ -157,7 +157,7 @@ def create_material(ob, matname):
 					else:
 						tree.links.new(uv.outputs[0], tex.inputs[0])
 				tex.update()
-		#gather & premix all diffuse colors into one RGB color to plug into the shader
+		# gather & premix all diffuse colors into one RGB color to plug into the shader
 		if textures:
 			diffuse = textures[0]
 			for texture, tex_shader in zip(textures, tex_shaders):
@@ -181,7 +181,7 @@ def create_material(ob, matname):
 				tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
 				tree.links.new(vcol.outputs[0], mixRGB.inputs[2])
 				diffuse = mixRGB
-			#fallback for missing texture
+			# fallback for missing texture
 			else:
 				diffuse = vcol
 		if diffuse:
@@ -194,13 +194,13 @@ def create_material(ob, matname):
 				shader_glow = tree.nodes.new('ShaderNodeEmission')
 				tree.links.new(texture.outputs[0], shader_glow.inputs[0])
 				tree.links.new(texture.outputs[1], shader_glow.inputs[1])
-				#now add glow to diffuse shader with an add shader
+				# now add glow to diffuse shader with an add shader
 				shader_add = tree.nodes.new('ShaderNodeAddShader')
 				tree.links.new(shader_diffuse.outputs[0], shader_add.inputs[0])
 				tree.links.new(shader_glow.outputs[0], shader_add.inputs[1])
 				shader_diffuse = shader_add
 
-		#transparency
+		# transparency
 		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
 			mat.blend_method = "OPAQUE"
 			tree.links.new(shader_diffuse.outputs[0], output.inputs[0])
@@ -234,7 +234,7 @@ def create_material(ob, matname):
 			tree.links.new(alpha_mixer.outputs[0], output.inputs[0])
 
 		node_arrange.nodes_iterate(tree, output)
-		#finally, set interpolation and extrapolation for all fcurves we have created
+		# finally, set interpolation and extrapolation for all fcurves we have created
 		if tree.animation_data:
 			for fcu in tree.animation_data.action.fcurves:
 				for k in fcu.keyframe_points:
@@ -245,7 +245,7 @@ def create_material(ob, matname):
 	else:
 		mat = bpy.data.materials[matname]
 
-	#now finally set all the textures we have in the mesh
+	# now finally set all the textures we have in the mesh
 	me = ob.data
 	me.materials.append(mat)
 
@@ -261,11 +261,11 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 	armature = None
 	camera = None
 	dirname, basename = os.path.split(filepath)
-	#used to access data from the BFB by ID
+	# used to access data from the BFB by ID
 	id2data = {}
 	scales = {}
 	skinned_meshes = []
-	#when no object exists, or when we are in edit mode when script is run
+	# when no object exists, or when we are in edit mode when script is run
 	try:
 		bpy.ops.object.mode_set(mode='OBJECT')
 	except:
@@ -295,14 +295,14 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 
 			if block.type_id == BlockType.MESH_SKINNED:
 				if not armature:
-					#create the armature
+					# create the armature
 					armData = bpy.data.armatures.new(basename[:-4])
 					armData.show_axes = True
 					armData.display_type = 'STICK'
 					armature = create_ob(basename[:-4], armData)
 					# armature.show_x_ray = True
 					bpy.ops.object.mode_set(mode='EDIT')
-					#read the armature block
+					# read the armature block
 					mat_storage = {}
 					for bfb_bone in data.bones:
 						bone_name = name_import(bfb_bone.name)
@@ -314,16 +314,16 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 						if int(round(scale * 1000)) != 1000:
 							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
 							scales[bone_name] = scale
-						#create a bone
+						# create a bone
 						b_edit_bone = armData.edit_bones.new(bone_name)
-						#parent it and get the armature space matrix
+						# parent it and get the armature space matrix
 						if bfb_bone.parent_id > 0:
 							# calculate bfb armature space matrix
 							bind = mat_storage[bfb_bone.parent_id] @ bind
 							b_edit_bone.parent = armData.edit_bones[bfb_bone.parent_id - 1]
 						# we store the bfb space armature matrix of each bone
 						mat_storage[bfb_bone.id] = bind.copy()
-						#set transformation
+						# set transformation
 						bind = correction_global @ correction_local @ bind @ correction_local.inverted()
 						tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
 						b_edit_bone.head = bind.to_translation()
@@ -354,7 +354,7 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 				b_me.use_auto_smooth = True
 				b_me.normals_split_custom_set_from_vertices(verts["normal"])
 
-			#UV: 1-V coordinate
+			# UV: 1-V coordinate
 			for uv_layer in ("u0", "u1", "u2"):
 				if uv_layer in verts.dtype.fields:
 					b_me.uv_layers.new(name=uv_layer[-1])
@@ -405,27 +405,27 @@ def load(operator, context, filepath="", use_custom_normals=False, mirror_mesh=F
 			bpy.ops.object.mode_set(mode='OBJECT')
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
-	#Now comes the linked list part, it starts with the root block.
+	# Now comes the linked list part, it starts with the root block.
 	logging.info("Reading object hierarchy and creating blender objects...")
 	import_scene_graph(None, bfb.tree, 0)
 
-	#handle scale on armature and meshes
+	# handle scale on armature and meshes
 	if armature and scales:
-		#set inverse scale to all bones
+		# set inverse scale to all bones
 		for bone_name, scale in scales.items():
 			pbone = armature.pose.bones[bone_name]
 			pbone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
 		depsgraph = context.evaluated_depsgraph_get()
-		#apply skin deformation
+		# apply skin deformation
 		for ob in skinned_meshes:
 			object_eval = ob.evaluated_get(depsgraph)
 			ob.data = bpy.data.meshes.new_from_object(object_eval)
-		#remove scales from armature
+		# remove scales from armature
 		bpy.context.view_layer.objects.active = armature
 		bpy.ops.object.mode_set(mode='POSE')
 		bpy.ops.pose.armature_apply()
 		bpy.ops.object.mode_set(mode='OBJECT')
-		#add scale back in as dummy action
+		# add scale back in as dummy action
 		scale_action = create_anim(armature, "!scale!")
 		for bone_name, scale in scales.items():
 			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,

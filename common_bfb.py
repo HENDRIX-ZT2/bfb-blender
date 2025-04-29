@@ -6,7 +6,7 @@ import os
 
 def assign_to_lod(ob, level):
 	"""Adds a newly created object to a lod collection, creates one if neeed, and sets their visibility"""
-	lod_name = "LOD" + str(level)
+	lod_name = f"LOD{level}"
 	if lod_name not in bpy.data.collections:
 		coll = bpy.data.collections.new(lod_name)
 		bpy.context.scene.collection.children.link(coll)
