@@ -33,11 +33,7 @@ def write_nodes(dir_path, action, nodes, bones_data):
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					quat = export_keymat(rest_rot, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
-					bf_key.time = frame / fps
-					bf_key.x = quat.x
-					bf_key.y = quat.y
-					bf_key.z = quat.z
-					bf_key.w = quat.w
+					set_quat(bf_key, fps, frame, quat)
 
 			if dt == "rotation_euler":
 				modifier.key_type = KeyType.QUATERNION_LINEAR
@@ -45,11 +41,7 @@ def write_nodes(dir_path, action, nodes, bones_data):
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					# todo: use to_euler( ) with compatible euler to fix distortions
 					quat = export_keymat(rest_rot, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
-					bf_key.time = frame / fps
-					bf_key.x = quat.x
-					bf_key.y = quat.y
-					bf_key.z = quat.z
-					bf_key.w = quat.w
+					set_quat(bf_key, fps, frame, quat)
 
 			if dt == "location":
 				modifier.key_type = KeyType.LOC_LINEAR
@@ -70,6 +62,17 @@ def write_nodes(dir_path, action, nodes, bones_data):
 	bf.footer.start_time = 0.0
 	bf.footer.end_time = duration
 	bf.save(file_path)
+
+
+def set_quat(bf_key, fps, frame, quat):
+	bf_key.time = frame / fps
+	# not negating apparently breaks bones when applied to nif models
+	if quat.x < 0 and quat.y < 0 and quat.z < 0:
+		quat.negate()
+	bf_key.x = quat.x
+	bf_key.y = quat.y
+	bf_key.z = quat.z
+	bf_key.w = quat.w
 
 
 correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
