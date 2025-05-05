@@ -45,22 +45,23 @@ def find_fcurve(id_data, path, index=0):
 
 
 def write_bfmat(ob, mat):
-	matoptions = [("AlphaApplyMode", "dword", "4"),
-				  ("AlphaBlendEnable", "bool", "false"),
-				  ("AlphaFunc", "dword", "5"),
-				  ("AlphaRef", "dword", "127"),
-				  ("AlphaTestEnable", "bool", "true"),
-				  ("AmbientMaterialSource", "dword", "1"),
-				  ("ColorApplyMode", "dword", "4"),
-				  ("CullMode", "dword", "1"),
-				  ("DiffuseMaterialSource", "dword", "1"),
-				  ("EmissiveMaterialSource", "dword", "0"),
-				  ("MaterialAmbient", "vector4", "1, 1, 1, 1"),
-				  ("MaterialDiffuse", "vector4", "1, 1, 1, 1"),
-				  ("MaterialEmissive", "vector4", "0, 0, 0, 1"),
-				  ("MaterialPower", "float", "1"),
-				  ("ShadeMode", "dword", "2"),
-				  ("SpecularEnable", "bool", "false")]
+	matoptions = [
+		("AlphaApplyMode", "dword", "4"),
+		("AlphaBlendEnable", "bool", "false"),
+		("AlphaFunc", "dword", "5"),
+		("AlphaRef", "dword", "127"),
+		("AlphaTestEnable", "bool", "true"),
+		("AmbientMaterialSource", "dword", "1"),
+		("ColorApplyMode", "dword", "4"),
+		("CullMode", "dword", "1"),
+		("DiffuseMaterialSource", "dword", "1"),
+		("EmissiveMaterialSource", "dword", "0"),
+		("MaterialAmbient", "vector4", "1, 1, 1, 1"),
+		("MaterialDiffuse", "vector4", "1, 1, 1, 1"),
+		("MaterialEmissive", "vector4", "0, 0, 0, 1"),
+		("MaterialPower", "float", "1"),
+		("ShadeMode", "dword", "2"),
+		("SpecularEnable", "bool", "false")]
 
 	print("Exporting BFMAT file for", mat.name)
 	matpath = os.path.join(dirname, "Materials")
