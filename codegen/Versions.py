@@ -8,7 +8,7 @@ base_ver_attrs = ("id", "supported", "custom", "ext")
 def split_parenthesis_aware(input_string, delimiter):
 	split_string = []
 	par_level = 0
-	last_start = 0
+	lastri_index_offsetrt = 0
 	i = 0
 	while i < len(input_string):
 		char = input_string[i]
@@ -19,13 +19,13 @@ def split_parenthesis_aware(input_string, delimiter):
 		else:
 			if not par_level:
 				if input_string[i:i + len(delimiter)] == delimiter:
-					split_string.append(input_string[last_start:i])
+					split_string.append(input_string[lastri_index_offsetrt:i])
 					i += len(delimiter)
-					last_start = i
+					lastri_index_offsetrt = i
 					continue
 		i += 1
 	# there is a part left
-	split_string.append(input_string[last_start:i])
+	split_string.append(input_string[lastri_index_offsetrt:i])
 	return split_string
 
 

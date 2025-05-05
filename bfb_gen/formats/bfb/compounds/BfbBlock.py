@@ -1,4 +1,7 @@
 from bfb_gen.base_struct import BaseStruct
+
+
+from bfb_gen.base_struct import BaseStruct
 from bfb_gen.formats.bfb.imports import name_type_map
 
 
@@ -53,3 +56,10 @@ class BfbBlock(BaseStruct):
 			yield 'data', name_type_map['MeshData'], (0, None), (False, None)
 		if instance.type_id == 8:
 			yield 'data', name_type_map['MeshSkinned'], (0, None), (False, None)
+
+
+	@classmethod
+	def write_fields(cls, stream, instance):
+		instance.end = instance.io_start + instance.get_size(instance, instance.context)
+		super().write_fields(stream, instance)
+

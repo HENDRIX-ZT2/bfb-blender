@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import time
@@ -5,6 +6,12 @@ import bpy
 import mathutils
 import xml.etree.ElementTree as ET
 from struct import pack
+
+from bfb_gen.formats.bfb import BfbFile
+from bfb_gen.formats.bfb.compounds.BfbBlock import BfbBlock
+from bfb_gen.formats.bfb.compounds.BfbNode import BfbNode
+from bfb_gen.formats.bfb.enums.BlockType import BlockType
+from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from .common_bfb import *
 
 
@@ -150,80 +157,106 @@ def has_collider(ob):
 	return False
 
 
-def write_linked_list(ob, start):
-	data = b''
-	matrix = flatten(ob.matrix_local.transposed())
-	logging.debug(f'Gathering block data for {ob.name}')
-	if type(ob.data) in (type(None), bpy.types.Armature):
+def export_tree(b_ob, bfb, bfb_parent=None):
+	logging.debug(f'Gathering block data for {b_ob.name}')
+	if b_ob.type in ("EMPTY", "ARMATURE"):
 		# LOD group
-		if ob.name.startswith('lodgroup'):
-			type_id = 2
-			data = pack('<B 64s 16f 3i 64s', 2, ob.name.encode('utf-8'), *matrix, 0, 2, 0, b'lodgroup')
+		if b_ob.name.startswith('lodgroup'):
+			bfb_node = bfb.create_node(b_ob, bfb, NodeType.LOD_GROUP, bfb_parent)
+			bfb_node.unk = 2
+			bfb_node.reset_field("data")
+			data = bfb_node.data
+			data.unk_0 = 0
+			data.unk_1 = 2
+			data.has_collision = 0
 		else:
-			type_id = 1
+			bfb_node = bfb.create_node(b_ob, bfb, NodeType.NODE, bfb_parent)
 			# Root Block
-			if not ob.parent:
-				data = pack('<B 64s 16f 3i', 0, ob.name.encode('utf-8'), *matrix, 0, 5, 0)
+			if not b_ob.parent:
+				bfb_node.unk = 0
+				bfb_node.reset_field("data")
+				data = bfb_node.data
+				data.unk_0 = 0
+				data.unk_1 = 5
+				data.has_collision = 0
 			# node, with collision attached
-			elif has_collider(ob):
-				data = pack('<B 64s 16f 4i', 1, ob.name.encode('utf-8'), *matrix, 1, 1, 1, ob_2_id[ob.children[0]])
+			elif has_collider(b_ob):
+				bfb_node.unk = 1
+				bfb_node.reset_field("data")
+				data = bfb_node.data
+				data.unk_0 = 1
+				data.unk_1 = 1
+				data.has_collision = 1
+				data.collision_id = bfb.ob_2_block_id[b_ob.children[0]]
 			# standard node
 			else:
-				obname = "end_post" if "end_post" in ob.name else ob.name
-				data = pack('<B 64s 16f 3i', 1, obname.encode('utf-8'), *matrix, 1, 1, 0)
-	elif type(ob.data) == bpy.types.Mesh:
-		if ob.name.startswith('sphere') or ob.name.startswith('orientedbox'):
+				bfb_node.unk = 1
+				bfb_node.reset_field("data")
+				data = bfb_node.data
+				data.unk_0 = 1
+				data.unk_1 = 1
+				data.has_collision = 0
+	elif b_ob.type == "MESH":
+		if b_ob.name.startswith('sphere') or b_ob.name.startswith('orientedbox'):
 			pass
-		elif ob.name.startswith('capsule'):
-			if ob.parent_type != "BONE" or not ob.parent_bone:
-				log_error("Capsule collider " + ob.name + " is not parented to a bone.")
-			bone = blendername_to_bfbname(ob.parent_bone)
-			type_id = 5
-			data = pack('<B 64s 16f 4i 64s', 0, bone.lower().encode('utf-8'), *matrix, 1, 1, 1, ob_2_id[ob],
-						bone.encode('utf-8'))
+		elif b_ob.name.startswith('capsule'):
+			if b_ob.parent_type != "BONE" or not b_ob.parent_bone:
+				log_error(f"Capsule collider {b_ob.name} is not parented to a bone.")
+			bone_name = blendername_to_bfbname(b_ob.parent_bone)
+			bfb_node = bfb.create_node(b_ob, bfb, NodeType.CAPSULE_LINK, bfb_parent)
+			bfb_node.unk = 0
+			bfb_node.name = bone_name.lower()
+			bfb_node.reset_field("data")
+			data = bfb_node.data
+			data.unk_0 = 1
+			data.unk_1 = 1
+			data.has_collision = 1
+			data.bone_name = bone_name
+			data.collision_id = bfb.ob_2_block_id[b_ob]
 		else:
 			matname = 'none'
-			if len(ob.data.materials) > 0:
+			if len(b_ob.data.materials):
 				# sometimes the will be empty slots before a material
-				for material in ob.data.materials:
+				for material in b_ob.data.materials:
 					if material:
 						if write_materials:
-							write_bfmat(ob, material)
+							write_bfmat(b_ob, material)
 						matname = material.name.replace(".", "")
 						break
 			else:
-				log_error(f'Mesh {ob.name} has no Material, no BFMAT was exported!')
-			if ob.constraints:
-				# i assume 1, 0, -1 are the tracking axes?
-				type_id = 4
-				data = pack('<B 64s 16f 6i 3f 2i 128s', 4, ob.name.encode('utf-8'), *matrix, 0, 0, 0, 1, 0, 0, 1, 0, -1,
-							0, ob_2_id[ob], matname.encode('utf-8'))
+				log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
+			if b_ob.constraints:
+				bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
+				bfb_node.unk = 4
+				bfb_node.reset_field("data")
+				data = bfb_node.data
+				data.object_id = bfb.ob_2_block_id[b_ob]
+				data.material = matname
+				data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
 			else:
-				type_id = 3
-				data = pack('<B 64s 16f 6i 128s', 4, ob.name.encode('utf-8'), *matrix, 1, 1, 0, 1, ob_2_id[ob], 1,
-							matname.encode('utf-8'))
-	if data:
-		# does this node have children? colliders don't count!
-		has_children = False
-		if ob.children and not has_collider(ob):
-			has_children = True
-		next_child = start + len(data) + 16 if has_children else 0
+				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
+				bfb_node.unk = 4
+				bfb_node.reset_field("data")
+				data = bfb_node.data
+				data.object_id = bfb.ob_2_block_id[b_ob]
+				data.material = matname
+	else:
+		return
+	for b_child in b_ob.children:
+		bfb_child = export_tree(b_child, bfb, bfb_node)
+		bfb_node.children.append(bfb_child)
+	return bfb_node
 
-		childrenstart = next_child
-		for child in ob.children:
-			childstr = write_linked_list(child, childrenstart)
-			childrenstart += len(childstr)
-			data += childstr
-		# are there any more siblings of this node left to add? siblings follow after all children of this node
-		has_sibling = False
-		if ob.parent:
-			for sibling in ob.parent.children[ob.parent.children.index(ob) + 1:]:
-				if type(sibling.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
-					has_sibling = True
-					break
-		next_sibling = start + len(data) + 16 if has_sibling else 0
-		return pack('<4i', ob_2_id[ob], type_id, next_child, next_sibling) + data
-	return data
+
+# # are there any more siblings of this node left to add? siblings follow after all children of this node
+	# has_sibling = False
+	# if b_ob.parent:
+	# 	for sibling in b_ob.parent.children[b_ob.parent.children.index(b_ob) + 1:]:
+	# 		if type(sibling.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
+	# 			has_sibling = True
+	# 			break
+	# 	next_sibling = start + len(data) + 16 if has_sibling else 0
+	# 	return pack('<4i', bfb.ob_2_block_id[b_ob], type_id, next_child, next_sibling) + data
 
 
 def apply_transform(ob, ):
@@ -252,94 +285,82 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	write_materials = export_materials
 	global dirname
 	dirname = os.path.dirname(filepath)
-	armature_bytes = b""
+	bfb = BfbFile()
 
 	# if one model uses an armature, all have to. If they don't, they can't be exported.
 	has_armature = False
 
-	global ob_2_block
-	ob_2_block = {}
-	global ob_2_weight_bytes
-	ob_2_weight_bytes = {}
+	global ob_2_weights_list
+	ob_2_weights_list = {}
 	global ob_2_fx_wind
 	ob_2_fx_wind = {}
-	global ob_2_id
-	ob_2_id = {}
-	ob_2_meshOffset = {}
 	BFRVertex_2_meshData = {}
 
 	global stream
+	scene = bpy.context.scene
 	stream = b''
-	starttime = time.time()
+	start_time = time.time()
 	logging.info('Generating block IDs for objects in scene')
 	# keep track of objects without a parent, if >1 add an Auto Root
 	roots = []
-	for b_ob in bpy.context.scene.objects:
+	for b_ob in scene.objects:
 		if type(b_ob.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
-			if b_ob.parent == None:
+			if not b_ob.parent:
 				roots.append(b_ob)
 	if len(roots) == 1:
-		root = roots[0]
-		if root.name.startswith("lodgroup"):
+		b_root = roots[0]
+		if b_root.name.startswith("lodgroup"):
 			logging.warning('Lodgroup must not be root! Created an Auto Root empty!')
-			root = create_empty(None, 'Auto Root', mathutils.Matrix())
-			roots[0].parent = root
+			b_root = create_empty(None, 'Auto Root', mathutils.Matrix())
+			roots[0].parent = b_root
 	else:
 		logging.warning('Found more than one root object! Created an Auto Root empty!')
-		root = create_empty(None, 'Auto Root', mathutils.Matrix())
+		b_root = create_empty(None, 'Auto Root', mathutils.Matrix())
 		for b_ob in roots:
-			b_ob.parent = root
+			b_ob.parent = b_root
 
-	identity = mathutils.Matrix()
-	blockcount = 0
+	global ID
 	ID = 1
-	for b_ob in bpy.context.scene.objects:
-		ob_2_id[b_ob] = ID
-		ID += 1
+	for b_ob in scene.objects:
 		if type(b_ob.data) == bpy.types.Mesh:
-			# note that this is not the final blockcount, as every mesh data also gets counted
-			blockcount += 1
 			if b_ob.find_armature():
 				apply_transform(b_ob)
 				has_armature = True
 			# fix meshes parented to a bone by adding vgroups
 			if b_ob.parent_type == "BONE" and not b_ob.name.startswith('capsule'):
-				log_error(f"{b_ob.name} was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
-				bonename = b_ob.parent_bone
-				b_ob.vertex_groups.new(name=bonename)
+				log_error(
+					f"{b_ob.name} was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
+				bone_name = b_ob.parent_bone
+				b_ob.vertex_groups.new(name=bone_name)
 				try:
-					b_ob.data.transform(b_ob.parent.data.bones[bonename].matrix_local)
+					b_ob.data.transform(b_ob.parent.data.bones[bone_name].matrix_local)
 				except:
 					pass
-				b_ob.vertex_groups[bonename].add(range(len(b_ob.data.vertices)), 1.0, 'REPLACE')
+				b_ob.vertex_groups[bone_name].add(range(len(b_ob.data.vertices)), 1.0, 'REPLACE')
 				b_ob.parent_type = "OBJECT"
-				bpy.context.scene.update()
+				scene.update()
 				# apply again just to be sure
 				apply_transform(b_ob)
 	logging.info('Gathering mesh data')
 	# get all objects, meshData, meshes + skeletons and collisions
-	for b_ob in bpy.context.scene.objects:
-		if type(b_ob.data) == bpy.types.Mesh:
+	for b_ob in scene.objects:
+		if b_ob.type == "MESH":
 			if b_ob.name.startswith('capsule'):
-				stream += export_capsule(b_ob, 88 + len(stream))
+				export_capsule(b_ob, bfb)
 			elif b_ob.name.startswith('sphere'):
-				stream += export_sphere(b_ob, 88 + len(stream))
+				export_sphere(b_ob, bfb)
 			elif b_ob.name.startswith('orientedbox'):
-				stream += export_bounding_box(b_ob, 88 + len(stream))
+				export_bounding_box(b_ob, bfb)
 			else:
 				# export the armature if not already done for a previous mesh
 				armature = b_ob.find_armature()
 				# we have an armature on one mesh, means we can't export meshes without armature
 				if has_armature and not armature:
-					log_error(b_ob.name + " is not exported because it does not use an armature while other models do.")
+					log_error(f"{b_ob.name} is not exported because it does not use an armature while other models do.")
 					continue
-				if has_armature and not armature_bytes:
-					for pbone in armature.pose.bones:
-						pbone.matrix_basis = mathutils.Matrix()
-					bones = armature.data.bones.values()
-					# todo: calculate this value properly, refer values from other objects
-					lodgroup = -1
-					root_bones = [bone for bone in bones if not bone.parent]
+
+				if armature:
+					root_bones = [bone for bone in armature.data.bones.values() if not bone.parent]
 					# fatal
 					if len(root_bones) > 1:
 						if fix_root_bones:
@@ -349,7 +370,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 								if bone.name == "Bip01":
 									root_bone = bone
 									break
-							bpy.context.scene.objects.active = armature
+							scene.objects.active = armature
 							bpy.ops.object.mode_set(mode='EDIT')
 							# delete the other root bones
 							for bone in root_bones:
@@ -358,38 +379,16 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 									armature.data.edit_bones.remove(e_bone)
 									logging.warning(f"Removed {bone.name} because it is a superfluous root bone")
 							bpy.ops.object.mode_set(mode='OBJECT')
-							# update the bones list
-							bones = armature.data.bones.values()
 						else:
 							log_error(
 								f"{armature.name} has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
 							return errors
-					# locate rest scale action
-					if "!scale!" in bpy.data.actions:
-						rest_scale = bpy.data.actions["!scale!"]
-						# we have to apply the scale dummy action
-						armature.animation_data.action = rest_scale
-						bpy.context.scene.frame_set(0)
-					else:
-						log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
-						rest_scale = None
-					# export bones
-					for bone in bones:
-						boneid = bones.index(bone) + 1
-						if bone.parent:
-							parentid = bones.index(bone.parent) + 1
-						else:
-							parentid = 0
-						# new rest scale support
-						try:
-							group = rest_scale.groups[bone.name]
-							scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
-							scale = scales[0].keyframe_points[0].co[1]
-						except:
-							scale = 1.0
-						mat = mathutils.Matrix.Scale(scale, 4) @ get_bfb_matrix(bone)
-						armature_bytes += pack('<bbb 64s 16f', boneid, parentid, lodgroup,
-											   blendername_to_bfbname(bone.name).lower().encode('utf-8'), *flatten(mat))
+					# clear pose to ensure no distorted pose is applied
+					for p_bone in armature.pose.bones:
+						p_bone.matrix_basis = mathutils.Matrix()
+					bones_names = {name: i for i, name in enumerate(armature.data.bones.keys())}
+				else:
+					bones_names = {}
 
 				# remove unneeded modifiers
 				for mod in b_ob.modifiers:
@@ -415,10 +414,9 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 				mesh_vertices = []
 				mesh_triangles = []
 				# used to ignore the normals for checking equality
-				dummy_vertices = []
+				dummy_vertices = {}
 
-				weights_bytes = b''
-				bfb_col = b''
+				weights_list = []
 				if 'fx_wind' in b_ob.vertex_groups:
 					weight_group_index = b_ob.vertex_groups['fx_wind'].index
 					ob_2_fx_wind[b_ob] = "_wind"
@@ -429,18 +427,15 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 				# this is a little faster than
 				BFRVertex = 'PN'
 				if eval_me.vertex_colors:
-					if len(eval_me.vertex_colors) == 1:
-						log_error(
-							f'Mesh {eval_me.name} has 1 vertex color layer, must be either 0 or 2 (RGB and AAA)')
-						return errors
 					BFRVertex += 'D'
-				for i in range(0, len(eval_me.uv_layers)):
+				for i in range(len(eval_me.uv_layers)):
 					if 'fx_wind' in b_ob.vertex_groups:
 						BFRVertex += f'T3{i}'
 					else:
 						BFRVertex += f'T{i}'
 				# select all verts without weights
 				unweighted_vertices = []
+				group_map = {vg.index: bones_names.get(vg.name, -1) for vg in b_ob.vertex_groups}
 				for polygon in eval_me.polygons:
 					tri = []
 					for loop_index in polygon.loop_indices:
@@ -448,59 +443,53 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 						co = eval_me.vertices[vertex_index].co
 						no = eval_me.loops[loop_index].normal
 
-						bfb_vertex = pack('<3f', co.x, co.y, co.z)
-						bfb_normal = pack('<3f', no.x, no.y, no.z)
+						bfb_vertex = [(co.x, co.y, co.z), (no.x, no.y, no.z), ]
 						if eval_me.vertex_colors:
-							bfb_col = pack('<4B', int(eval_me.vertex_colors[0].data[loop_index].color.b * 255),
-										   int(eval_me.vertex_colors[0].data[loop_index].color.g * 255),
-										   int(eval_me.vertex_colors[0].data[loop_index].color.r * 255),
-										   int(eval_me.vertex_colors[1].data[loop_index].color.b * 255))
-						bfb_uv = b''
-						if 'T3' in BFRVertex:
-							try:
-								weight = eval_me.vertices[vertex_index].groups[weight_group_index].weight
-							except:
-								weight = 0
+							col = eval_me.vertex_colors[0].data[loop_index].color
+							bfb_vertex += [(int(col.b * 255), int(col.g * 255), int(col.r * 255), int(col.b * 255)), ]
 						for uv_layer in eval_me.uv_layers:
+							uv_coord = uv_layer.data[loop_index].uv
+							bfb_vertex += [(uv_coord.x, 1.0 - uv_coord.y), ]
 							if 'T3' in BFRVertex:
-								bfb_uv += pack('<3f', uv_layer.data[loop_index].uv.x,
-											   1 - uv_layer.data[loop_index].uv.y, weight)
-							else:
-								bfb_uv += pack('<2f', uv_layer.data[loop_index].uv.x,
-											   1 - uv_layer.data[loop_index].uv.y)
-						# we have to add new verts also if the UV is different!
-						if bfb_vertex + bfb_uv not in dummy_vertices:
-							dummy_vertices.append(bfb_vertex + bfb_uv)
-							mesh_vertices.append(bfb_vertex + bfb_normal + bfb_col + bfb_uv)
-							if armature_bytes:
+								try:
+									weight = eval_me.vertices[vertex_index].groups[weight_group_index].weight
+								except:
+									weight = 0
+								bfb_vertex.append(weight)
+						key = tuple(bfb_vertex)
+						if key not in dummy_vertices:
+							dummy_vertices[key] = len(dummy_vertices)
+							mesh_vertices.append(key)
+							if armature:
 								w = []
-								bones = armature.data.bones.keys()
 								for vertex_group in eval_me.vertices[vertex_index].groups:
 									# dummy vertex groups without corresponding bones
 									try:
-										w.append((bones.index(b_ob.vertex_groups[vertex_group.group].name),
-												  vertex_group.weight))
+										w.append((group_map[vertex_group.group], vertex_group.weight))
 									except:
 										pass
 								w_s = sorted(w, key=lambda x: x[1], reverse=True)[0:4]
 								# pad the weight list to 4 bones, ie. add empty bones if missing
-								for i in range(0, 4 - len(w_s)): w_s.append((-1, 0))
+								for i in range(0, 4 - len(w_s)):
+									w_s.append((-1, 0))
 								sw = w_s[0][1] + w_s[1][1] + w_s[2][1] + w_s[3][1]
 								if sw > 0.0:
-									weights_bytes += pack('<4b 3f', w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0],
-														  w_s[0][1] / sw, w_s[1][1] / sw, w_s[2][1] / sw)
+									weights_list.append((w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0],
+														  w_s[0][1] / sw, w_s[1][1] / sw, w_s[2][1] / sw))
 								elif vertex_index not in unweighted_vertices:
 									unweighted_vertices.append(vertex_index)
-						tri.append(dummy_vertices.index(bfb_vertex + bfb_uv))
-					mesh_triangles.append(pack('<3H', *tri))
+						tri.append(dummy_vertices[key])
+					mesh_triangles.append(tri)
 
-				if armature_bytes:
-					ob_2_weight_bytes[b_ob] = weights_bytes
+				if armature:
+					ob_2_weights_list[b_ob] = weights_list
 				if unweighted_vertices:
-					log_error(f'Found {len(unweighted_vertices)} unweighted vertices in {b_ob.name}! Add them to vertex groups!')
+					log_error(
+						f'Found {len(unweighted_vertices)} unweighted vertices in {b_ob.name}! Add them to vertex groups!')
 					return errors
 				# does a mesh of this type already exist?
-				if BFRVertex not in BFRVertex_2_meshData: BFRVertex_2_meshData[BFRVertex] = ([], [], [])
+				if BFRVertex not in BFRVertex_2_meshData:
+					BFRVertex_2_meshData[BFRVertex] = ([], [], [])
 				BFRVertex_2_meshData[BFRVertex][0].append(b_ob)
 				BFRVertex_2_meshData[BFRVertex][1].append(mesh_vertices)
 				BFRVertex_2_meshData[BFRVertex][2].append(mesh_triangles)
@@ -508,92 +497,121 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	# 1) create a meshData block for every vertex type we have
 	# 2) merge all meshes that use the same vertex type
 	# 3) get the counts for creating separate mesh blocks in the next loop
-	# 4) increment blockcount + ID for each meshData
+	# 4) increment ID for each meshData
 	for BFRVertex, (obs, vertex_lists, triangle_lists) in BFRVertex_2_meshData.items():
-		ID += 1
-		blockcount += 1
+		mesh_data_block = bfb.create_block(obs[0].data, bfb, BlockType.MESH_DATA)
 		logging.debug(f'Assigned meshID{ID} to BFRVertex{BFRVertex}')
-		num_all_vertices = 0
-		num_all_triangles = 0
-		bytes_vertices = b''
-		bytes_triangles = b''
+		vertex_offset = 0
+		tris_offset = 0
 		for b_ob, vertex_list, triangle_list in zip(obs, vertex_lists, triangle_lists):
 			num_vertices = len(vertex_list)
 			num_triangles = len(triangle_list)
-			bytes_vertices += b''.join(vertex_list)
-			bytes_triangles += b''.join(triangle_list)
-			ob_2_meshOffset[b_ob] = (ID, num_all_vertices, num_vertices, num_all_triangles, num_triangles)
-			num_all_vertices += num_vertices
-			num_all_triangles += num_triangles
-		len_vert = len(vertex_list[0])
+			eval_me = b_ob.data
+
+			center = mathutils.Vector()
+			for v in eval_me.vertices:
+				center += v.co
+			center /= len(eval_me.vertices)
+			radius = max([(v.co - center).length for v in eval_me.vertices])
+
+			armature = b_ob.find_armature()
+			if armature:
+				mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH_SKINNED)
+				# store weights
+				weights_list = ob_2_weights_list[b_ob]
+				mesh_block.data.num_weights = len(weights_list)
+				mesh_block.data.reset_field("weights")
+				mesh_block.data.weights[:] = weights_list
+
+				bones = armature.data.bones.values()
+				if "!scale!" in bpy.data.actions:
+					rest_scale = bpy.data.actions["!scale!"]
+					# we have to apply the scale dummy action
+					armature.animation_data.action = rest_scale
+					scene.frame_set(0)
+				else:
+					log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
+					rest_scale = None
+				# export bones
+				mesh_block.data.num_bones = len(bones)
+				mesh_block.data.reset_field("bones")
+				for b_bone, bfb_bone in zip(bones, mesh_block.data.bones):
+					bfb_bone.id = bones.index(b_bone) + 1
+					if b_bone.parent:
+						bfb_bone.parent_id = bones.index(b_bone.parent) + 1
+					else:
+						bfb_bone.parent_id = 0
+					# rest scale support
+					try:
+						group = rest_scale.groups[b_bone.name]
+						scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
+						scale = scales[0].keyframe_points[0].co[1]
+					except:
+						scale = 1.0
+					# bfb_bone.group = lodgroup
+					bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
+					bfb_bone.matrix.set_rows((mathutils.Matrix.Scale(scale, 4) @ get_bfb_matrix(b_bone)).transposed())
+			else:
+				mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH)
+
+			mesh_block.data.data_id = mesh_data_block.id
+			mesh_block.data.tri_index_offset = tris_offset * 3
+			mesh_block.data.num_tri_indices = num_triangles * 3
+			mesh_block.data.vertex_offset = vertex_offset
+			mesh_block.data.vertex_count = num_vertices
+			mesh_block.data.num_tris = num_triangles
+			mesh_block.data.bounds_extent[:] = center
+			mesh_block.data.bounds_radius = radius
+			
+			vertex_offset += num_vertices
+			tris_offset += num_triangles
+
 		# write the meshData block
-		stream += pack('<i 2h i 64s B 64s 2i', ID, 6, -32768,
-					   len(stream) + 242 + num_all_vertices * len_vert + num_all_triangles * 6, b'meshData', 8,
-					   ('BFRVertex' + BFRVertex).encode('utf-8'), len_vert, num_all_vertices) + bytes_vertices + pack(
-			'<B i', 2, num_all_triangles * 3) + bytes_triangles
+		mesh_data_block.name = 'meshData'
+		mesh_data_block.data.b_f_r_vertex = 'BFRVertex' + BFRVertex
+		mesh_data_block.data.vertex_count = vertex_offset
+		mesh_data_block.data.verts.set_verts(list(itertools.chain(*vertex_lists)))
+		mesh_data_block.data.num_tri_indices = tris_offset * 3
+		mesh_data_block.data.reset_field("tris")
+		mesh_data_block.data.tris[:] = list(itertools.chain(*triangle_lists))
 
-	# write the mesh blocks
-	for b_ob in ob_2_meshOffset:
-		meshDataID, start_vertices, num_vertices, start_triangles, num_triangles = ob_2_meshOffset[b_ob]
-		eval_me = b_ob.data
+	bfb.tree = export_tree(b_root, bfb)
 
-		center = mathutils.Vector()
-		for v in eval_me.vertices:
-			center += v.co
-		center /= len(eval_me.vertices)
-		radius = max([(v.co - center).length for v in eval_me.vertices])
-
-		if b_ob in ob_2_weight_bytes:
-			weights_bytes = ob_2_weight_bytes[b_ob]
-			typeid = 8
-			len_weights = len(armature_bytes) + len(weights_bytes) + 8
-		else:
-			typeid = 5
-			len_weights = 0
-		stream += pack('<i 2h i 64s B 7i 4f', ob_2_id[b_ob], typeid, -32768, len(stream) + 209 + len_weights, b'mesh',
-					   0,
-					   meshDataID, 1, start_triangles * 3, num_triangles * 3, start_vertices, num_vertices,
-					   num_triangles, *center, radius)
-
-		if b_ob in ob_2_weight_bytes:
-			stream += pack('<2i', len(armature_bytes) // 131, len(weights_bytes) // 16) + armature_bytes + weights_bytes
-
-	stream = pack('<8s l l 64s i i', b'BFB!*000', 131073, 1, author_name.encode('utf-8'), blockcount,
-				  blockcount) + stream
-	stream += write_linked_list(root, len(stream))
-
+	bfb.header.author = author_name
+	bfb.header.num_blocks = bfb.header.num_blocks_2 = len(bfb.blocks)
 	if not os.path.exists(dirname):
 		os.makedirs(dirname)
-	f = open(filepath, 'wb')
-	f.write(stream)
-	f.close()
-
-	logging.info(f'Finished BFB Export in {time.time() - starttime:.2f} seconds')
+	bfb.save(filepath)
+	# print(bfb)
+	logging.info(f'Finished BFB Export in {time.time() - start_time:.2f} seconds')
 	return errors
 
 
-def export_capsule(ob, blockstart):
+def export_capsule(b_ob, bfb):
 	logging.debug('Found capsule collider!')
-	me = ob.data
+	me = b_ob.data
 	start = (me.vertices[0].co + me.vertices[12].co) / 2
 	end = (me.vertices[37].co + me.vertices[49].co) / 2 - start
 	radius = ((me.vertices[0].co - me.vertices[12].co) / 2).length
-	return pack('<i 2h i 64s h 3f 3f f', ob_2_id[ob], 4, -32768, blockstart + 106, ob.name.encode('utf-8'), 1, start.x,
-				start.y, start.z, end.x, end.y, end.z, radius)
+	block = bfb.create_block(b_ob, bfb, BlockType.CAPSULE)
+	block.data.start[:] = start
+	block.data.end[:] = end
+	block.data.radius = radius
 
 
-def export_bounding_box(ob, blockstart):
+def export_bounding_box(b_ob, bfb):
 	logging.debug('Found bounding box collider!')
-	me = ob.data
-	x, y, z = me.vertices[4].co * 2
-	return pack('<i 2h i 64s h 16f 3f', ob_2_id[ob], 3, -32768, blockstart + 154, ob.name.encode('utf-8'), 1,
-				*flatten(ob.matrix_local.transposed()), x, y, z)
+	me = b_ob.data
+	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
+	# todo check transpose
+	block.data.matrix.set_rows(b_ob.matrix_local.transposed())
+	block.data.extent[:] = me.vertices[4].co * 2
 
 
-def export_sphere(ob, blockstart):
+def export_sphere(b_ob, bfb):
 	logging.debug('Found sphere collider!')
-	me = ob.data
+	me = b_ob.data
+	block = bfb.create_block(b_ob, bfb, BlockType.SPHERE)
 	center = (me.vertices[2].co + me.vertices[23].co) / 2
-	r = (me.vertices[2].co - center).length
-	return pack('<i 2h i 64s h 4f', ob_2_id[ob], 1, -32768, blockstart + 94, ob.name.encode('utf-8'), 1, *ob.location,
-				r)
+	block.data.pos[:] = b_ob.location
+	block.data.radius = (me.vertices[2].co - center).length

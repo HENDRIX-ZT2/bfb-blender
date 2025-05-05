@@ -22,3 +22,8 @@ class Matrix(BaseStruct):
 	@classmethod
 	def _get_filtered_attribute_list(cls, instance, include_abstract=True):
 		yield from super()._get_filtered_attribute_list(instance, include_abstract)
+
+	def set_rows(self, mat):
+		"""Set matrix from rows."""
+		self.data[:] = mat.transposed()
+

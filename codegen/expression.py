@@ -189,12 +189,12 @@ class Expression(object):
         # check if the left hand side starts with brackets
         # and if so, find the position of the starting bracket and the ending
         # bracket
-        left_startpos, left_endpos = cls._scan_brackets(expr_str)
-        if left_startpos == 0:
+        leftri_index_offsetrtpos, left_endpos = cls._scan_brackets(expr_str)
+        if leftri_index_offsetrtpos == 0:
             # yes, it is a bracketted expression
             # so remove brackets and whitespace,
             # and let that be the left hand side
-            left_str = expr_str[left_startpos + 1:left_endpos].strip()
+            left_str = expr_str[leftri_index_offsetrtpos + 1:left_endpos].strip()
             # if there is no next token, then just return the expression
             # without brackets
             if left_endpos + 1 == len(expr_str):
@@ -239,12 +239,12 @@ class Expression(object):
 
         # now we have done the left hand side, and the operator
         # all that is left is to process the right hand side
-        right_startpos, right_endpos = cls._scan_brackets(expr_str, op_endpos + 1)
-        if right_startpos >= 0:
+        rightri_index_offsetrtpos, right_endpos = cls._scan_brackets(expr_str, op_endpos + 1)
+        if rightri_index_offsetrtpos >= 0:
             # yes, we found a bracketted expression
             # so remove brackets and whitespace,
             # and let that be the right hand side
-            right_str = expr_str[right_startpos + 1:right_endpos].strip()
+            right_str = expr_str[rightri_index_offsetrtpos + 1:right_endpos].strip()
             # check for trailing junk
             if expr_str[right_endpos + 1:] and not expr_str[right_endpos + 1:] == ' ':
                 for op in cls.operators:

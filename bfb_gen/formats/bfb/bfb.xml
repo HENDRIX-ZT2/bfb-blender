@@ -61,21 +61,21 @@
     <compound name="Mesh">
         <add name="flag" type="ubyte" default="0"/>
         <add name="data_id" type="uint" />
-        <add name="u_int" type="uint" />
-        <add name="t_sta" type="uint" />
-        <add name="t_num" type="uint" />
+        <add name="u_int" type="uint" />1 in old export
+        <add name="tri_index_offset" type="uint" />
+        <add name="num_tri_indices" type="uint" />
         <add name="vertex_offset" type="uint" />
         <add name="vertex_count" type="uint" />
-        <add name="f_num" type="uint" />
+        <add name="num_tris" type="uint" />
         <add name="bounds_extent" type="Vector3" />
         <add name="bounds_radius" type="float" />
     </compound>
 
     <compound name="Bone">
-        <add name="id" type="ubyte" />
-        <add name="parent_id" type="ubyte" />
-        <add name="group" type="ubyte" />
-        <add name="name" type="FixedString" arg="64" default=""/>
+        <add name="id" type="ubyte" />1-based
+        <add name="parent_id" type="ubyte" />1-based
+        <add name="group" type="ubyte" default="-1"/>todo calculate this value properly, refer values from other objects
+        <add name="name" type="FixedString" arg="64" />
         <add name="matrix" type="Matrix44" />
     </compound>
 
@@ -133,11 +133,12 @@
     </compound>
 
 	<compound name="BillboardLink">
+        #0, 0, 0, 1, 0, 0, 1.0, 0.0, -1.0, 0
         <add name="u0" type="uint"/>
-        <add name="has_obj" type="uint"/>
+        <add name="has_obj" type="uint" default="1"/>todo unsure if correct orientation
         <add name="u1" type="uint64"/>
-        <add name="u2" type="uint64"/>
-        <add name="u3" type="uint64"/>
+        <add name="axis" type="Vector3"/>1.0, 0.0, -1.0
+        <add name="u2" type="uint"/>
         <add name="object_id" type="uint"/>
         <add name="material" type="FixedString" arg="128" />
     </compound>
@@ -153,8 +154,8 @@
 	<compound name="BfbNode">
         <add name="id" type="uint"/>
         <add name="type_id" type="NodeType"/>
-        <add name="childstart" type="uint"/>
-        <add name="nextblockstart" type="uint"/>
+        <add name="start_children" type="uint"/>
+        <add name="start_sibling" type="uint"/>
         <add name="unk" type="ubyte" />anky: lod0 geom + node = 4, other lods = 0, unsure about rest
         <add name="name" type="FixedString" arg="64"/>
         <add name="matrix" type="Matrix44" />

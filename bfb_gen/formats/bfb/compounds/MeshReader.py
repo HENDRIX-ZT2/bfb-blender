@@ -29,8 +29,14 @@ class MeshReader(BaseStruct):
 	@classmethod
 	def from_stream(cls, stream, context, arg=0, template=None):
 		instance = super().from_stream(stream, context, arg, template)
-		# This decodes the vertex format on the fly, should work on most if not all models. Some uncertainties about the last two, rare options.
-		instance.formatstr = arg.b_f_r_vertex[9:]
+		instance.get_dtype_from_bfrvertex()
+		instance.verts_data = np.empty(dtype=instance.dt, shape=arg.vertex_count)
+		stream.readinto(instance.verts_data)
+		return instance
+
+	def get_dtype_from_bfrvertex(self, set_vert_size=False):
+		# decodes the vertex format on the fly, should work on most if not all models. Some uncertainties about the last two, rare options.
+		self.formatstr = self.arg.b_f_r_vertex[9:]
 		dt_map = {
 			"P": [("pos", np.float32, (3,))],
 			"N": [("normal", np.float32, (3,))],
@@ -44,20 +50,26 @@ class MeshReader(BaseStruct):
 		}
 		dt = []
 		cur = 0
-		while cur < len(instance.formatstr):
+		while cur < len(self.formatstr):
 			for k, dt_part in dt_map.items():
-				if instance.formatstr[cur:].startswith(k):
+				if self.formatstr[cur:].startswith(k):
 					cur += len(k)
 					dt.extend(dt_part)
+		self.dt = np.dtype(dt)
+		if set_vert_size:
+			self.arg.size_of_vertex = self.dt.itemsize
+		else:
+			if self.dt.itemsize != self.arg.size_of_vertex:
+				raise AttributeError(
+					f"Vertex size for {self.arg.b_f_r_vertex} is wrong! Collected {self.dt.itemsize}, expected {self.arg.size_of_vertex} bytes.")
 
-		instance.dt = np.dtype(dt)
-		if instance.dt.itemsize != arg.size_of_vertex:
-			raise AttributeError(
-				f"Vertex size for {arg.b_f_r_vertex} is wrong! Collected {instance.dt.itemsize}, expected {arg.size_of_vertex} bytes.")
-
-		instance.verts_data = np.empty(dtype=instance.dt, shape=arg.vertex_count)
-		stream.readinto(instance.verts_data)
-		return instance
+	def set_verts(self, verts):
+		self.get_dtype_from_bfrvertex(set_vert_size=True)
+		# self.verts_data = np.empty(dtype=self.dt, shape=len(verts))
+		# self.verts_data = np.array(verts).astype(self.dt)
+		# self.verts_data = np.array([tuple(i) for i in verts], self.dt)
+		self.verts_data = np.array(verts, self.dt)
+		self.verts_data[:] = verts
 
 	@classmethod
 	def write_fields(cls, stream, instance):
@@ -69,3 +81,4 @@ class MeshReader(BaseStruct):
 			# return instance.get_info_str(indent) + instance.get_fields_str(instance, indent)
 			return str(instance.verts_data)
 		return "NONE"
+

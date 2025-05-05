@@ -209,7 +209,7 @@ class ExportBFB(bpy.types.Operator, ExportHelper):
 	fix_root_bones: BoolProperty(name="Fix Root Bones", description="Deletes surplus root bones automatically.",
 								 default=False)
 	create_lods: BoolProperty(name="Create LODs", description="Adds Levels of Detail - overwrites existing LODs!",
-							  default=True)
+							  default=False)
 	numlods: IntProperty(name="Number of LODs",
 						 description="Number of Levels Of Detail, including the original",
 						 min=1, max=5,

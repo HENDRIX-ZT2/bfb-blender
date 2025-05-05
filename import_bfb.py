@@ -276,6 +276,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 	logging.info(f"Importing {basename}")
 	bfb = BfbFile()
 	bfb.load(filepath)
+	# print(bfb)
 	if bfb.header.version != 4295098369:
 		log_error(f"Unsupported BFB version: {bfb.header.version}")
 	logging.debug(f"BFB Version: {bfb.header.version}")
@@ -337,7 +338,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 						fix_bone_length(edit_bone)
 					bpy.ops.object.mode_set(mode='OBJECT')
 			# build mesh
-			tris = mesh_data.tris[data.t_sta // 3:(data.t_sta + data.t_num) // 3]
+			tris = mesh_data.tris[data.tri_index_offset // 3:(data.tri_index_offset + data.num_tri_indices) // 3]
 			verts = mesh_data.verts.verts_data[data.vertex_offset: data.vertex_offset + data.vertex_count]
 
 			vertices = verts["pos"].copy()
@@ -354,7 +355,6 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 			b_me = FastMesh.new(block.name)
 			b_me.from_pydata(verts_unique, [], tris_sorted)
 			ob = create_ob(block.name, b_me)
-			# ob, b_me = mesh_from_data(block.name, verts_unique, tris, False)
 			id2data[block.id] = ob
 			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
 			# We store them as a vertex group so they can be easily modified.
