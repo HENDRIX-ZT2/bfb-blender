@@ -1,12 +1,6 @@
-# import bmesh
 import logging
 
 import bpy
-
-from generated.formats.ms2.compounds.packing_utils import has_nan
-from generated.formats.ms2.enums.MeshFormat import MeshFormat
-from plugin.utils.blender_util import set_auto_smooth_safe
-from plugin.utils.shell import num_fur_as_weights, is_fin
 
 
 def set_auto_smooth_safe(b_me):
