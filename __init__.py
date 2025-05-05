@@ -303,9 +303,10 @@ class ReorientBone(bpy.types.Operator, AddObjectHelper):
 	bl_idname = "bone.reorient_bone"
 	bl_label = "Reorient bone"
 	bl_options = {'REGISTER', 'UNDO'}
-	fixed_items: EnumProperty(items=(('0', 'Worldspace', 'Keep the worldspace rotation intact.'),
-									 ('1', 'Bonespace', 'Correct against the changed restpose.')),
-							  name="Anim Mode")
+	fixed_items: EnumProperty(items=(
+		('0', 'Worldspace', 'Keep the worldspace rotation intact.'),
+		('1', 'Bonespace', 'Correct against the changed restpose.')),
+		name="Anim Mode")
 
 	def execute(self, context):
 		from . import bone_tools
@@ -330,11 +331,12 @@ class AddFXWind(bpy.types.Operator):
 	bl_idname = "object.fx_wind_add"
 	bl_label = "Add FX Wind Weights"
 	bl_options = {'REGISTER', 'UNDO'}
-	fixed_items: EnumProperty(items=(('0', 'Height', 'Use height coordinate of the mesh.'),
-									 ('1', 'Mesh Center Radius', 'Use distance to the mesh center.'),
-									 ('2', 'Object Origin Radius', 'Use distance to the mesh origin.'),
-									 ('3', 'Z Axis Distance', 'Use distance to the Z axis.')),
-							  name="Wind source")
+	fixed_items: EnumProperty(items=(
+		('0', 'Height', 'Use height coordinate of the mesh.'),
+		('1', 'Mesh Center Radius', 'Use distance to the mesh center.'),
+		('2', 'Object Origin Radius', 'Use distance to the mesh origin.'),
+		('3', 'Z Axis Distance', 'Use distance to the Z axis.')),
+		name="Wind source")
 	wmin: FloatProperty(
 		name="Minimal weight",
 		description="Minimal weight used in the gradient",
@@ -366,15 +368,13 @@ def menu_func_import(self, context):
 	self.layout.operator(ImportDAT.bl_idname, text="Blue Fang Map (.dat)", icon_value=icon)
 	self.layout.operator(ImportBF.bl_idname, text="Blue Fang Animation (.bf)", icon_value=icon)
 	self.layout.operator(ImportPSYS.bl_idname, text="Blue Fang Particles (.psys)", icon_value=icon)
-
-
-# self.layout.operator(BatchBFB.bl_idname, text="BFB and NIF Batch Processing (.bfb, .nif)", icon_value=icon)
+	# self.layout.operator(BatchBFB.bl_idname, text="BFB and NIF Batch Processing (.bfb, .nif)", icon_value=icon)
 
 
 def menu_func_add_objects(self, context):
-	self.layout.operator(AddCapsule.bl_idname, icon_value=preview_collection["bfb_capsule.png"].icon_id)
-	self.layout.operator(AddSphere.bl_idname, icon_value=preview_collection["bfb_sphere.png"].icon_id)
-	self.layout.operator(AddBox.bl_idname, icon_value=preview_collection["bfb_box.png"].icon_id)
+	self.layout.operator(AddCapsule.bl_idname, icon="MESH_CAPSULE")
+	self.layout.operator(AddSphere.bl_idname, icon="MESH_UVSPHERE")
+	self.layout.operator(AddBox.bl_idname, icon="MESH_CUBE")
 
 
 def menu_func_armature(self, context):
