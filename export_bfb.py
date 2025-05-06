@@ -556,14 +556,16 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 			else:
 				mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH)
 
-			mesh_block.data.data_id = mesh_data_block.id
-			mesh_block.data.tri_index_offset = tris_offset * 3
-			mesh_block.data.num_tri_indices = num_triangles * 3
-			mesh_block.data.vertex_offset = vertex_offset
-			mesh_block.data.vertex_count = num_vertices
-			mesh_block.data.num_tris = num_triangles
-			mesh_block.data.bounds_extent[:] = center
-			mesh_block.data.bounds_radius = radius
+			# create just 1 chunk
+			mesh_chunk = mesh_block.data.chunks[0]
+			mesh_chunk.data_id = mesh_data_block.id
+			mesh_chunk.tri_index_offset = tris_offset * 3
+			mesh_chunk.num_tri_indices = num_triangles * 3
+			mesh_chunk.vertex_offset = vertex_offset
+			mesh_chunk.vertex_count = num_vertices
+			mesh_chunk.num_tris = num_triangles
+			mesh_chunk.bounds_extent[:] = center
+			mesh_chunk.bounds_radius = radius
 			
 			vertex_offset += num_vertices
 			tris_offset += num_triangles
