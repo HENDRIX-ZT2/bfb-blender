@@ -3,6 +3,7 @@
 A toolset for blender allowing the import export of Zoo Tycoon 2 models and animations, as well as maps and particle systems (experimental!).
 
 ### Installation
+- You need to use `Blender 4.4` or later for this version to work!
 - Click the `Clone or Download` button at the right, then `Download ZIP`.
 - To install with the addon installer in Blender, click `File` > `User Preferences` > `Add-ons` > `Install Add-ons from File` and select the ZIP you just downloaded.
 
