@@ -189,7 +189,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				# support multiple colliders
 				data.num_colliders = len(b_ob.children)
 				data.reset_field("collision_ids")
-				data.collision_ids[:] = [bfb.ob_2_block_id[b_child] for b_child in b_ob.children[0]]
+				data.collision_ids[:] = [bfb.ob_2_block_id[b_child] for b_child in b_ob.children]
 			# standard node
 			else:
 				bfb_node.unk = 1
@@ -200,7 +200,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				data.has_collision = 0
 	elif b_ob.type == "MESH":
 		if b_ob.name.startswith('sphere') or b_ob.name.startswith('orientedbox'):
-			pass
+			return
 		elif b_ob.name.startswith('capsule'):
 			if b_ob.parent_type != "BONE" or not b_ob.parent_bone:
 				log_error(f"Capsule collider {b_ob.name} is not parented to a bone.")
@@ -222,7 +222,10 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				for material in b_ob.data.materials:
 					if material:
 						if write_materials:
-							write_bfmat(b_ob, material)
+							try:
+								write_bfmat(b_ob, material)
+							except:
+								logging.warning(f"Bfmat export failed, needs rewrite")
 						matname = material.name.replace(".", "")
 						break
 			else:
@@ -246,7 +249,8 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 		return
 	for b_child in b_ob.children:
 		bfb_child = export_tree(b_child, bfb, bfb_node)
-		bfb_node.children.append(bfb_child)
+		if bfb_child:
+			bfb_node.children.append(bfb_child)
 	return bfb_node
 
 
@@ -448,7 +452,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 						bfb_vertex = [(co.x, co.y, co.z), (no.x, no.y, no.z), ]
 						if eval_me.vertex_colors:
 							col = eval_me.vertex_colors[0].data[loop_index].color
-							bfb_vertex += [(int(col.b * 255), int(col.g * 255), int(col.r * 255), int(col.b * 255)), ]
+							bfb_vertex += [(int(col[2] * 255), int(col[1] * 255), int(col[0] * 255), int(col[3] * 255)), ]
 						for uv_layer in eval_me.uv_layers:
 							uv_coord = uv_layer.data[loop_index].uv
 							bfb_vertex += [(uv_coord.x, 1.0 - uv_coord.y), ]
