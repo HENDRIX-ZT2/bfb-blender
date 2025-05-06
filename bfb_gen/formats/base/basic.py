@@ -177,7 +177,10 @@ class FixedString(ZString):
 	@staticmethod
 	def from_stream(stream, context=None, arg=0, template=None):
 		data = stream.read(arg).rstrip(b"\x00")
-		return data.decode(errors="surrogateescape")
+		try:
+			return data.decode(errors="surrogatepass")
+		except:
+			return data
 
 	@staticmethod
 	def to_stream(instance, stream, context=None, arg=0, template=None):

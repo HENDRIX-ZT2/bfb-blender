@@ -58,10 +58,7 @@
         <add name="tris" type="ushort" arr1="num_tri_indices #DIV# 3" arr2="3"/>
     </compound>
 
-    <compound name="Mesh">
-        <add name="flag" type="ubyte" default="0"/>
-        <add name="data_id" type="uint" />
-        <add name="u_int" type="uint" />1 in old export
+    <compound name="Chunk">
         <add name="tri_index_offset" type="uint" />
         <add name="num_tri_indices" type="uint" />
         <add name="vertex_offset" type="uint" />
@@ -69,6 +66,14 @@
         <add name="num_tris" type="uint" />
         <add name="bounds_extent" type="Vector3" />
         <add name="bounds_radius" type="float" />
+    </compound>
+
+    <compound name="Mesh">
+        v 1: name may be junk bytes
+        <add name="flag" type="ubyte" default="0"/>
+        <add name="data_id" type="uint" />
+        <add name="num_chunks" type="uint" default="1"/>2 in DiscoveryKiosk_df
+        <add name="chunks" type="Chunk" arr1="num_chunks"/>
     </compound>
 
     <compound name="Bone">
@@ -101,7 +106,7 @@
         <add name="type_id" type="BlockType"/>
         <add name="flag" type="ushort" default="32768"/>
         <add name="end" type="uint"/>
-        <add name="name" type="FixedString" arg="64"/>
+        <add name="name" type="FixedString" arg="64" />
 
         <add name="data" cond="type_id == 1" type="Sphere"/>
         <add name="data" cond="type_id == 3" type="BoundingBox"/>
@@ -110,7 +115,7 @@
         <add name="data" cond="type_id == 6" type="MeshData"/>
         <add name="data" cond="type_id == 8" type="MeshSkinned"/>
     </compound>
-
+#
 	<compound name="Node">
         <add name="unk 0" type="uint" />
         <add name="unk 1" type="uint" />
@@ -172,15 +177,16 @@
 	<compound name="BfbHeader">
         <add name="magic" type="FixedString" arg="8" default="BFB!*000"/>
         <add name="version" type="uint64" default="4295098369"/>
+<!--        <add name="version" type="ushort" arr1="4"/>latest: 1 2 1 0-->
         <add name="author" type="FixedString" arg="64" />
-        <add name="num_blocks" type="uint"/>
-        <add name="num_blocks2" type="uint"/>
+        <add name="num_blocks" type="uint"/>can be smaller than num_blocks_2
+        <add name="num_blocks_2" type="uint"/>
     </compound>
 
 	<compound name="BfbRoot">
         <add name="header" type="BfbHeader"/>
         <add name="blocks" type="BfbBlock" arr1="header \ num_blocks"/>
-        <add name="tree" type="BfbNode" />
+<!--        <add name="tree" type="BfbNode" />-->
     </compound>
 
 </niftoolsxml>

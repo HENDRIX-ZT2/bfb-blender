@@ -24,6 +24,7 @@ class MeshReader(BaseStruct):
 	def get_dtype_from_bfrvertex(self, set_vert_size=False):
 		# decodes the vertex format on the fly, should work on most if not all models. Some uncertainties about the last two, rare options.
 		self.formatstr = self.arg.b_f_r_vertex[9:]
+		logging.info(self.formatstr)
 		dt_map = {
 			"P": [("pos", np.float32, (3,))],
 			"N": [("normal", np.float32, (3,))],
@@ -34,6 +35,8 @@ class MeshReader(BaseStruct):
 			"T30": [("u0", np.float32, (2,)), ("w", np.float32)],
 			"T31": [("u1", np.float32, (2,)), ("c", np.float32)],
 			"T3D1": [("u3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
+			"T3D2": [("u3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
+			# BFRVertexPNDT0T1T3D2 - CrystalTunnel_df, 56 bytes
 		}
 		dt = []
 		cur = 0
@@ -42,6 +45,9 @@ class MeshReader(BaseStruct):
 				if self.formatstr[cur:].startswith(k):
 					cur += len(k)
 					dt.extend(dt_part)
+					break
+			else:
+				raise AttributeError(f"Encountered unknown format in {self.formatstr} at {self.formatstr[cur:]}")
 		self.dt = np.dtype(dt)
 		if set_vert_size:
 			self.arg.size_of_vertex = self.dt.itemsize

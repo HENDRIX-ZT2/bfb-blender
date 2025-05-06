@@ -28,6 +28,7 @@ type_module_name_map = {
 	'Capsule': 'bfb_gen.formats.bfb.compounds.Capsule',
 	'MeshReader': 'bfb_gen.formats.bfb.compounds.MeshReader',
 	'MeshData': 'bfb_gen.formats.bfb.compounds.MeshData',
+	'Chunk': 'bfb_gen.formats.bfb.compounds.Chunk',
 	'Mesh': 'bfb_gen.formats.bfb.compounds.Mesh',
 	'Bone': 'bfb_gen.formats.bfb.compounds.Bone',
 	'Weight': 'bfb_gen.formats.bfb.compounds.Weight',
