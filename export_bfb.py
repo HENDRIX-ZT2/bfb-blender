@@ -186,8 +186,10 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				data = bfb_node.data
 				data.unk_0 = 1
 				data.unk_1 = 1
-				data.has_collision = 1
-				data.collision_id = bfb.ob_2_block_id[b_ob.children[0]]
+				# support multiple colliders
+				data.num_colliders = len(b_ob.children)
+				data.reset_field("collision_ids")
+				data.collision_ids[:] = [bfb.ob_2_block_id[b_child] for b_child in b_ob.children[0]]
 			# standard node
 			else:
 				bfb_node.unk = 1
