@@ -243,8 +243,8 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				bfb_node.unk = 4
 				bfb_node.reset_field("data")
 				data = bfb_node.data
-				data.object_id = bfb.ob_2_block_id[b_ob]
-				data.material = matname
+				data.object_ids[0] = bfb.ob_2_block_id[b_ob]
+				data.materials[0] = matname
 	else:
 		return
 	for b_child in b_ob.children:

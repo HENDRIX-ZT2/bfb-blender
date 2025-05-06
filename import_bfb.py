@@ -39,13 +39,15 @@ def import_scene_graph(b_parent, node, lod_level):
 	elif node.type_id == NodeType.LOD_GROUP:
 		ob = create_empty(b_parent, "lodgroup", matrix)
 	elif node.type_id == NodeType.MESH_LINK:
-		ob = id2data[node.data.object_id]
-		ob.name = node.name
-		if b_parent:
-			ob.parent = b_parent
-		ob.matrix_local = matrix
-		create_material(ob, node.data.material)
-		assign_to_lod(ob, lod_level)
+		for object_id in node.data.object_ids:
+			ob = id2data[object_id]
+			ob.name = node.name
+			if b_parent:
+				ob.parent = b_parent
+			ob.matrix_local = matrix
+			# todo support multiple materials
+			create_material(ob, node.data.materials[0])
+			assign_to_lod(ob, lod_level)
 	elif node.type_id == NodeType.BILLBOARD_LINK:
 		global camera
 		if not camera:

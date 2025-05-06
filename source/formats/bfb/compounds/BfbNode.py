@@ -1,4 +1,6 @@
 # START_GLOBALS
+import logging
+
 from bfb_gen.base_struct import BaseStruct
 
 
@@ -18,8 +20,11 @@ class BfbNode(BaseStruct):
 			instance.children.append(child)
 		if instance.start_sibling:
 			assert isinstance(arg, BfbNode)
-			sibling = BfbNode.from_stream(stream, context, arg)
-			arg.children.append(sibling)
+			try:
+				sibling = BfbNode.from_stream(stream, context, arg)
+				arg.children.append(sibling)
+			except:
+				logging.exception("failed reading sibling")
 		return instance
 
 	@classmethod

@@ -132,10 +132,10 @@
         <add name="u0" type="uint" default="1"/>anky: lod0 = 0, other lods = 2, unsure about non-lod
         <add name="u1" type="uint" default="1"/>anky: 0
         <add name="collision_id" type="uint" />
-        <add name="u2" type="uint" default="1"/>
-        <add name="object_id" type="uint" />
-        <add name="u3" type="uint" default="1"/>
-        <add name="material" type="FixedString" arg="128" />
+        <add name="num_objects" type="uint" default="1"/>
+        <add name="object_ids" type="uint" arr1="num_objects" />
+        <add name="num_materials" type="uint" default="1"/>2 for zoopedia_redwoodtunnel
+        <add name="materials" type="FixedString" arr1="num_materials" arg="128" />
     </compound>
 
 	<compound name="BillboardLink">

@@ -17,6 +17,7 @@ def ob_postpro(use_mirror_mesh):
 		bpy.ops.mesh.select_all(action='SELECT')
 	bpy.ops.uv.select_all(action='SELECT')
 	bpy.ops.uv.seams_from_islands()
+	# todo add flag or use safe code that does not break UVs
 	bpy.ops.mesh.tris_convert_to_quads()
 	bpy.ops.object.mode_set(mode='OBJECT')
 
