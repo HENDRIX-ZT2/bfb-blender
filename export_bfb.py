@@ -586,7 +586,8 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	bfb.tree = export_tree(b_root, bfb)
 
 	bfb.header.author = author_name
-	bfb.header.num_blocks = bfb.header.num_blocks_2 = len(bfb.blocks)
+	bfb.header.num_blocks = len(bfb.blocks)
+	bfb.header.num_nodes = len(bfb.ob_2_node_id)
 	if not os.path.exists(dirname):
 		os.makedirs(dirname)
 	bfb.save(filepath)

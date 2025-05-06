@@ -191,8 +191,8 @@
         <add name="version" type="uint64" default="4295098369"/>
 <!--        <add name="version" type="ushort" arr1="4"/>latest: 1 2 1 0-->
         <add name="author" type="FixedString" arg="64" />
-        <add name="num_blocks" type="uint"/>can be smaller than num_blocks_2
-        <add name="num_blocks_2" type="uint"/>
+        <add name="num_blocks" type="uint"/>
+        <add name="num_nodes" type="uint"/>
     </compound>
 
 	<compound name="BfbRoot">

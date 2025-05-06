@@ -36,8 +36,8 @@ def walk_type(start_dir, extension=".ovl"):
 # 	except:
 # 		logging.exception(f"Failed {rel_path}")
 
-# bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
-bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
+bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
+# bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/scenery/zoopedia_redwoodtunnel/zoopedia_redwoodtunnel.bfb"
 bfb = BfbFile()
