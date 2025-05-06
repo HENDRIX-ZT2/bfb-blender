@@ -20,7 +20,7 @@ class BfbNode(BaseStruct):
 		self.unk = name_type_map['Ubyte'](self.context, 0, None)
 		self.name = name_type_map['FixedString'](self.context, 64, None)
 		self.matrix = name_type_map['Matrix44'](self.context, 0, None)
-		self.data = name_type_map['CapsuleLink'](self.context, 0, None)
+		self.data = name_type_map['ParticleLink'](self.context, 0, None)
 		self.children = Array(self.context, 0, None, (0,), name_type_map['BfbNode'])
 		if set_default:
 			self.set_defaults()
@@ -40,6 +40,7 @@ class BfbNode(BaseStruct):
 		yield 'data', name_type_map['MeshLink'], (0, None), (False, None), (None, True)
 		yield 'data', name_type_map['BillboardLink'], (0, None), (False, None), (None, True)
 		yield 'data', name_type_map['CapsuleLink'], (0, None), (False, None), (None, True)
+		yield 'data', name_type_map['ParticleLink'], (0, None), (False, None), (None, True)
 		yield 'children', Array, (0, None, (0,), name_type_map['BfbNode']), (False, None), (None, None)
 
 	@classmethod
@@ -62,6 +63,8 @@ class BfbNode(BaseStruct):
 			yield 'data', name_type_map['BillboardLink'], (0, None), (False, None)
 		if instance.type_id == 5:
 			yield 'data', name_type_map['CapsuleLink'], (0, None), (False, None)
+		if instance.type_id == 6:
+			yield 'data', name_type_map['ParticleLink'], (0, None), (False, None)
 		if include_abstract:
 			yield 'children', Array, (0, None, (0,), name_type_map['BfbNode']), (False, None)
 

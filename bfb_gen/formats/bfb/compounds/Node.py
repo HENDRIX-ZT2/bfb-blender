@@ -1,3 +1,4 @@
+from bfb_gen.array import Array
 from bfb_gen.base_struct import BaseStruct
 from bfb_gen.formats.bfb.imports import name_type_map
 
@@ -11,8 +12,8 @@ class Node(BaseStruct):
 		super().__init__(context, arg, template, set_default=False)
 		self.unk_0 = name_type_map['Uint'](self.context, 0, None)
 		self.unk_1 = name_type_map['Uint'](self.context, 0, None)
-		self.has_collision = name_type_map['Uint'](self.context, 0, None)
-		self.collision_id = name_type_map['Uint'](self.context, 0, None)
+		self.num_colliders = name_type_map['Uint'](self.context, 0, None)
+		self.collision_ids = Array(self.context, 0, None, (0,), name_type_map['Uint'])
 		if set_default:
 			self.set_defaults()
 
@@ -21,14 +22,13 @@ class Node(BaseStruct):
 		yield from super()._get_attribute_list()
 		yield 'unk_0', name_type_map['Uint'], (0, None), (False, None), (None, None)
 		yield 'unk_1', name_type_map['Uint'], (0, None), (False, None), (None, None)
-		yield 'has_collision', name_type_map['Uint'], (0, None), (False, None), (None, None)
-		yield 'collision_id', name_type_map['Uint'], (0, None), (False, None), (None, True)
+		yield 'num_colliders', name_type_map['Uint'], (0, None), (False, None), (None, None)
+		yield 'collision_ids', Array, (0, None, (None,), name_type_map['Uint']), (False, None), (None, None)
 
 	@classmethod
 	def _get_filtered_attribute_list(cls, instance, include_abstract=True):
 		yield from super()._get_filtered_attribute_list(instance, include_abstract)
 		yield 'unk_0', name_type_map['Uint'], (0, None), (False, None)
 		yield 'unk_1', name_type_map['Uint'], (0, None), (False, None)
-		yield 'has_collision', name_type_map['Uint'], (0, None), (False, None)
-		if instance.has_collision:
-			yield 'collision_id', name_type_map['Uint'], (0, None), (False, None)
+		yield 'num_colliders', name_type_map['Uint'], (0, None), (False, None)
+		yield 'collision_ids', Array, (0, None, (instance.num_colliders,), name_type_map['Uint']), (False, None)

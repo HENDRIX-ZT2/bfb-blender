@@ -37,7 +37,7 @@ class MeshReader(BaseStruct):
 	def get_dtype_from_bfrvertex(self, set_vert_size=False):
 		# decodes the vertex format on the fly, should work on most if not all models. Some uncertainties about the last two, rare options.
 		self.formatstr = self.arg.b_f_r_vertex[9:]
-		logging.info(self.formatstr)
+		# logging.info(self.formatstr)
 		dt_map = {
 			"P": [("pos", np.float32, (3,))],
 			"N": [("normal", np.float32, (3,))],

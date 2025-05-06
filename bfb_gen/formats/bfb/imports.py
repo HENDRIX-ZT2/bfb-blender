@@ -39,6 +39,7 @@ type_module_name_map = {
 	'MeshLink': 'bfb_gen.formats.bfb.compounds.MeshLink',
 	'BillboardLink': 'bfb_gen.formats.bfb.compounds.BillboardLink',
 	'CapsuleLink': 'bfb_gen.formats.bfb.compounds.CapsuleLink',
+	'ParticleLink': 'bfb_gen.formats.bfb.compounds.ParticleLink',
 	'BfbNode': 'bfb_gen.formats.bfb.compounds.BfbNode',
 	'BfbHeader': 'bfb_gen.formats.bfb.compounds.BfbHeader',
 	'BfbRoot': 'bfb_gen.formats.bfb.compounds.BfbRoot',

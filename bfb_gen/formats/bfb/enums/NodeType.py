@@ -12,3 +12,4 @@ class NodeType(BaseEnum):
 	MESH_LINK = 3
 	BILLBOARD_LINK = 4
 	CAPSULE_LINK = 5
+	PARTICLE_LINK = 6

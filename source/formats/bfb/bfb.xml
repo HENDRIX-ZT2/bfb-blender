@@ -23,6 +23,7 @@
 		<option value="3" name="MeshLink" />
 		<option value="4" name="BillboardLink" />
 		<option value="5" name="CapsuleLink" />
+		<option value="6" name="ParticleLink" />
 	</enum>
 
     <compound name="Sphere">
@@ -119,8 +120,8 @@
 	<compound name="Node">
         <add name="unk 0" type="uint" />
         <add name="unk 1" type="uint" />
-        <add name="has_collision" type="uint"/>
-        <add name="collision_id" type="uint" cond="has_collision"/>
+        <add name="num_colliders" type="uint"/>CrystalTunnel_df = 3
+        <add name="collision_ids" type="uint" arr1="num_colliders"/>
     </compound>
 
 	<compound name="LodGroup" inherit="Node">
@@ -138,11 +139,13 @@
     </compound>
 
 	<compound name="BillboardLink">
-        #0, 0, 0, 1, 0, 0, 1.0, 0.0, -1.0, 0
+        164 bytes in old spec, maybe wrong or conditional
+        172 bytes - themedtank_mm_top_curve135_long.bfb - 44 bytes until matname, all before vec are zero
         <add name="u0" type="uint"/>
         <add name="has_obj" type="uint" default="1"/>todo unsure if correct orientation
         <add name="u1" type="uint64"/>
-        <add name="axis" type="Vector3"/>1.0, 0.0, -1.0
+        <add name="dummy" type="uint64"/>for themedtank_mm_top_curve135_long
+        <add name="axis" type="Vector3"/>eg. 1.0, 0.0, -1.0
         <add name="u2" type="uint"/>
         <add name="object_id" type="uint"/>
         <add name="material" type="FixedString" arg="128" />
@@ -154,6 +157,14 @@
         <add name="u2" type="uint" default="1"/>
         <add name="collision_id" type="uint"/>
         <add name="bone_name" type="FixedString" arg="64" >case-sensitive</add>
+    </compound>
+
+	<compound name="ParticleLink">
+        76 bytes - CavePaintingHall
+        <add name="u0" type="uint" default="1"/>
+        <add name="u1" type="uint" default="1"/>
+        <add name="u2" type="uint" default="1"/>
+        <add name="emitter" type="FixedString" arg="64" >case-insensitive</add>
     </compound>
 
 	<compound name="BfbNode">
@@ -170,6 +181,7 @@
         <add name="data" cond="type_id == 3" type="MeshLink"/>
         <add name="data" cond="type_id == 4" type="BillboardLink"/>
         <add name="data" cond="type_id == 5" type="CapsuleLink"/>
+        <add name="data" cond="type_id == 6" type="ParticleLink"/>
 
         <add name="children" type="BfbNode" arr1="0" abstract="True"/>
     </compound>
@@ -186,7 +198,7 @@
 	<compound name="BfbRoot">
         <add name="header" type="BfbHeader"/>
         <add name="blocks" type="BfbBlock" arr1="header \ num_blocks"/>
-<!--        <add name="tree" type="BfbNode" />-->
+        <add name="tree" type="BfbNode" />
     </compound>
 
 </niftoolsxml>
