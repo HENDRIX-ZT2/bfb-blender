@@ -3,7 +3,7 @@ import logging
 import bpy
 
 
-def get_rna_path(dtype, n_bone=None, n_shapekey=None, n_constraint=None):
+def get_rna_path(dtype, n_bone=None, n_shapekey=None, n_constraint=None, n_node_input=None):
 	if n_bone:
 		if n_constraint:
 			return f'pose.bones["{n_bone}"].constraints["{n_constraint}"].{dtype}'
@@ -11,6 +11,8 @@ def get_rna_path(dtype, n_bone=None, n_shapekey=None, n_constraint=None):
 			return f'pose.bones["{n_bone}"].{dtype}'
 	elif n_shapekey:
 		return f'key_blocks["{n_shapekey}"].{dtype}'
+	elif n_node_input:
+		return f'nodes["{dtype}"].inputs[{n_node_input}].default_value'
 	else:
 		return dtype
 
@@ -38,13 +40,18 @@ class Animation:
 		b_obj.animation_data.action = b_action
 		# https://developer.blender.org/docs/release_notes/4.4/python_api/#slotted-actions
 		if bpy.app.version >= (4, 4, 0):
-			slot = b_action.slots.new(id_type='OBJECT', name=b_obj.name)
+			id_type = "OBJECT"
+			if isinstance(b_obj, bpy.types.Material):
+				id_type = "MATERIAL"
+			if isinstance(b_obj, bpy.types.NodeTree):
+				id_type = "NODETREE"
+			slot = b_action.slots.new(id_type=id_type, name=b_obj.name)
 			b_obj.animation_data.action_slot = slot
 		return b_action
 
-	def create_fcurves(self, action, dtype, drange, flags=None, n_bone=None, n_shapekey=None, n_constraint=None):
+	def create_fcurves(self, action, dtype, drange, flags=None, n_bone=None, n_shapekey=None, n_constraint=None, n_node_input=None):
 		""" Create fcurves in action for desired conditions. """
-		rna_path = get_rna_path(dtype, n_bone, n_shapekey, n_constraint)
+		rna_path = get_rna_path(dtype, n_bone, n_shapekey, n_constraint, n_node_input)
 		# armature pose bone animation
 		if n_bone:
 			if n_constraint:
@@ -78,18 +85,19 @@ class Animation:
 			for fcurve in fcurves:
 				fcurve.extrapolation = 'CONSTANT'
 
-	def add_keys(self, b_action, key_type, key_range, flags, frames, keys, interp, n_bone=None, n_key=None, n_constraint=None):
+	def add_keys(self, b_action, key_type, key_range, flags, frames, keys, interp=None, n_bone=None, n_key=None, n_constraint=None, n_node_input=None):
 		"""
 		Create needed fcurves and add a list of keys to an action.
 		"""
 		# samples = [round(t * self.fps) for t in times]
 		assert len(frames) == len(keys)
 		# get interpolation enum representation
-		ipo = bpy.types.Keyframe.bl_rna.properties['interpolation'].enum_items[interp].value
-		interpolations = [ipo for _ in range(len(frames))]
+		if interp:
+			ipo = bpy.types.Keyframe.bl_rna.properties['interpolation'].enum_items[interp].value
+			interpolations = [ipo for _ in range(len(frames))]
 		# import the keys
 		try:
-			fcurves = self.create_fcurves(b_action, key_type, key_range, flags, n_bone, n_key, n_constraint)
+			fcurves = self.create_fcurves(b_action, key_type, key_range, flags, n_bone, n_key, n_constraint, n_node_input)
 			if len(key_range) == 1:
 				# flat key - make it zippable
 				key_per_fcurve = [keys]
@@ -100,7 +108,7 @@ class Animation:
 				fcurve.keyframe_points.add(count=len(fcu_keys))
 				# populate points with keys for this curve
 				fcurve.keyframe_points.foreach_set("co", [x for co in zip(frames, fcu_keys) for x in co])
-				if ipo:
+				if interp:
 					fcurve.keyframe_points.foreach_set("interpolation", interpolations)
 				# update
 				fcurve.update()

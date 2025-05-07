@@ -7,6 +7,7 @@ import mathutils
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
+from modules_import.anim import Animation
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from util.fast_mesh import FastMesh
 from .common_bfb import *
@@ -18,6 +19,9 @@ def log_error(error):
 	logging.warning(error)
 	global errors
 	errors.append(error)
+
+
+anim = Animation()
 
 
 def import_scene_graph(b_parent, node, lod_level):
@@ -46,7 +50,7 @@ def import_scene_graph(b_parent, node, lod_level):
 				ob.parent = b_parent
 			ob.matrix_local = matrix
 			# todo support multiple materials
-			create_material(ob, node.data.materials[0])
+			create_material(ob, node.data.materials[0], anim)
 			assign_to_lod(ob, lod_level)
 	elif node.type_id == NodeType.BILLBOARD_LINK:
 		global camera
@@ -59,7 +63,7 @@ def import_scene_graph(b_parent, node, lod_level):
 		ob.name = node.name
 		ob.matrix_local = matrix
 		ob.parent = node
-		create_material(ob, node.data.material)
+		create_material(ob, node.data.material, anim)
 		assign_to_lod(ob, lod_level)
 		const = ob.constraints.new('COPY_ROTATION')
 		const.use_x = False
@@ -86,7 +90,7 @@ def import_scene_graph(b_parent, node, lod_level):
 			lod_level += 1
 
 
-def create_material(ob, matname):
+def create_material(ob, matname, anim):
 	try:
 		material = bfmat(dirname, matname + ".bfmat")
 		for error in material.errors:
@@ -138,26 +142,25 @@ def create_material(ob, matname):
 				# use supplied UV maps for everything else, if present
 				else:
 					uv = tree.nodes.new('ShaderNodeUVMap')
-					uv.name = "TexCoordIndex" + str(i)
+					uv.name = f"TexCoordIndex{i}"
 					uv.uv_map = tex_index if tex_index else str(i)
 					if tex_transform or tex_anim:
 						transform = tree.nodes.new('ShaderNodeMapping')
-						# todo: negate V coordinate
 						if tex_transform:
 							matrix_4x4 = mathutils.Matrix(tex_transform)
 							transform.inputs["Scale"].default_value = matrix_4x4.to_scale()
 							transform.inputs["Rotation"].default_value = matrix_4x4.to_euler()
-							transform.inputs["Location"].default_value = matrix_4x4.to_translation()
+							loc = matrix_4x4.to_translation()
+							# negate V coordinate
+							loc.y *= -1.0
+							transform.inputs["Location"].default_value = loc
 							transform.name = f"TextureTransform{i}"
-						# todo fix inputs to new api
-						# if tex_anim:
-						# 	for j, dtype in enumerate(("offsetu", "offsetv")):
-						# 		for key in tex_anim[dtype]:
-						# 			transform.translation[j] = key[1]
-						# 			# note that since we are dealing with UV coordinates, V has to be negated
-						# 			if j == 1:
-						# 				transform.translation[j] *= -1
-						# 			transform.keyframe_insert("translation", index=j, frame=int(key[0] * fps))
+						if tex_anim:
+							b_action = anim.create_action(tree, f"{mat.name}_Action")
+							u = tex_anim["offsetu"]
+							v = tex_anim["offsetv"]
+							anim.add_keys(b_action, transform.name, (0,), None, [k[0] * fps for k in u], [k[1] for k in u], None, n_node_input=1)
+							anim.add_keys(b_action, transform.name, (1,), None, [k[0] * fps for k in v], [-k[1] for k in v], None, n_node_input=1)
 						tree.links.new(uv.outputs[0], transform.inputs[0])
 						tree.links.new(transform.outputs[0], tex.inputs[0])
 					else:
