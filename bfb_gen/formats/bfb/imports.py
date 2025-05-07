@@ -20,7 +20,6 @@ type_module_name_map = {
 	'Matrix': 'bfb_gen.formats.base.compounds.Matrix',
 	'Matrix44': 'bfb_gen.formats.base.compounds.Matrix44',
 	'Matrix33': 'bfb_gen.formats.base.compounds.Matrix33',
-	'Ubyte50': 'bfb_gen.formats.bfb.basic',
 	'BlockType': 'bfb_gen.formats.bfb.enums.BlockType',
 	'NodeType': 'bfb_gen.formats.bfb.enums.NodeType',
 	'Sphere': 'bfb_gen.formats.bfb.compounds.Sphere',

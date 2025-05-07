@@ -4,10 +4,6 @@
 
 	<xi:include href="../base/base.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="xpointer(*/*)" />
 
-    <basic name="ubyte50" integral="true" countable="true">
-        An unsigned 16-bit integer.
-    </basic>
-
 	<enum name="BlockType" storage="ushort">
 		<option value="1" name="Sphere" />
 		<option value="3" name="BoundingBox" />
