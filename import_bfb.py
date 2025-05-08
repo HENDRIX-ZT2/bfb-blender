@@ -24,34 +24,38 @@ def log_error(error):
 anim = Animation()
 
 
-def import_scene_graph(b_parent, node, lod_level):
-	ob = None
-	matrix = mathutils.Matrix(node.matrix.data)
+def get_matrix(matrix):
+	matrix = mathutils.Matrix(matrix.data)
 	matrix.transpose()
+	return matrix
+
+def import_scene_graph(b_parent, node, lod_level):
+	b_ob = None
+	matrix = get_matrix(node.matrix)
 	logging.info(f"{node.type_id}: {node.name}")
 	# ordinary node, node with collision or lod level
 	if node.type_id == NodeType.NODE:
 		if b_armature_ob and not b_parent:
-			ob = b_armature_ob
-			ob.name = node.name
-			ob.data.name = node.name
-			ob.matrix_local = matrix
+			b_ob = b_armature_ob
+			b_ob.name = node.name
+			b_ob.data.name = node.name
+			b_ob.matrix_local = matrix
 		else:
-			ob = create_empty(b_parent, node.name, matrix)
+			b_ob = create_empty(b_parent, node.name, matrix)
 		for collision_id in node.data.collision_ids:
-			id2data[collision_id].parent = ob
+			id2data[collision_id].parent = b_ob
 	elif node.type_id == NodeType.LOD_GROUP:
-		ob = create_empty(b_parent, "lodgroup", matrix)
+		b_ob = create_empty(b_parent, "lodgroup", matrix)
 	elif node.type_id == NodeType.MESH_LINK:
 		for object_id in node.data.object_ids:
-			ob = id2data[object_id]
-			ob.name = node.name
+			b_ob = id2data[object_id]
+			b_ob.name = node.name
 			if b_parent:
-				ob.parent = b_parent
-			ob.matrix_local = matrix
+				b_ob.parent = b_parent
+			b_ob.matrix_local = matrix
 			# todo support multiple materials
-			create_material(ob, node.data.materials[0], anim)
-			assign_to_lod(ob, lod_level)
+			create_material(b_ob, node.data.materials[0], anim)
+			assign_to_lod(b_ob, lod_level)
 	elif node.type_id == NodeType.BILLBOARD_LINK:
 		global camera
 		if not camera:
@@ -59,13 +63,13 @@ def import_scene_graph(b_parent, node, lod_level):
 			camera = create_ob("TrackingCamera", camera_data)
 			camera.location = (2, -2, 2)
 			camera.rotation_euler = (1.047, 0.0, 0.785)
-		ob = id2data[node.data.object_id]
-		ob.name = node.name
-		ob.matrix_local = matrix
-		ob.parent = node
-		create_material(ob, node.data.material, anim)
-		assign_to_lod(ob, lod_level)
-		const = ob.constraints.new('COPY_ROTATION')
+		b_ob = id2data[node.data.object_id]
+		b_ob.name = node.name
+		b_ob.matrix_local = matrix
+		b_ob.parent = node
+		create_material(b_ob, node.data.material, anim)
+		assign_to_lod(b_ob, lod_level)
+		const = b_ob.constraints.new('COPY_ROTATION')
 		const.use_x = False
 		const.use_y = False
 		const.use_z = True
@@ -73,20 +77,20 @@ def import_scene_graph(b_parent, node, lod_level):
 	elif node.type_id == NodeType.CAPSULE_LINK:
 		# only in actor meshes
 		bone_name = name_import(node.data.bone_name)
-		ob = id2data[node.data.collision_id]
-		ob.parent = b_armature_ob
-		ob.parent_bone = bone_name
-		ob.parent_type = 'BONE'
+		b_ob = id2data[node.data.collision_id]
+		b_ob.parent = b_armature_ob
+		b_ob.parent_bone = bone_name
+		b_ob.parent_type = 'BONE'
 		try:
-			ob.location.y = -b_armature_ob.data.bones[bone_name].length
+			b_ob.location.y = -b_armature_ob.data.bones[bone_name].length
 		except:
-			ob.parent_bone = "Bip01"
+			b_ob.parent_bone = "Bip01"
 			log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
 	# if we have children, the newly created empty is their parent
 	for child in reversed(node.children):
-		import_scene_graph(ob, child, lod_level)
+		import_scene_graph(b_ob, child, lod_level)
 		# if this is a lod level, move next child to its respective layer
-		if ob.name.startswith("lodgroup"):
+		if b_ob.name.startswith("lodgroup"):
 			lod_level += 1
 
 
@@ -289,7 +293,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 		if block.type_id == BlockType.SPHERE:
 			id2data[block.id] = create_sphere(block.name, data.pos.x, data.pos.y, data.pos.z, data.radius)
 		elif block.type_id == BlockType.BOUNDING_BOX:
-			id2data[block.id] = create_bounding_box(block.name, mathutils.Matrix(data.matrix.data).transposed(),
+			id2data[block.id] = create_bounding_box(block.name, get_matrix(data.matrix),
 													data.extent.x, data.extent.y, data.extent.z)
 		elif block.type_id == BlockType.CAPSULE:
 			id2data[block.id] = create_capsule(block.name, mathutils.Vector(data.start),
@@ -312,9 +316,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 					mat_storage = {}
 					for bfb_bone in data.bones:
 						bone_name = name_import(bfb_bone.name)
-						bind = mathutils.Matrix(bfb_bone.matrix.data)
-						# blender transposes matrices
-						bind.transpose()
+						bind = get_matrix(bfb_bone.matrix)
 						# new support for bone scale
 						scale = bind.to_scale()[0]
 						if int(round(scale * 1000)) != 1000:

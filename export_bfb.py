@@ -612,8 +612,7 @@ def export_bounding_box(b_ob, bfb):
 	logging.debug('Found bounding box collider!')
 	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
-	# todo check transpose
-	block.data.matrix.set_rows(b_ob.matrix_local.transposed())
+	block.data.matrix.set_rows(b_ob.matrix_local)
 	block.data.extent[:] = me.vertices[4].co * 2
 
 

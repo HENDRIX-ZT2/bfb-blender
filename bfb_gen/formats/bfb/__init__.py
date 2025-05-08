@@ -43,8 +43,7 @@ class BfbFile(BfbRoot, IoFile):
 		node.id = self.node_id
 		self.node_id += 1
 		node.type_id = node_type
-		# todo check transpose
-		node.matrix.set_rows(b_ob.matrix_local.transposed())
+		node.matrix.set_rows(b_ob.matrix_local)
 		return node
 		
 	# def save(self, filepath):
