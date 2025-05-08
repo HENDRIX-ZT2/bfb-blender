@@ -214,10 +214,10 @@ correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_m
 correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
 
 
-def get_bfb_matrix(bone):
-	bind = correction_global.inverted() @ correction_local.inverted() @ bone.matrix_local @ correction_local
-	if bone.parent:
-		p_bind_restored = correction_global.inverted() @ correction_local.inverted() @ bone.parent.matrix_local @ correction_local
+def get_bfb_matrix(b_bone):
+	bind = correction_global.inverted() @ correction_local.inverted() @ b_bone.matrix_local @ correction_local
+	if b_bone.parent:
+		p_bind_restored = correction_global.inverted() @ correction_local.inverted() @ b_bone.parent.matrix_local @ correction_local
 		bind = p_bind_restored.inverted() @ bind
 
 	return bind.transposed()

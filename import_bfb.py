@@ -136,7 +136,7 @@ def create_material(ob, matname, anim):
 				tex = node_util.load_tex_node(tree, material.find_recursive(texture + ".dds"))
 				textures.append(tex)
 				tex.name = "Texture" + str(i)
-				# #eg. African violets, but only in rendered view; but: glacier
+				# e.g. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (
 						material.AlphaTestEnable is False and material.AlphaBlendEnable is False)) else "REPEAT"
 				# use generated UV coords for reflection maps
@@ -150,6 +150,7 @@ def create_material(ob, matname, anim):
 					uv.uv_map = tex_index if tex_index else str(i)
 					if tex_transform or tex_anim:
 						transform = tree.nodes.new('ShaderNodeMapping')
+						transform.name = f"TextureTransform{i}"
 						if tex_transform:
 							matrix_4x4 = mathutils.Matrix(tex_transform)
 							transform.inputs["Scale"].default_value = matrix_4x4.to_scale()
@@ -158,7 +159,6 @@ def create_material(ob, matname, anim):
 							# negate V coordinate
 							loc.y *= -1.0
 							transform.inputs["Location"].default_value = loc
-							transform.name = f"TextureTransform{i}"
 						if tex_anim:
 							b_action = anim.create_action(tree, f"{mat.name}_Action")
 							u = tex_anim["offsetu"]
@@ -260,7 +260,7 @@ def create_material(ob, matname, anim):
 
 
 def load(operator, context, filepath="", use_custom_normals=False, use_mirror_mesh=False):
-	starttime = time.time()
+	start_time = time.time()
 	global errors
 	errors = []
 	global b_armature_ob
@@ -305,45 +305,10 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 
 			if block.type_id == BlockType.MESH_SKINNED:
 				if not b_armature_ob:
-					# create the b_armature_ob
-					b_armature_data = bpy.data.armatures.new(basename[:-4])
-					b_armature_data.show_axes = True
-					b_armature_data.display_type = 'STICK'
-					b_armature_ob = create_ob(basename[:-4], b_armature_data)
-					# b_armature_ob.show_x_ray = True
-					bpy.ops.object.mode_set(mode='EDIT')
-					# read the b_armature_ob block
-					mat_storage = {}
-					for bfb_bone in data.bones:
-						bone_name = name_import(bfb_bone.name)
-						bind = get_matrix(bfb_bone.matrix)
-						# new support for bone scale
-						scale = bind.to_scale()[0]
-						if int(round(scale * 1000)) != 1000:
-							# bind = mathutils.Matrix.Scale(1/scale, 4) * bind
-							scales[bone_name] = scale
-						# create a bone
-						b_edit_bone = b_armature_data.edit_bones.new(bone_name)
-						# parent it and get the armature space matrix
-						if bfb_bone.parent_id > 0:
-							# calculate bfb armature space matrix
-							bind = mat_storage[bfb_bone.parent_id] @ bind
-							b_edit_bone.parent = b_armature_data.edit_bones[bfb_bone.parent_id - 1]
-						# we store the bfb space armature matrix of each bone
-						mat_storage[bfb_bone.id] = bind.copy()
-						# set transformation
-						bind = correction_global @ correction_local @ bind @ correction_local.inverted()
-						tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
-						b_edit_bone.head = bind.to_translation()
-						b_edit_bone.tail = tail + b_edit_bone.head
-						b_edit_bone.roll = roll
-					# fix the bone length
-					for edit_bone in b_armature_data.edit_bones:
-						fix_bone_length(edit_bone)
-					bpy.ops.object.mode_set(mode='OBJECT')
+					import_bones(basename, data, scales)
 			# build mesh
 			for chunk_i, chunk in enumerate(data.chunks):
-				tris = mesh_data.tris[chunk.tri_index_offset // 3:(chunk.tri_index_offset + chunk.num_tri_indices) // 3]
+				tris = mesh_data.tris[chunk.tri_index_offset // 3: (chunk.tri_index_offset + chunk.num_tri_indices) // 3]
 				verts = mesh_data.verts.verts_data[chunk.vertex_offset: chunk.vertex_offset + chunk.vertex_count]
 
 				vertices = verts["pos"].copy()
@@ -408,16 +373,22 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 			ob_postpro(use_mirror_mesh)
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
-	# Now comes the linked list part, it starts with the root block.
-	logging.info("Reading object hierarchy and creating blender objects...")
+	logging.info("Reading object hierarchy")
 	import_scene_graph(None, bfb.tree, 0)
 
+	apply_rest_scale_correction(b_armature_ob, context, scales, skinned_meshes)
+
+	logging.info(f'Finished BFB Import in {time.time() - start_time:.2f} seconds')
+	return errors
+
+
+def apply_rest_scale_correction(b_armature_ob, context, scales, skinned_meshes):
 	# handle scale on armature and meshes
 	if b_armature_ob and scales:
 		# set inverse scale to all bones
 		for bone_name, scale in scales.items():
-			pbone = b_armature_ob.pose.bones[bone_name]
-			pbone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
+			p_bone = b_armature_ob.pose.bones[bone_name]
+			p_bone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
 		depsgraph = context.evaluated_depsgraph_get()
 		# apply skin deformation
 		for ob in skinned_meshes:
@@ -436,5 +407,41 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 			for fcurve in fcurves:
 				fcurve.keyframe_points.insert(0, scale)
 
-	logging.info(f'Finished BFB Import in {time.time() - starttime:.2f} seconds')
-	return errors
+
+def import_bones(basename, data, scales):
+	global b_armature_ob
+	# create the b_armature_ob
+	b_armature_data = bpy.data.armatures.new(basename[:-4])
+	b_armature_data.show_axes = True
+	b_armature_data.display_type = 'STICK'
+	b_armature_ob = create_ob(basename[:-4], b_armature_data)
+	# b_armature_ob.show_x_ray = True
+	bpy.ops.object.mode_set(mode='EDIT')
+	# read the b_armature_ob block
+	mat_storage = {}
+	for bfb_bone in data.bones:
+		bone_name = name_import(bfb_bone.name)
+		bind = get_matrix(bfb_bone.matrix)
+		# support for bone scale
+		scale = bind.to_scale()[0]
+		if int(round(scale * 1000)) != 1000:
+			scales[bone_name] = scale
+		# create a bone
+		b_edit_bone = b_armature_data.edit_bones.new(bone_name)
+		# parent it and get the armature space matrix
+		if bfb_bone.parent_id > 0:
+			# calculate bfb armature space matrix
+			bind = mat_storage[bfb_bone.parent_id] @ bind
+			b_edit_bone.parent = b_armature_data.edit_bones[bfb_bone.parent_id - 1]
+		# we store the bfb space armature matrix of each bone
+		mat_storage[bfb_bone.id] = bind.copy()
+		# set transformation
+		bind = correction_global @ correction_local @ bind @ correction_local.inverted()
+		tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
+		b_edit_bone.head = bind.to_translation()
+		b_edit_bone.tail = tail + b_edit_bone.head
+		b_edit_bone.roll = roll
+	# fix the bone length
+	for edit_bone in b_armature_data.edit_bones:
+		fix_bone_length(edit_bone)
+	bpy.ops.object.mode_set(mode='OBJECT')

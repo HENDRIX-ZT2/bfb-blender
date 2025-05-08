@@ -12,6 +12,7 @@ from bfb_gen.formats.bfb.compounds.BfbBlock import BfbBlock
 from bfb_gen.formats.bfb.compounds.BfbNode import BfbNode
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
+from modules_import.anim import get_rna_path
 from .common_bfb import *
 
 
@@ -43,16 +44,14 @@ def indent(elem, level=0):
 
 # little utility function for searching fcurves
 def find_fcurve(id_data, path, index=0):
-	try:
-		anim_data = id_data.animation_data
+	anim_data = id_data.animation_data
+	if anim_data:
 		for fcurve in anim_data.action.fcurves:
 			if fcurve.data_path == path and fcurve.array_index == index:
 				return fcurve
-	except:
-		pass
 
 
-def write_bfmat(ob, mat):
+def write_bfmat(b_ob, b_mat, mat_name):
 	matoptions = [
 		("AlphaApplyMode", "dword", "4"),
 		("AlphaBlendEnable", "bool", "false"),
@@ -71,83 +70,82 @@ def write_bfmat(ob, mat):
 		("ShadeMode", "dword", "2"),
 		("SpecularEnable", "bool", "false")]
 
-	logging.info(f"Exporting BFMAT file for {mat.name}")
-	matpath = os.path.join(dirname, "Materials")
-	if not os.path.exists(matpath):
-		os.makedirs(matpath)
-	material = ET.Element('material')
+	logging.info(f"Exporting BFMAT file for {b_mat.name}")
+	mat_path = os.path.join(dir_path, "Materials")
+	if not os.path.exists(mat_path):
+		os.makedirs(mat_path)
+	bfmat = ET.Element('material')
 	fps = bpy.context.scene.render.fps
 
-	# updated for node material
-	texture_slots = []
-	output = None
-	for node in mat.node_tree.nodes:
-		if "Texture" in node.name:
-			texture_slots.append(node)
-	for i, texture_slot in enumerate(texture_slots):
+	texture_nodes = []
+	for i in range(3):
+		texture_node = b_mat.node_tree.nodes.get(f"Texture{i}")
+		if texture_node:
+			texture_nodes.append(texture_node)
+			if texture_node.image:
+				image = texture_node.image.filepath
+				# fallback for generated images
+				if not image:
+					image = texture_node.image.name
+				# strip the extension and save it
+				matoptions.append((f"Texture{i}", "texture", os.path.splitext(os.path.basename(image))[0]))
+			else:
+				log_error(f"Texture {texture_node.texture.name} in material {b_mat.name} contains no image!")
+		transform_node = b_mat.node_tree.nodes.get(f"TextureTransform{i}")
+		if transform_node:
+			# UV anim
+			dp = get_rna_path(transform_node.name, n_node_input=1)
+			u = find_fcurve(b_mat.node_tree, dp, 0)
+			v = find_fcurve(b_mat.node_tree, dp, 1)
 
-		# todo: support UV anim
-		# u = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 0)
-		# v = find_fcurve(mat, "texture_slots["+str(i)+"].offset", 1)
-		#
-		# if u:
-		# 	animate = ET.SubElement(material, "animate",{"name":"TextureTransform"+str(index),"type":"UVTransform", "loop":"wrap", "length":str(max(u.range()[1],v.range()[1])/fps)})
-		# 	offsetu =  ET.SubElement(animate, "offsetu")
-		# 	for k in u.keyframe_points:
-		# 		ET.SubElement(offsetu, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
-		# 	offsetv =  ET.SubElement(animate, "offsetv")
-		# 	for k in v.keyframe_points:
-		# 		ET.SubElement(offsetv, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
-		# 	#not exactly sure what these are for? - not supported atm
-		# 	tileu =  ET.SubElement(animate, "tileu")
-		# 	ET.SubElement(tileu, "key",{"time":"0.0","value":"1.0"})
-		# 	tilev =  ET.SubElement(animate, "tilev")
-		# 	ET.SubElement(tilev, "key",{"time":"0.0","value":"1.0"})
-		# 	rotw =  ET.SubElement(animate, "rotw")
-		# 	ET.SubElement(rotw, "key",{"time":"0.0","value":"0.0"})
+			if u:
+				animate = ET.SubElement(bfmat, "animate",{"name": f"TextureTransform{i}", "type":"UVTransform", "loop": "wrap", "length": str(max(u.range()[1],v.range()[1])/fps)})
+				offsetu = ET.SubElement(animate, "offsetu")
+				for k in u.keyframe_points:
+					ET.SubElement(offsetu, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
+				offsetv = ET.SubElement(animate, "offsetv")
+				for k in v.keyframe_points:
+					ET.SubElement(offsetv, "key",{"time":str(k.co[0]/fps),"value":str(-k.co[1])})
+				# not exactly sure what these are for? - not supported atm
+				tileu =  ET.SubElement(animate, "tileu")
+				ET.SubElement(tileu, "key",{"time":"0.0","value":"1.0"})
+				tilev =  ET.SubElement(animate, "tilev")
+				ET.SubElement(tilev, "key",{"time":"0.0","value":"1.0"})
+				rotw =  ET.SubElement(animate, "rotw")
+				ET.SubElement(rotw, "key",{"time":"0.0","value":"0.0"})
 
-		# matoptions.append(("AddressU"+str(index), "dword", "1"))
-		# matoptions.append(("AddressV"+str(index), "dword", "1"))
-		if texture_slot.image:
-			image = texture_slot.image.filepath
-			# fallback for generated images
-			if not image:
-				image = texture_slot.image.name
-			# strip the extension and save it
-			matoptions.append(("Texture" + str(i), "texture", os.path.splitext(os.path.basename(image))[0]))
-		# todo: try to grab texcord from node
-		# try:
-		# 	texcoord = str(int(texture_slot.uv_layer))
-		# except:
-		# 	error = texture_slot.name+" does not follow the UV layer naming convention (numbers only), TexCoordIndex set to 0"
-		# 	print(error)
-		# 	texcoord = list(mat.texture_slots).index(texture_slot)
-		# matoptions.append(("TexCoordIndex"+str(index),"dword",texcoord))
-		else:
-			log_error('Texture ' + texture_slot.texture.name + ' in material ' + mat.name + ' contains no image!')
+			matoptions.append((f"AddressU{i}", "dword", "1"))
+			matoptions.append((f"AddressV{i}", "dword", "1"))
+		texcoord_node = b_mat.node_tree.nodes.get(f"TexCoordIndex{i}")
+		if texcoord_node:
+			# try to grab texcoord from node
+			try:
+				texcoord = str(int(texcoord_node.uv_map))
+			except:
+				logging.warning(f"{texcoord_node.name} does not follow the UV layer naming convention (numbers only), TexCoordIndex set to 0")
+				texcoord = "0"
+			matoptions.append((f"TexCoordIndex{i}", "dword", texcoord))
 
 	# todo: first try to get imported fx from output_node.label, then fall back
 	fx = "Base"
-	if len(texture_slots) == 1:
+	if len(texture_nodes) == 1:
 		matoptions.append(("LightingEnable", "bool", "true"))
-	elif len(texture_slots) == 2:
+	elif len(texture_nodes) == 2:
 		fx += "Decal"
-	elif len(texture_slots) == 3:
+	elif len(texture_nodes) == 3:
 		fx += "DecalDetail"
-	if ob in ob_2_fx_wind:
-		fx += ob_2_fx_wind[ob]
-	material.set("fx", fx)
-	# dots don't work in ZT2
-	material.set("name", mat.name.replace(".", ""))
+	if b_ob in ob_2_fx_wind:
+		fx += ob_2_fx_wind[b_ob]
+	bfmat.set("fx", fx)
+	bfmat.set("name", mat_name)
 
 	for option in sorted(matoptions, key=lambda x: x[0]):
-		param = ET.SubElement(material, "param", {"name": option[0], "type": option[1]})
+		param = ET.SubElement(bfmat, "param", {"name": option[0], "type": option[1]})
 		param.text = str(option[2])
 
-	materialtree = ET.ElementTree()
-	materialtree._setroot(material)
-	indent(material)
-	materialtree.write(os.path.join(matpath, mat.name.replace(".", "") + ".bfmat"))
+	material_tree = ET.ElementTree(bfmat)
+	indent(bfmat)
+	material_tree.write(os.path.join(mat_path, f"{mat_name}.bfmat"))
 
 
 def has_collider(ob):
@@ -216,17 +214,17 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 			data.bone_name = bone_name
 			data.collision_id = bfb.ob_2_block_id[b_ob]
 		else:
-			matname = 'none'
+			mat_name = 'none'
 			if len(b_ob.data.materials):
-				# sometimes the will be empty slots before a material
+				# sometimes there will be empty slots before a material
 				for material in b_ob.data.materials:
 					if material:
+						mat_name = material.name.replace(".", "")
 						if write_materials:
 							try:
-								write_bfmat(b_ob, material)
+								write_bfmat(b_ob, material, mat_name)
 							except:
-								logging.warning(f"Bfmat export failed, needs rewrite")
-						matname = material.name.replace(".", "")
+								logging.exception(f"Bfmat export failed")
 						break
 			else:
 				log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
@@ -236,7 +234,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				bfb_node.reset_field("data")
 				data = bfb_node.data
 				data.object_id = bfb.ob_2_block_id[b_ob]
-				data.material = matname
+				data.material = mat_name
 				data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
 			else:
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
@@ -244,25 +242,15 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				bfb_node.reset_field("data")
 				data = bfb_node.data
 				data.object_ids[0] = bfb.ob_2_block_id[b_ob]
-				data.materials[0] = matname
+				data.materials[0] = mat_name
 	else:
+		# lamps etc, just ignore them
 		return
 	for b_child in b_ob.children:
 		bfb_child = export_tree(b_child, bfb, bfb_node)
 		if bfb_child:
 			bfb_node.children.append(bfb_child)
 	return bfb_node
-
-
-# # are there any more siblings of this node left to add? siblings follow after all children of this node
-	# has_sibling = False
-	# if b_ob.parent:
-	# 	for sibling in b_ob.parent.children[b_ob.parent.children.index(b_ob) + 1:]:
-	# 		if type(sibling.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
-	# 			has_sibling = True
-	# 			break
-	# 	next_sibling = start + len(data) + 16 if has_sibling else 0
-	# 	return pack('<4i', bfb.ob_2_block_id[b_ob], type_id, next_child, next_sibling) + data
 
 
 def apply_transform(ob, ):
@@ -289,8 +277,8 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 
 	global write_materials
 	write_materials = export_materials
-	global dirname
-	dirname = os.path.dirname(filepath)
+	global dir_path
+	dir_path = os.path.dirname(filepath)
 	bfb = BfbFile()
 
 	# if one model uses an armature, all have to. If they don't, they can't be exported.
@@ -358,41 +346,26 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 			elif b_ob.name.startswith('orientedbox'):
 				export_bounding_box(b_ob, bfb)
 			else:
-				# export the armature if not already done for a previous mesh
-				armature = b_ob.find_armature()
+				b_armature = b_ob.find_armature()
 				# we have an armature on one mesh, means we can't export meshes without armature
-				if has_armature and not armature:
+				if has_armature and not b_armature:
 					log_error(f"{b_ob.name} is not exported because it does not use an armature while other models do.")
 					continue
 
-				if armature:
-					root_bones = [bone for bone in armature.data.bones.values() if not bone.parent]
-					# fatal
-					if len(root_bones) > 1:
-						if fix_root_bones:
-							# determine the proper root
-							root_bone = root_bones[0]
-							for bone in root_bones:
-								if bone.name == "Bip01":
-									root_bone = bone
-									break
-							scene.objects.active = armature
-							bpy.ops.object.mode_set(mode='EDIT')
-							# delete the other root bones
-							for bone in root_bones:
-								if bone != root_bone:
-									e_bone = armature.data.edit_bones[bone.name]
-									armature.data.edit_bones.remove(e_bone)
-									logging.warning(f"Removed {bone.name} because it is a superfluous root bone")
-							bpy.ops.object.mode_set(mode='OBJECT')
-						else:
-							log_error(
-								f"{armature.name} has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
-							return errors
+				if b_armature:
+					ensure_valid_root_bones(b_armature, fix_root_bones, scene)
 					# clear pose to ensure no distorted pose is applied
-					for p_bone in armature.pose.bones:
+					for p_bone in b_armature.pose.bones:
 						p_bone.matrix_basis = mathutils.Matrix()
-					bones_names = {name: i for i, name in enumerate(armature.data.bones.keys())}
+					# apply the scale dummy action
+					if "!scale!" in bpy.data.actions:
+						b_scale_action = bpy.data.actions["!scale!"]
+						b_armature.animation_data.action = b_scale_action
+						scene.frame_set(0)
+					else:
+						log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
+						b_scale_action = None
+					bones_names = {name: i for i, name in enumerate(b_armature.data.bones.keys())}
 				else:
 					bones_names = {}
 
@@ -407,7 +380,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 				eval_obj = b_ob.evaluated_get(dg)
 				eval_me = eval_obj.to_mesh(preserve_all_data_layers=True, depsgraph=dg)
 
-				if len(eval_me.vertices) == 0:
+				if not eval_me.vertices:
 					log_error(f"{b_ob.name} has no vertices. Delete the object and export again.")
 					return errors
 
@@ -440,13 +413,14 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 					else:
 						BFRVertex += f'T{i}'
 				# select all verts without weights
-				unweighted_vertices = []
+				unweighted_vertices = set()
 				group_map = {vg.index: bones_names.get(vg.name, -1) for vg in b_ob.vertex_groups}
 				for polygon in eval_me.polygons:
 					tri = []
 					for loop_index in polygon.loop_indices:
 						vertex_index = eval_me.loops[loop_index].vertex_index
-						co = eval_me.vertices[vertex_index].co
+						vertex = eval_me.vertices[vertex_index]
+						co = vertex.co
 						no = eval_me.loops[loop_index].normal
 
 						bfb_vertex = [(co.x, co.y, co.z), (no.x, no.y, no.z), ]
@@ -458,7 +432,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 							bfb_vertex += [(uv_coord.x, 1.0 - uv_coord.y), ]
 							if 'T3' in BFRVertex:
 								try:
-									weight = eval_me.vertices[vertex_index].groups[weight_group_index].weight
+									weight = vertex.groups[weight_group_index].weight
 								except:
 									weight = 0
 								bfb_vertex.append(weight)
@@ -466,33 +440,33 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 						if key not in dummy_vertices:
 							dummy_vertices[key] = len(dummy_vertices)
 							mesh_vertices.append(key)
-							if armature:
+							if b_armature:
 								w = []
-								for vertex_group in eval_me.vertices[vertex_index].groups:
-									# dummy vertex groups without corresponding bones
+								for vertex_group in vertex.groups:
 									try:
 										w.append((group_map[vertex_group.group], vertex_group.weight))
+									# dummy vertex groups without corresponding bones
 									except:
 										pass
 								w_s = sorted(w, key=lambda x: x[1], reverse=True)[0:4]
-								# pad the weight list to 4 bones, ie. add empty bones if missing
+								# pad the weight list to 4 bones, i.e. add empty bones if missing
 								for i in range(0, 4 - len(w_s)):
-									w_s.append((-1, 0))
+									w_s.append((-1, 0.0))
 								sw = w_s[0][1] + w_s[1][1] + w_s[2][1] + w_s[3][1]
 								if sw > 0.0:
 									weights_list.append((w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0],
 														  w_s[0][1] / sw, w_s[1][1] / sw, w_s[2][1] / sw))
-								elif vertex_index not in unweighted_vertices:
-									unweighted_vertices.append(vertex_index)
+								else:
+									unweighted_vertices.add(vertex_index)
 						tri.append(dummy_vertices[key])
 					mesh_triangles.append(tri)
 
-				if armature:
+				if b_armature:
 					ob_2_weights_list[b_ob] = weights_list
 				if unweighted_vertices:
-					log_error(
+					raise AttributeError(
 						f'Found {len(unweighted_vertices)} unweighted vertices in {b_ob.name}! Add them to vertex groups!')
-					return errors
+
 				# does a mesh of this type already exist?
 				if BFRVertex not in BFRVertex_2_meshData:
 					BFRVertex_2_meshData[BFRVertex] = ([], [], [])
@@ -520,8 +494,8 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 			center /= len(eval_me.vertices)
 			radius = max([(v.co - center).length for v in eval_me.vertices])
 
-			armature = b_ob.find_armature()
-			if armature:
+			b_armature = b_ob.find_armature()
+			if b_armature:
 				mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH_SKINNED)
 				# store weights
 				weights_list = ob_2_weights_list[b_ob]
@@ -529,34 +503,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 				mesh_block.data.reset_field("weights")
 				mesh_block.data.weights[:] = weights_list
 
-				bones = armature.data.bones.values()
-				if "!scale!" in bpy.data.actions:
-					rest_scale = bpy.data.actions["!scale!"]
-					# we have to apply the scale dummy action
-					armature.animation_data.action = rest_scale
-					scene.frame_set(0)
-				else:
-					log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
-					rest_scale = None
-				# export bones
-				mesh_block.data.num_bones = len(bones)
-				mesh_block.data.reset_field("bones")
-				for b_bone, bfb_bone in zip(bones, mesh_block.data.bones):
-					bfb_bone.id = bones.index(b_bone) + 1
-					if b_bone.parent:
-						bfb_bone.parent_id = bones.index(b_bone.parent) + 1
-					else:
-						bfb_bone.parent_id = 0
-					# rest scale support
-					try:
-						group = rest_scale.groups[b_bone.name]
-						scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
-						scale = scales[0].keyframe_points[0].co[1]
-					except:
-						scale = 1.0
-					# bfb_bone.group = lodgroup
-					bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
-					bfb_bone.matrix.set_rows((mathutils.Matrix.Scale(scale, 4) @ get_bfb_matrix(b_bone)).transposed())
+				export_bones(b_armature, mesh_block, b_scale_action)
 			else:
 				mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH)
 
@@ -575,8 +522,8 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 			tris_offset += num_triangles
 
 		# write the meshData block
-		mesh_data_block.name = 'meshData'
-		mesh_data_block.data.b_f_r_vertex = 'BFRVertex' + BFRVertex
+		mesh_data_block.name = "meshData"
+		mesh_data_block.data.b_f_r_vertex = f"BFRVertex{BFRVertex}"
 		mesh_data_block.data.vertex_count = vertex_offset
 		mesh_data_block.data.verts.set_verts(list(itertools.chain(*vertex_lists)))
 		mesh_data_block.data.num_tri_indices = tris_offset * 3
@@ -588,16 +535,68 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	bfb.header.author = author_name
 	bfb.header.num_blocks = len(bfb.blocks)
 	bfb.header.num_nodes = len(bfb.ob_2_node_id)
-	if not os.path.exists(dirname):
-		os.makedirs(dirname)
+	if not os.path.exists(dir_path):
+		os.makedirs(dir_path)
 	bfb.save(filepath)
 	# print(bfb)
 	logging.info(f'Finished BFB Export in {time.time() - start_time:.2f} seconds')
 	return errors
 
 
+def ensure_valid_root_bones(b_armature, fix_root_bones, scene):
+	root_bones = [bone for bone in b_armature.data.bones.values() if not bone.parent]
+	# fatal
+	if len(root_bones) > 1:
+		if fix_root_bones:
+			# determine the proper root
+			root_bone = root_bones[0]
+			for bone in root_bones:
+				if bone.name == "Bip01":
+					root_bone = bone
+					break
+			scene.objects.active = b_armature
+			bpy.ops.object.mode_set(mode='EDIT')
+			# delete the other root bones
+			for bone in root_bones:
+				if bone != root_bone:
+					e_bone = b_armature.data.edit_bones[bone.name]
+					b_armature.data.edit_bones.remove(e_bone)
+					logging.warning(f"Removed {bone.name} because it is a superfluous root bone")
+			bpy.ops.object.mode_set(mode='OBJECT')
+		else:
+			raise AttributeError(f"{b_armature.name} has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
+
+def export_bones(b_armature, mesh_block, b_scale_action):
+	b_bones = b_armature.data.bones.values()
+	# export bones
+	mesh_block.data.num_bones = len(b_bones)
+	mesh_block.data.reset_field("bones")
+	for b_bone, bfb_bone in zip(b_bones, mesh_block.data.bones):
+		bfb_bone.id = b_bones.index(b_bone) + 1
+		if b_bone.parent:
+			bfb_bone.parent_id = b_bones.index(b_bone.parent) + 1
+		else:
+			bfb_bone.parent_id = 0
+		scale_matrix = get_rest_scale_matrix(b_bone, b_scale_action)
+		# todo get from custom property
+		# bfb_bone.group = lodgroup
+		bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
+		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone).transposed())
+
+
+def get_rest_scale_matrix(b_bone, b_scale_action):
+	# rest scale support
+	try:
+		group = b_scale_action.groups[b_bone.name]
+		scales = [fcurve for fcurve in group.channels if fcurve.data_path.endswith("scale")]
+		scale = scales[0].keyframe_points[0].co[1]
+	except:
+		scale = 1.0
+	return mathutils.Matrix.Scale(scale, 4) 
+
+
 def export_capsule(b_ob, bfb):
-	logging.debug('Found capsule collider!')
+	logging.debug('Found capsule collider')
 	me = b_ob.data
 	start = (me.vertices[0].co + me.vertices[12].co) / 2
 	end = (me.vertices[37].co + me.vertices[49].co) / 2 - start
@@ -609,7 +608,7 @@ def export_capsule(b_ob, bfb):
 
 
 def export_bounding_box(b_ob, bfb):
-	logging.debug('Found bounding box collider!')
+	logging.debug('Found bounding box collider')
 	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
 	block.data.matrix.set_rows(b_ob.matrix_local)
@@ -617,7 +616,7 @@ def export_bounding_box(b_ob, bfb):
 
 
 def export_sphere(b_ob, bfb):
-	logging.debug('Found sphere collider!')
+	logging.debug('Found sphere collider')
 	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.SPHERE)
 	center = (me.vertices[2].co + me.vertices[23].co) / 2
