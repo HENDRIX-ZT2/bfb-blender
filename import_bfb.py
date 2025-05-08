@@ -415,9 +415,8 @@ def import_bones(basename, data, scales):
 	b_armature_data.show_axes = True
 	b_armature_data.display_type = 'STICK'
 	b_armature_ob = create_ob(basename[:-4], b_armature_data)
-	# b_armature_ob.show_x_ray = True
+	b_armature_ob.show_in_front = True
 	bpy.ops.object.mode_set(mode='EDIT')
-	# read the b_armature_ob block
 	mat_storage = {}
 	for bfb_bone in data.bones:
 		bone_name = name_import(bfb_bone.name)
@@ -445,3 +444,8 @@ def import_bones(basename, data, scales):
 	for edit_bone in b_armature_data.edit_bones:
 		fix_bone_length(edit_bone)
 	bpy.ops.object.mode_set(mode='OBJECT')
+	# group
+	for bfb_bone in data.bones:
+		bone_name = name_import(bfb_bone.name)
+		p_bone = b_armature_ob.pose.bones[bone_name]
+		p_bone["group"] = bfb_bone.group

@@ -76,7 +76,7 @@
     <compound name="Bone">
         <add name="id" type="ubyte" />1-based
         <add name="parent_id" type="ubyte" />1-based
-        <add name="group" type="ubyte" default="-1"/>todo calculate this value properly, refer values from other objects
+        <add name="group" type="byte" default="-1"/>no obvious logic to this
         <add name="name" type="FixedString" arg="64" />
         <add name="matrix" type="Matrix44" />
     </compound>

@@ -363,7 +363,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 						b_armature.animation_data.action = b_scale_action
 						scene.frame_set(0)
 					else:
-						log_error("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
+						logging.warning("Rest scale action is missing, assuming rest scale of 1.0 for all bones!")
 						b_scale_action = None
 					bones_names = {name: i for i, name in enumerate(b_armature.data.bones.keys())}
 				else:
@@ -571,15 +571,14 @@ def export_bones(b_armature, mesh_block, b_scale_action):
 	# export bones
 	mesh_block.data.num_bones = len(b_bones)
 	mesh_block.data.reset_field("bones")
-	for b_bone, bfb_bone in zip(b_bones, mesh_block.data.bones):
+	for b_bone, p_bone, bfb_bone in zip(b_bones, b_armature.pose.bones, mesh_block.data.bones):
 		bfb_bone.id = b_bones.index(b_bone) + 1
 		if b_bone.parent:
 			bfb_bone.parent_id = b_bones.index(b_bone.parent) + 1
 		else:
 			bfb_bone.parent_id = 0
 		scale_matrix = get_rest_scale_matrix(b_bone, b_scale_action)
-		# todo get from custom property
-		# bfb_bone.group = lodgroup
+		bfb_bone.group = p_bone.get("group", -1)
 		bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
 		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone).transposed())
 
