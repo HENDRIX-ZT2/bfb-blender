@@ -11,7 +11,7 @@ from modules_import.anim import Animation
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from util.fast_mesh import FastMesh
 from .common_bfb import *
-from .bfmat import bfmat
+from .bfmat import Bfmat
 from .util import node_arrange, node_util
 
 
@@ -53,8 +53,8 @@ def import_scene_graph(b_parent, node, lod_level):
 			if b_parent:
 				b_ob.parent = b_parent
 			b_ob.matrix_local = matrix
-			# todo support multiple materials
-			create_material(b_ob, node.data.materials[0], anim)
+			for mat_name in node.data.materials:
+				create_material(b_ob, mat_name, anim)
 			assign_to_lod(b_ob, lod_level)
 	elif node.type_id == NodeType.BILLBOARD_LINK:
 		global camera
@@ -94,32 +94,32 @@ def import_scene_graph(b_parent, node, lod_level):
 			lod_level += 1
 
 
-def create_material(ob, matname, anim):
+def create_material(b_ob, mat_name, anim):
 	try:
-		material = bfmat(dirname, matname + ".bfmat")
-		for error in material.errors:
+		bfmat = Bfmat(dirname, f"{mat_name}.bfmat")
+		for error in bfmat.errors:
 			log_error(error)
 	except Exception as error:
 		log_error(str(error))
 		return
-	if not material.root:
+	if not bfmat.root:
 		return
-	fx = material.fx
-	cull_mode = material.CullMode
-	alpha_ref = material.AlphaRef
+	fx = bfmat.fx
+	cull_mode = bfmat.CullMode
+	alpha_ref = bfmat.AlphaRef
 	fps = bpy.context.scene.render.fps
 
 	# see which sub-shaders are used by this fx shader, and get the used ones in order
 	shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
 	tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
 
-	logging.info(f"MATERIAL: {matname}")
+	logging.info(f"MATERIAL: {mat_name}")
 	# only create the material if we haven't already created it, then just grab it
-	if matname not in bpy.data.materials:
-		mat = bpy.data.materials.new(matname)
-		mat.use_nodes = True
+	if mat_name not in bpy.data.materials:
+		b_mat = bpy.data.materials.new(mat_name)
+		b_mat.use_nodes = True
 
-		tree = mat.node_tree
+		tree = b_mat.node_tree
 		# clear default nodes
 		for node in tree.nodes:
 			tree.nodes.remove(node)
@@ -131,14 +131,14 @@ def create_material(ob, matname, anim):
 
 		textures = []
 		for i, (texture, tex_index, tex_transform, tex_anim) in enumerate(
-				zip(material.Texture, material.TexCoordIndex, material.TextureTransform, material.TextureAnimation)):
+				zip(bfmat.Texture, bfmat.TexCoordIndex, bfmat.TextureTransform, bfmat.TextureAnimation)):
 			if texture is not None:
-				tex = node_util.load_tex_node(tree, material.find_recursive(texture + ".dds"))
+				tex = node_util.load_tex_node(tree, bfmat.find_recursive(texture + ".dds"))
 				textures.append(tex)
 				tex.name = "Texture" + str(i)
 				# e.g. African violets, but only in rendered view; but: glacier
 				tex.extension = "CLIP" if (cull_mode == "2" and not (
-						material.AlphaTestEnable is False and material.AlphaBlendEnable is False)) else "REPEAT"
+						bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False)) else "REPEAT"
 				# use generated UV coords for reflection maps
 				if tex_shaders[i] == "Reflect":
 					uv = tree.nodes.new('ShaderNodeTexCoord')
@@ -160,7 +160,7 @@ def create_material(ob, matname, anim):
 							loc.y *= -1.0
 							transform.inputs["Location"].default_value = loc
 						if tex_anim:
-							b_action = anim.create_action(tree, f"{mat.name}_Action")
+							b_action = anim.create_action(tree, f"{b_mat.name}_Action")
 							u = tex_anim["offsetu"]
 							v = tex_anim["offsetv"]
 							anim.add_keys(b_action, transform.name, (0,), None, [k[0] * fps for k in u], [k[1] for k in u], None, n_node_input=1)
@@ -184,7 +184,7 @@ def create_material(ob, matname, anim):
 					tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
 					tree.links.new(texture.outputs[0], mixRGB.inputs[2])
 					diffuse = mixRGB
-		if ob.data.vertex_colors:
+		if b_ob.data.vertex_colors:
 			vcol = tree.nodes.new('ShaderNodeAttribute')
 			vcol.attribute_name = "RGBA"
 			mixRGB = tree.nodes.new('ShaderNodeMixRGB')
@@ -214,19 +214,19 @@ def create_material(ob, matname, anim):
 				shader_diffuse = shader_add
 
 		# transparency
-		if material.AlphaTestEnable is False and material.AlphaBlendEnable is False:
-			mat.blend_method = "OPAQUE"
+		if bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False:
+			b_mat.blend_method = "OPAQUE"
 			tree.links.new(shader_diffuse.outputs[0], output.inputs[0])
 		else:
-			if material.AlphaTestEnable:
-				mat.blend_method = "CLIP"
-				mat.alpha_threshold = 1 - float(alpha_ref) / 255
-			if material.AlphaBlendEnable:
-				mat.blend_method = "BLEND"
+			if bfmat.AlphaTestEnable:
+				b_mat.blend_method = "CLIP"
+				b_mat.alpha_threshold = 1 - float(alpha_ref) / 255
+			if bfmat.AlphaBlendEnable:
+				b_mat.blend_method = "BLEND"
 			transp = tree.nodes.new('ShaderNodeBsdfTransparent')
 			alpha_mixer = tree.nodes.new('ShaderNodeMixShader')
 
-			if textures and ob.data.vertex_colors:
+			if textures and b_ob.data.vertex_colors:
 				mix_rgba = tree.nodes.new('ShaderNodeMixRGB')
 				mix_rgba.inputs[0].default_value = 1
 				mix_rgba.blend_type = "MULTIPLY"
@@ -235,7 +235,7 @@ def create_material(ob, matname, anim):
 				tree.links.new(mix_rgba.outputs[0], alpha_mixer.inputs[0])
 			elif textures:
 				tree.links.new(textures[0].outputs[1], alpha_mixer.inputs[0])
-			elif ob.data.vertex_colors:
+			elif b_ob.data.vertex_colors:
 				tree.links.new(vcol.outputs["Alpha"], alpha_mixer.inputs[0])
 
 			tree.links.new(transp.outputs[0], alpha_mixer.inputs[1])
@@ -252,11 +252,11 @@ def create_material(ob, matname, anim):
 				mod.mode_after = 'REPEAT_OFFSET'
 				mod.mode_before = 'REPEAT_OFFSET'
 	else:
-		mat = bpy.data.materials[matname]
+		b_mat = bpy.data.materials[mat_name]
 
 	# now finally set all the textures we have in the mesh
-	me = ob.data
-	me.materials.append(mat)
+	me = b_ob.data
+	me.materials.append(b_mat)
 
 
 def load(operator, context, filepath="", use_custom_normals=False, use_mirror_mesh=False):

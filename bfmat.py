@@ -1,9 +1,9 @@
 import os
 import xml.etree.ElementTree as ET
 
-class bfmat():
-	def __init__(self, dirname, bfmat_file_name):
-		self.dir = dirname
+class Bfmat:
+	def __init__(self, dir_path, bfmat_file_name):
+		self.dir = dir_path
 		self.bfmat_file = self.find_recursive(os.path.join("Materials", bfmat_file_name))
 		self.tex_range = range(3)
 		self.errors = []
@@ -111,5 +111,5 @@ class bfmat():
 	@property
 	def AlphaRef(self): return self.get("AlphaRef")
 
-# mat = bfmat("PerepatTree","PerepatTree_Wetlands_Trunk_Mat_mod0.bfmat")
-# mat = bfmat("bathroomlarge_xt","bathroomlarge_xt_falling_water_mod0.bfmat")
+# mat = Bfmat("PerepatTree","PerepatTree_Wetlands_Trunk_Mat_mod0.bfmat")
+# mat = Bfmat("bathroomlarge_xt","bathroomlarge_xt_falling_water_mod0.bfmat")
