@@ -44,9 +44,12 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		bfb.load(bfb_path)
 		logging.info(f"Version: {bfb.header.version}")
 		# explore_tree(bfb.tree)
+		bmap = {block.id: block for block in bfb.blocks}
 		for block in bfb.blocks:
-			if block.type_id == BlockType.MESH_DATA:
-				print(bfb_path, block.name, block.data.size_of_tri_index)
+			if block.type_id == BlockType.MESH:
+				print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
+			if block.type_id == BlockType.MESH_SKINNED:
+				print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
 	except:
 		logging.exception(f"Failed {rel_path}")
 

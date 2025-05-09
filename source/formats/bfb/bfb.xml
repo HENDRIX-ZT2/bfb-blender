@@ -67,7 +67,7 @@
 
     <compound name="Mesh">
         v 1: name may be junk bytes
-        <add name="flag" type="ubyte" default="0"/>
+        <add name="flag" type="ubyte" default="0"/>0 (meshdata flag: 8) or 2 (meshdata flag: 10), not related to type_id or num_chunks, usually both pairs in bfb
         <add name="data_id" type="uint" />
         <add name="num_chunks" type="uint" default="1"/>2 in DiscoveryKiosk_df
         <add name="chunks" type="Chunk" arr1="num_chunks"/>
