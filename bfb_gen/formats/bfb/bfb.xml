@@ -35,7 +35,7 @@
     </compound>
 
     <compound name="Capsule">
-        <add name="flag" type="ushort" default="1"/>
+        <add name="flag" type="ushort" default="1"/>todo - increasing in trex, unsure
         <add name="start" type="Vector3" />
         <add name="end" type="Vector3" />
         <add name="radius" type="float" />

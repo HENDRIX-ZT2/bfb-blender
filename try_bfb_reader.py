@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from bfb_gen.formats.bfb import BfbFile
+from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
 
 logger = logging.getLogger()
@@ -42,7 +43,10 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		bfb = BfbFile()
 		bfb.load(bfb_path)
 		logging.info(f"Version: {bfb.header.version}")
-		explore_tree(bfb.tree)
+		# explore_tree(bfb.tree)
+		for block in bfb.blocks:
+			if block.type_id == BlockType.BOUNDING_BOX:
+				print(block.name, block.data.flag)
 	except:
 		logging.exception(f"Failed {rel_path}")
 

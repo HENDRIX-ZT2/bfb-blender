@@ -577,6 +577,7 @@ def export_capsule(b_ob, bfb):
 	end = (me.vertices[37].co + me.vertices[49].co) / 2 - start
 	radius = ((me.vertices[0].co - me.vertices[12].co) / 2).length
 	block = bfb.create_block(b_ob, bfb, BlockType.CAPSULE)
+	block.name = "capsule"
 	block.data.start[:] = start
 	block.data.end[:] = end
 	block.data.radius = radius
@@ -586,6 +587,7 @@ def export_bounding_box(b_ob, bfb):
 	logging.debug('Found bounding box collider')
 	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
+	block.name = "orientedbox"
 	block.data.matrix.set_rows(b_ob.matrix_local)
 	block.data.extent[:] = me.vertices[4].co * 2
 
@@ -594,6 +596,7 @@ def export_sphere(b_ob, bfb):
 	logging.debug('Found sphere collider')
 	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.SPHERE)
+	block.name = "sphere"
 	center = (me.vertices[2].co + me.vertices[23].co) / 2
 	block.data.pos[:] = b_ob.location
 	block.data.radius = (me.vertices[2].co - center).length
