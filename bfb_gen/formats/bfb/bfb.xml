@@ -23,19 +23,19 @@
 	</enum>
 
     <compound name="Sphere">
-        <add name="flag" type="ushort" default="1"/>
+        <add name="flag" type="ushort" default="256"/>
         <add name="pos" type="Vector3" />
         <add name="radius" type="float" />
     </compound>
 
     <compound name="BoundingBox">
-        <add name="flag" type="ushort" default="1"/>
+        <add name="flag" type="ushort" default="256"/>
         <add name="matrix" type="Matrix44" />
         <add name="extent" type="Vector3" />
     </compound>
 
     <compound name="Capsule">
-        <add name="flag" type="ushort" default="1"/>todo - increasing in trex, unsure
+        <add name="unk" type="ushort" default="1"/>todo - increasing in trex, unsure
         <add name="start" type="Vector3" />
         <add name="end" type="Vector3" />
         <add name="radius" type="float" />

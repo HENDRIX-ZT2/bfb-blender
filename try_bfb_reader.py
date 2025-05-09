@@ -45,8 +45,8 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		logging.info(f"Version: {bfb.header.version}")
 		# explore_tree(bfb.tree)
 		for block in bfb.blocks:
-			if block.type_id == BlockType.BOUNDING_BOX:
-				print(block.name, block.data.flag)
+			if block.type_id == BlockType.SPHERE:
+				print(bfb_path, block.name, block.data.flag)
 	except:
 		logging.exception(f"Failed {rel_path}")
 
