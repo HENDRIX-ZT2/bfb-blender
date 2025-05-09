@@ -45,7 +45,7 @@
     </compound>
 
     <compound name="MeshData">
-        <add name="flag" type="ubyte" default="8"/>
+        <add name="flag" type="ubyte" default="8"/>or 10, unsure about the rule
         <add name="BFRVertex" type="FixedString" arg="64"/>
         <add name="size_of_vertex" type="uint" />
         <add name="vertex_count" type="uint" />
