@@ -112,22 +112,9 @@
         <add name="data" cond="type_id == 6" type="MeshData"/>
         <add name="data" cond="type_id == 8" type="MeshSkinned"/>
     </compound>
-#
-	<compound name="Node">
-        <add name="unk 0" type="uint" />
-        <add name="unk 1" type="uint" />
-        <add name="num_colliders" type="uint"/>CrystalTunnel_df = 3
-        <add name="collision_ids" type="uint" arr1="num_colliders"/>
-    </compound>
-
-	<compound name="LodGroup" inherit="Node">
-        <add name="lodgroup" type="FixedString" arg="64" default="lodgroup"/>
-    </compound>
 
 	<compound name="MeshLink">
-        <add name="u0" type="uint" default="1"/>anky: lod0 = 0, other lods = 2, unsure about non-lod
-        <add name="u1" type="uint" default="1"/>anky: 0
-        <add name="collision_id" type="uint" />
+        unk 1 - anky: lod0 = 0, other lods = 2, unsure about non-lod
         <add name="num_objects" type="uint" default="1"/>
         <add name="object_ids" type="uint" arr1="num_objects" />
         <add name="num_materials" type="uint" default="1"/>2 for zoopedia_redwoodtunnel
@@ -137,30 +124,12 @@
 	<compound name="BillboardLink">
         164 bytes in old spec, maybe wrong or conditional
         172 bytes - themedtank_mm_top_curve135_long.bfb - 44 bytes until matname, all before vec are zero
-        <add name="u0" type="uint"/>
-        <add name="has_obj" type="uint" default="1"/>todo unsure if correct orientation
-        <add name="u1" type="uint64"/>
+        <add name="u1" type="uint"/>
         <add name="dummy" type="uint64"/>for themedtank_mm_top_curve135_long
         <add name="axis" type="Vector3"/>eg. 1.0, 0.0, -1.0
         <add name="u2" type="uint"/>
-        <add name="object_id" type="uint"/>
-        <add name="material" type="FixedString" arg="128" />
-    </compound>
-
-	<compound name="CapsuleLink">
-        <add name="u0" type="uint" default="1"/>
-        <add name="u1" type="uint" default="1"/>
-        <add name="u2" type="uint" default="1"/>
-        <add name="collision_id" type="uint"/>
-        <add name="bone_name" type="FixedString" arg="64" >case-sensitive</add>
-    </compound>
-
-	<compound name="ParticleLink">
-        76 bytes - CavePaintingHall
-        <add name="u0" type="uint" default="1"/>
-        <add name="u1" type="uint" default="1"/>
-        <add name="u2" type="uint" default="1"/>
-        <add name="emitter" type="FixedString" arg="64" >case-insensitive</add>
+        <add name="object_ids" type="uint" arr1="1"/>
+        <add name="materials" type="FixedString" arg="128" arr1="1"/>
     </compound>
 
 	<compound name="BfbNode">
@@ -168,16 +137,21 @@
         <add name="type_id" type="NodeType"/>
         <add name="start_children" type="uint"/>
         <add name="start_sibling" type="uint"/>
-        <add name="unk" type="ubyte" />anky: lod0 geom + node = 4, other lods = 0, unsure about rest
+        <add name="unk_0" type="ubyte" />
+        anky: lod0 geom + node = 4, other lods = 0, unsure about rest
+        lodroup: 2 or 0
         <add name="name" type="FixedString" arg="64"/>
         <add name="matrix" type="Matrix44" />
+        <add name="unk_1" type="uint" />
+        <add name="num_children" type="uint"/>total including nested children
+        <add name="num_colliders" type="uint"/>CrystalTunnel_df = 3
+        <add name="collision_ids" type="uint" arr1="num_colliders"/>
 
-        <add name="data" cond="type_id == 1" type="Node"/>
-        <add name="data" cond="type_id == 2" type="LodGroup"/>
-        <add name="data" cond="type_id == 3" type="MeshLink"/>
-        <add name="data" cond="type_id == 4" type="BillboardLink"/>
-        <add name="data" cond="type_id == 5" type="CapsuleLink"/>
-        <add name="data" cond="type_id == 6" type="ParticleLink"/>
+        <add name="lodgroup" cond="type_id == 2" type="FixedString" arg="64" default="lodgroup"/>
+        <add name="geometry" cond="type_id == 3" type="MeshLink" />
+        <add name="geometry" cond="type_id == 4" type="BillboardLink" />
+        <add name="bone_name" cond="type_id == 5" type="FixedString" arg="64" >case-sensitive</add>
+        <add name="emitter" cond="type_id == 6" type="FixedString" arg="64" >case-insensitive, in CavePaintingHall</add>
 
         <add name="children" type="BfbNode" arr1="0" abstract="True"/>
     </compound>

@@ -27,6 +27,12 @@ class BfbNode(BaseStruct):
 				logging.exception("failed reading sibling")
 		return instance
 
+	def get_children(self, children=[]):
+		children.extend(self.children)
+		for child in self.children:
+			child.get_children(children)
+		return children
+
 	@classmethod
 	def get_size(cls, instance, context, arg=0, template=None, include_children=False):
 		"""arguments is optional because it is not required for _get_filtered_attribute_list"""
@@ -39,6 +45,7 @@ class BfbNode(BaseStruct):
 	def write_fields(cls, stream, instance):
 		if instance.children:
 			instance.start_children = instance.io_start + instance.get_size(instance, instance.context, include_children=False)
+			instance.num_children = len(instance.get_children([]))
 		# is there a sibling?
 		parent_node = instance.arg
 		if parent_node:

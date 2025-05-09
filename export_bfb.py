@@ -161,41 +161,24 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 		# LOD group
 		if b_ob.name.startswith('lodgroup'):
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.LOD_GROUP, bfb_parent)
-			bfb_node.unk = 2
-			bfb_node.reset_field("data")
-			data = bfb_node.data
-			data.unk_0 = 0
-			data.unk_1 = 2
-			data.has_collision = 0
+			bfb_node.unk_0 = 2
+			bfb_node.unk_1 = 0
+			bfb_node.lodgroup = "lodgroup"
 		else:
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.NODE, bfb_parent)
-			# Root Block
-			if not b_ob.parent:
-				bfb_node.unk = 0
-				bfb_node.reset_field("data")
-				data = bfb_node.data
-				data.unk_0 = 0
-				data.unk_1 = 5
-				data.has_collision = 0
 			# node, with collision attached
-			elif has_collider(b_ob):
-				bfb_node.unk = 1
-				bfb_node.reset_field("data")
-				data = bfb_node.data
-				data.unk_0 = 1
-				data.unk_1 = 1
+			if has_collider(b_ob):
+				# both = 0 or 1
+				bfb_node.unk_0 = 0
+				bfb_node.unk_1 = 0
 				# support multiple colliders
-				data.num_colliders = len(b_ob.children)
-				data.reset_field("collision_ids")
-				data.collision_ids[:] = [bfb.ob_2_block_id[b_child] for b_child in b_ob.children]
+				bfb_node.num_colliders = len(b_ob.children)
+				bfb_node.reset_field("collision_ids")
+				bfb_node.collision_ids[:] = [bfb.ob_2_block_id[b_child] for b_child in b_ob.children]
 			# standard node
 			else:
-				bfb_node.unk = 1
-				bfb_node.reset_field("data")
-				data = bfb_node.data
-				data.unk_0 = 1
-				data.unk_1 = 1
-				data.has_collision = 0
+				bfb_node.unk_0 = 0 # or 4 for lod0 nodes
+				bfb_node.unk_1 = 0
 	elif b_ob.type == "MESH":
 		if b_ob.name.startswith('sphere') or b_ob.name.startswith('orientedbox'):
 			return
@@ -204,15 +187,11 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				log_error(f"Capsule collider {b_ob.name} is not parented to a bone.")
 			bone_name = blendername_to_bfbname(b_ob.parent_bone)
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.CAPSULE_LINK, bfb_parent)
-			bfb_node.unk = 0
 			bfb_node.name = bone_name.lower()
-			bfb_node.reset_field("data")
-			data = bfb_node.data
-			data.unk_0 = 1
-			data.unk_1 = 1
-			data.has_collision = 1
-			data.bone_name = bone_name
-			data.collision_id = bfb.ob_2_block_id[b_ob]
+			bfb_node.bone_name = bone_name
+			bfb_node.num_colliders = 1
+			bfb_node.reset_field("collision_ids")
+			bfb_node.collision_ids[:] = [bfb.ob_2_block_id[b_ob], ]
 		else:
 			mat_name = 'none'
 			if len(b_ob.data.materials):
@@ -230,19 +209,16 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 				log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
 			if b_ob.constraints:
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
-				bfb_node.unk = 4
-				bfb_node.reset_field("data")
-				data = bfb_node.data
-				data.object_id = bfb.ob_2_block_id[b_ob]
-				data.material = mat_name
+				data = bfb_node.geometry
 				data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
 			else:
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
-				bfb_node.unk = 4
-				bfb_node.reset_field("data")
-				data = bfb_node.data
-				data.object_ids[0] = bfb.ob_2_block_id[b_ob]
-				data.materials[0] = mat_name
+				bfb_node.unk_0 = 4
+				bfb_node.unk_1 = 0
+				# or 0, 2, or rarely 0, 0
+				data = bfb_node.geometry
+			data.object_ids[0] = bfb.ob_2_block_id[b_ob]
+			data.materials[0] = mat_name
 	else:
 		# lamps etc, just ignore them
 		return
@@ -534,7 +510,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 
 	bfb.header.author = author_name
 	bfb.header.num_blocks = len(bfb.blocks)
-	bfb.header.num_nodes = len(bfb.ob_2_node_id)
+	bfb.header.num_nodes = len(bfb.tree.get_children([])) + 1
 	if not os.path.exists(dir_path):
 		os.makedirs(dir_path)
 	bfb.save(filepath)

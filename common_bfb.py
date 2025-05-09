@@ -196,6 +196,7 @@ def create_capsule(name, start, end, r):
 	# this shows our rotation is correct	#up = mathutils.Vector((0,0,1))	#result = rot*up*l	#print(result)	#print(end)	#these are all working = identical
 	for v in me.vertices:
 		v.co = rot @ v.co + start
+	ob.rotation_euler.x = 1.5708
 	ob.rotation_euler.z = 1.5708
 	# ob.layers = select_layer(5)
 	return ob

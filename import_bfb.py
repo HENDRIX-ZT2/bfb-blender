@@ -42,50 +42,45 @@ def import_scene_graph(b_parent, node, lod_level):
 			b_ob.matrix_local = matrix
 		else:
 			b_ob = create_empty(b_parent, node.name, matrix)
-		for collision_id in node.data.collision_ids:
+		for collision_id in node.collision_ids:
 			id2data[collision_id].parent = b_ob
 	elif node.type_id == NodeType.LOD_GROUP:
 		b_ob = create_empty(b_parent, "lodgroup", matrix)
-	elif node.type_id == NodeType.MESH_LINK:
-		for object_id in node.data.object_ids:
+	elif node.type_id in (NodeType.MESH_LINK, NodeType.BILLBOARD_LINK):
+		for object_id in node.geometry.object_ids:
 			b_ob = id2data[object_id]
 			b_ob.name = node.name
 			if b_parent:
 				b_ob.parent = b_parent
 			b_ob.matrix_local = matrix
-			for mat_name in node.data.materials:
+			for mat_name in node.geometry.materials:
 				create_material(b_ob, mat_name, anim)
 			assign_to_lod(b_ob, lod_level)
-	elif node.type_id == NodeType.BILLBOARD_LINK:
-		global camera
-		if not camera:
-			camera_data = bpy.data.cameras.new("TrackingCameraData")
-			camera = create_ob("TrackingCamera", camera_data)
-			camera.location = (2, -2, 2)
-			camera.rotation_euler = (1.047, 0.0, 0.785)
-		b_ob = id2data[node.data.object_id]
-		b_ob.name = node.name
-		b_ob.matrix_local = matrix
-		b_ob.parent = node
-		create_material(b_ob, node.data.material, anim)
-		assign_to_lod(b_ob, lod_level)
-		const = b_ob.constraints.new('COPY_ROTATION')
-		const.use_x = False
-		const.use_y = False
-		const.use_z = True
-		const.target = camera
+			if node.type_id == NodeType.BILLBOARD_LINK:
+				global camera
+				if not camera:
+					camera_data = bpy.data.cameras.new("TrackingCameraData")
+					camera = create_ob("TrackingCamera", camera_data)
+					camera.location = (2, -2, 2)
+					camera.rotation_euler = (1.047, 0.0, 0.785)
+				const = b_ob.constraints.new('COPY_ROTATION')
+				const.use_x = False
+				const.use_y = False
+				const.use_z = True
+				const.target = camera
 	elif node.type_id == NodeType.CAPSULE_LINK:
 		# only in actor meshes
-		bone_name = name_import(node.data.bone_name)
-		b_ob = id2data[node.data.collision_id]
-		b_ob.parent = b_armature_ob
-		b_ob.parent_bone = bone_name
-		b_ob.parent_type = 'BONE'
-		try:
-			b_ob.location.y = -b_armature_ob.data.bones[bone_name].length
-		except:
-			b_ob.parent_bone = "Bip01"
-			log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
+		bone_name = name_import(node.bone_name)
+		for collision_id in node.collision_ids:
+			b_ob = id2data[collision_id]
+			b_ob.parent = b_armature_ob
+			b_ob.parent_bone = bone_name
+			b_ob.parent_type = 'BONE'
+			try:
+				b_ob.location.y = -b_armature_ob.data.bones[bone_name].length
+			except:
+				b_ob.parent_bone = "Bip01"
+				log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
 	# if we have children, the newly created empty is their parent
 	for child in reversed(node.children):
 		import_scene_graph(b_ob, child, lod_level)
@@ -259,6 +254,16 @@ def create_material(b_ob, mat_name, anim):
 	me.materials.append(b_mat)
 
 
+def check_children(node):
+	try:
+		print(node.name, node.num_children, len(node.get_children([])))
+		for child in node.children:
+			check_children(child)
+	except:
+		print(node.name, "nope", len(node.get_children()))
+		pass
+
+
 def load(operator, context, filepath="", use_custom_normals=False, use_mirror_mesh=False):
 	start_time = time.time()
 	global errors
@@ -282,7 +287,8 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 	logging.info(f"Importing {basename}")
 	bfb = BfbFile()
 	bfb.load(filepath)
-	# print(bfb)
+	print(bfb)
+	check_children(bfb.tree)
 	if bfb.header.version != 4295098369:
 		log_error(f"Unsupported BFB version: {bfb.header.version}")
 	logging.debug(f"BFB Version: {bfb.header.version}")

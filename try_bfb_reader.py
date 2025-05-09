@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from bfb_gen.formats.bfb import BfbFile
+from bfb_gen.formats.bfb.enums.NodeType import NodeType
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -23,6 +24,16 @@ def walk_type(start_dir, extension=".ovl"):
 	return ret
 
 
+def explore_tree(node):
+	# if not node.num_colliders and node.type_id == NodeType.NODE:
+	if node.type_id == NodeType.LOD_GROUP:
+		print(node.unk_0, node.unk_1, bfb_path)
+
+	# if node.num_colliders:
+	# 	print(node)
+	for child in node.children:
+		explore_tree(child)
+
 start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
 for bfb_path in walk_type(start_dir, extension=".bfb"):
 	rel_path = os.path.relpath(bfb_path, start_dir)
@@ -31,8 +42,7 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		bfb = BfbFile()
 		bfb.load(bfb_path)
 		logging.info(f"Version: {bfb.header.version}")
-		# logging.info(min(block.id for block in bfb.blocks))
-		# logging.info(max(block.id for block in bfb.blocks))
+		explore_tree(bfb.tree)
 	except:
 		logging.exception(f"Failed {rel_path}")
 
