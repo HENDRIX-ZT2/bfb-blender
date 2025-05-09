@@ -287,8 +287,8 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 	logging.info(f"Importing {basename}")
 	bfb = BfbFile()
 	bfb.load(filepath)
-	print(bfb)
-	check_children(bfb.tree)
+	# print(bfb)
+	# check_children(bfb.tree)
 	if bfb.header.version != 4295098369:
 		log_error(f"Unsupported BFB version: {bfb.header.version}")
 	logging.debug(f"BFB Version: {bfb.header.version}")
