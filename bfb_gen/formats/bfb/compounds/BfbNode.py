@@ -90,14 +90,19 @@ class BfbNode(BaseStruct):
 	@classmethod
 	def from_stream(cls, stream, context, arg=0, template=None):
 		instance = super().from_stream(stream, context, arg, template)
+		# todo - figure out why sorting is required to get them in the correct order, probably due to return instance after reading
+		# logging.info(f"instance: {instance.io_start}  {instance.name}")
 		if instance.start_children:
 			child = BfbNode.from_stream(stream, context, instance)
+			# logging.info(f"	child: {child.io_start} {child.name}")
 			instance.children.append(child)
+			instance.children.sort(key=lambda child: child.io_start)
 		if instance.start_sibling:
 			assert isinstance(arg, BfbNode)
 			try:
 				sibling = BfbNode.from_stream(stream, context, arg)
 				arg.children.append(sibling)
+				arg.children.sort(key=lambda child: child.io_start)
 			except:
 				logging.exception("failed reading sibling")
 		return instance

@@ -82,7 +82,7 @@ def import_scene_graph(b_parent, node, lod_level):
 				b_ob.parent_bone = "Bip01"
 				log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
 	# if we have children, the newly created empty is their parent
-	for child in reversed(node.children):
+	for child in node.children:
 		import_scene_graph(b_ob, child, lod_level)
 		# if this is a lod level, move next child to its respective layer
 		if b_ob.name.startswith("lodgroup"):

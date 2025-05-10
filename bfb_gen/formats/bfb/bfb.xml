@@ -62,7 +62,7 @@
         <add name="vertex_offset" type="uint" />
         <add name="vertex_count" type="uint" />
         <add name="num_tris" type="uint" />
-        <add name="bounds_extent" type="Vector3" />
+        <add name="bounds_cog" type="Vector3" />
         <add name="bounds_radius" type="float" />
     </compound>
 

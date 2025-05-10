@@ -46,36 +46,37 @@ def explore_tree(node, bfb):
 	for child in node.children:
 		explore_tree(child, bfb)
 
-start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
-for bfb_path in walk_type(start_dir, extension=".bfb"):
-	rel_path = os.path.relpath(bfb_path, start_dir)
-	try:
-		logging.info(f"Reading {rel_path}")
-		bfb = BfbFile()
-		bfb.load(bfb_path)
-		logging.info(f"Version: {bfb.header.version}")
-		bmap = {block.id: block for block in bfb.blocks}
-		explore_tree(bfb.tree, bfb)
-		# for block in bfb.blocks:
-		# 	if block.type_id == BlockType.CAPSULE:
-		# 		print(bfb_path, block.name, block.data.unk_0, block.data.unk_1 // 8, block.data.unk_1 % 8)
-			# if block.type_id == BlockType.MESH:
-			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
-			# if block.type_id == BlockType.MESH_SKINNED:
-			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
-	except:
-		logging.exception(f"Failed {rel_path}")
+# start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
+# for bfb_path in walk_type(start_dir, extension=".bfb"):
+# 	rel_path = os.path.relpath(bfb_path, start_dir)
+# 	try:
+# 		logging.info(f"Reading {rel_path}")
+# 		bfb = BfbFile()
+# 		bfb.load(bfb_path)
+# 		logging.info(f"Version: {bfb.header.version}")
+# 		bmap = {block.id: block for block in bfb.blocks}
+# 		explore_tree(bfb.tree, bfb)
+# 		# for block in bfb.blocks:
+# 		# 	if block.type_id == BlockType.CAPSULE:
+# 		# 		print(bfb_path, block.name, block.data.unk_0, block.data.unk_1 // 8, block.data.unk_1 % 8)
+# 			# if block.type_id == BlockType.MESH:
+# 			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
+# 			# if block.type_id == BlockType.MESH_SKINNED:
+# 			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
+# 	except:
+# 		logging.exception(f"Failed {rel_path}")
 
-bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
+bfb_path = "C:/Users/arnfi/Desktop/TyrannosaurusRex_Adult_F.bfb"
+# bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/scenery/zoopedia_redwoodtunnel/zoopedia_redwoodtunnel.bfb"
-# bfb = BfbFile()
-# try:
-# 	bfb.load(bfb_path)
-# except:
-# 	logging.exception("failed")
-# print(bfb)
+bfb = BfbFile()
+try:
+	bfb.load(bfb_path)
+except:
+	logging.exception("failed")
+print(bfb.tree)
 
 logging.info("Done")
 

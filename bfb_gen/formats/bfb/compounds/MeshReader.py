@@ -1,3 +1,4 @@
+import itertools
 import logging
 import numpy as np
 
@@ -71,9 +72,6 @@ class MeshReader(BaseStruct):
 
 	def set_verts(self, verts):
 		self.get_dtype_from_bfrvertex(set_vert_size=True)
-		# self.verts_data = np.empty(dtype=self.dt, shape=len(verts))
-		# self.verts_data = np.array(verts).astype(self.dt)
-		# self.verts_data = np.array([tuple(i) for i in verts], self.dt)
 		self.verts_data = np.array(verts, self.dt)
 		self.verts_data[:] = verts
 
