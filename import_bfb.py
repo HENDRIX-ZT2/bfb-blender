@@ -447,8 +447,8 @@ def import_bones(basename, data, scales):
 	for edit_bone in b_armature_data.edit_bones:
 		fix_bone_length(edit_bone)
 	bpy.ops.object.mode_set(mode='OBJECT')
-	# group
+	# priority
 	for bfb_bone in data.bones:
 		bone_name = name_import(bfb_bone.name)
 		p_bone = b_armature_ob.pose.bones[bone_name]
-		p_bone["group"] = bfb_bone.group
+		p_bone["priority"] = bfb_bone.priority

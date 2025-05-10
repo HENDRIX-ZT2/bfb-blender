@@ -35,7 +35,8 @@
     </compound>
 
     <compound name="Capsule">
-        <add name="unk" type="ushort" default="1"/>todo - increasing in trex, unsure
+        <add name="unk_0" type="ubyte" default="0"/>0
+        <add name="unk_1" type="ubyte" default="1"/>todo - apparently multiples of 8
         <add name="start" type="Vector3" />
         <add name="end" type="Vector3" />
         <add name="radius" type="float" />
@@ -76,7 +77,7 @@
     <compound name="Bone">
         <add name="id" type="ubyte" />1-based
         <add name="parent_id" type="ubyte" />1-based
-        <add name="group" type="byte" default="-1"/>no obvious logic to this
+        <add name="priority" type="byte" default="-1"/>usually: -1 for Bip01 and NonAccum, 2 for most, 1 and 0 closer to ends of chains
         <add name="name" type="FixedString" arg="64" />
         <add name="matrix" type="Matrix44" />
     </compound>

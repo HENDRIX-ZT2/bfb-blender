@@ -554,7 +554,7 @@ def export_bones(b_armature, mesh_block, b_scale_action):
 		else:
 			bfb_bone.parent_id = 0
 		scale_matrix = get_rest_scale_matrix(b_bone, b_scale_action)
-		bfb_bone.group = p_bone.get("group", -1)
+		bfb_bone.priority = p_bone.get("priority", -1)
 		bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
 		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone).transposed())
 

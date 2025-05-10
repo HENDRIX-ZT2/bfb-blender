@@ -25,15 +25,26 @@ def walk_type(start_dir, extension=".ovl"):
 	return ret
 
 
-def explore_tree(node):
+def explore_tree(node, bfb):
 	# if not node.num_colliders and node.type_id == NodeType.NODE:
-	if node.type_id == NodeType.LOD_GROUP:
-		print(node.unk_0, node.unk_1, bfb_path)
+	# if node.type_id == NodeType.LOD_GROUP:
+	# 	print(node.unk_0, node.unk_1, bfb_path)
+	if node.type_id == NodeType.CAPSULE_LINK:
+		# print(node.unk_0, node.unk_1, bfb_path)
+		coll = bmap[node.collision_ids[0]]
+		print(bfb_path, coll.name, coll.data.unk_0, coll.data.unk_1 // 8, bfb.header.num_blocks, bfb.header.num_nodes)
+		# print(node)
+		# for block in bfb.blocks:
+		# 	if block.type_id == BlockType.MESH_SKINNED:
+		# 		for bone in block.data.bones:
+		# 			if bone.id == (coll.data.unk_1 // 8 -0):
+		# 				print(bone.name)
+		# 		break
 
 	# if node.num_colliders:
 	# 	print(node)
 	for child in node.children:
-		explore_tree(child)
+		explore_tree(child, bfb)
 
 start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
 for bfb_path in walk_type(start_dir, extension=".bfb"):
@@ -43,13 +54,15 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		bfb = BfbFile()
 		bfb.load(bfb_path)
 		logging.info(f"Version: {bfb.header.version}")
-		# explore_tree(bfb.tree)
 		bmap = {block.id: block for block in bfb.blocks}
-		for block in bfb.blocks:
-			if block.type_id == BlockType.MESH:
-				print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
-			if block.type_id == BlockType.MESH_SKINNED:
-				print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
+		explore_tree(bfb.tree, bfb)
+		# for block in bfb.blocks:
+		# 	if block.type_id == BlockType.CAPSULE:
+		# 		print(bfb_path, block.name, block.data.unk_0, block.data.unk_1 // 8, block.data.unk_1 % 8)
+			# if block.type_id == BlockType.MESH:
+			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
+			# if block.type_id == BlockType.MESH_SKINNED:
+			# 	print(bfb_path, block.name, block.type_id, block.data.flag, bmap[block.data.data_id].data.flag)
 	except:
 		logging.exception(f"Failed {rel_path}")
 
