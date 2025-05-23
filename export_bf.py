@@ -5,16 +5,17 @@ import bpy
 import mathutils
 
 from bfb_gen.formats.bf import BfFile
+from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
 from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
 import math
 
 
-def write_nodes(dir_path, action, nodes, bones_data):
-	file_path = os.path.join(dir_path, f"{action.name}.bf")
+def write_nodes(dir_path, b_action, nodes, bones_data):
+	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
-	duration = action.frame_range[1] / fps
+	duration = b_action.frame_range[1] / fps
 	bf.header.version = bf.context.version = 2
 	bf.header.duration = duration
 	bf.header.num_nodes = len(nodes)
@@ -58,9 +59,19 @@ def write_nodes(dir_path, action, nodes, bones_data):
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					bf_key.time = frame / fps
 					bf_key.scale = key[0]
-	bf.footer.start_time = 0.0
-	bf.footer.end_time = duration
+	create_txtkey(bf, 0.0, "start")
+	# export any custom txtkeys
+	for marker in b_action.pose_markers:
+		create_txtkey(bf, marker.frame / fps, marker.name)
+	create_txtkey(bf, duration, "end")
 	bf.save(file_path)
+
+
+def create_txtkey(bf, key_time, name):
+	txtkey = TxtKey(bf.context)
+	txtkey.time = key_time
+	txtkey.string = name
+	bf.footer.txtkeys.append(txtkey)
 
 
 def set_quat(bf_key, fps, frame, quat, rest_quat):

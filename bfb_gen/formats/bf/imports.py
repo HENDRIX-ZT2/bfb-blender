@@ -36,6 +36,7 @@ type_module_name_map = {
 	'BfModifier': 'bfb_gen.formats.bf.compounds.BfModifier',
 	'BfNode': 'bfb_gen.formats.bf.compounds.BfNode',
 	'BfHeader': 'bfb_gen.formats.bf.compounds.BfHeader',
+	'TxtKey': 'bfb_gen.formats.bf.compounds.TxtKey',
 	'BfFooter': 'bfb_gen.formats.bf.compounds.BfFooter',
 	'BfRoot': 'bfb_gen.formats.bf.compounds.BfRoot',
 }

@@ -146,12 +146,13 @@
         <add name="reserved" type="uint" arr1="29" until="1">unused</add>
     </compound>
 
+	<compound name="TxtKey">
+        <add name="time" type="float"/>
+        <add name="string" type="SizedString"/>
+    </compound>
+
 	<compound name="BfFooter">
-        <add name="start time" type="float"/>
-        <add name="start" type="SizedString" default="start"/>
-        <add name="end time" type="float"/>
-        <add name="end" type="SizedString" default="end"/>
-        <add name="unused" type="ubyte" arr1="7" default="0"/>
+        <add name="txtkeys" type="TxtKey" arr1="0" abstract="True"/>
     </compound>
 
 	<compound name="BfRoot">

@@ -145,3 +145,9 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			mod = fcurve.modifiers.new('CYCLES')
 			mod.mode_after = 'REPEAT_OFFSET'
 			mod.mode_before = 'REPEAT_OFFSET'
+
+	for txtkey in bf.footer.txtkeys:
+		name = txtkey.string.strip()
+		if name not in ("start", "end"):
+			marker = b_action.pose_markers.new(name)
+			marker.frame = round(txtkey.time * fps)
