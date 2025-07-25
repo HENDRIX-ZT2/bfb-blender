@@ -148,6 +148,14 @@ def write_bfmat(b_ob, b_mat, mat_name):
 	material_tree.write(os.path.join(mat_path, f"{mat_name}.bfmat"))
 
 
+def attach_collision(bfb_node, new_collider_id):
+	bfb_node.num_colliders += 1
+	colliders = list(bfb_node.collision_ids)
+	colliders.append(new_collider_id)
+	bfb_node.reset_field("collision_ids")
+	bfb_node.collision_ids[:] = colliders
+
+
 def export_tree(b_ob, bfb, bfb_parent=None):
 	logging.debug(f'Gathering block data for {b_ob.name}')
 	if b_ob.type in ("EMPTY", "ARMATURE"):
@@ -165,12 +173,10 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 			bfb_node.unk_1 = 0
 	elif b_ob.type == "MESH":
 		if b_ob.name.startswith('sphere'):
-			bfb_parent.num_colliders += 1
-			bfb_parent.collision_ids.append(export_sphere(b_ob, bfb))
+			attach_collision(bfb_parent, export_sphere(b_ob, bfb))
 			return None
 		elif b_ob.name.startswith('orientedbox'):
-			bfb_parent.num_colliders += 1
-			bfb_parent.collision_ids.append(export_bounding_box(b_ob, bfb))
+			attach_collision(bfb_parent, export_bounding_box(b_ob, bfb))
 			return None
 		elif b_ob.name.startswith('capsule'):
 			if b_ob.parent_type != "BONE" or not b_ob.parent_bone:
@@ -179,9 +185,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.CAPSULE_LINK, bfb_parent)
 			bfb_node.name = bone_name.lower()
 			bfb_node.bone_name = bone_name
-			bfb_node.num_colliders = 1
-			bfb_node.reset_field("collision_ids")
-			bfb_node.collision_ids[:] = [export_capsule(b_ob, bfb), ]
+			attach_collision(bfb_node, export_capsule(b_ob, bfb))
 		else:
 			mesh_id = export_mesh(b_ob, bfb)
 			if mesh_id is not None:
