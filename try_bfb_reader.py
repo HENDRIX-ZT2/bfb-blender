@@ -67,6 +67,7 @@ def explore_tree(node, bfb):
 # 		logging.exception(f"Failed {rel_path}")
 
 bfb_path = "C:/Users/arnfi/Desktop/TyrannosaurusRex_Adult_F.bfb"
+bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/SKYSPHERE_GRASSLANDSUNSET/skysphere_GrasslandSunset.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
 # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
@@ -77,6 +78,7 @@ try:
 except:
 	logging.exception("failed")
 print(bfb.tree)
+bfb.save(bfb_path+"_edit.bfb")
 
 logging.info("Done")
 

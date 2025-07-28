@@ -86,3 +86,8 @@ class MeshReader(BaseStruct):
 			return str(instance.verts_data)
 		return "NONE"
 
+	@classmethod
+	def get_size(cls, instance, context, arg=0, template=None):
+		"""arguments is optional because it is not required for _get_filtered_attribute_list"""
+		return instance.dt.itemsize * instance.arg.vertex_count
+
