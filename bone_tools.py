@@ -18,7 +18,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 	n_limbs = ik_names.split(",")
 	#when no object exists, or when we are in edit mode when script is run
 	for ob in bpy.context.scene.objects:
-		if type(ob.data) ==  bpy.types.Armature:
+		if ob.type == "ARMATURE":
 			arm = ob
 			bpy.context.scene.objects.active = ob
 			bpy.ops.object.mode_set(mode='EDIT')

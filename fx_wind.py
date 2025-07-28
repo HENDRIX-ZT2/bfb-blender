@@ -19,7 +19,7 @@ def add_fx_wind(fixed_items, wmin, wmax):
 	for ob in bpy.context.selected_objects:
 		print(ob.name)
 		me = ob.data
-		if type(me) == bpy.types.Mesh:
+		if ob.type == "MESH":
 			if "fx_wind" not in ob.vertex_groups:
 				ob.vertex_groups.new(name="fx_wind")
 			

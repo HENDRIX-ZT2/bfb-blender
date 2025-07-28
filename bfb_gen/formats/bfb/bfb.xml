@@ -104,7 +104,7 @@
         <add name="type_id" type="BlockType"/>
         <add name="flag" type="ushort" default="32768"/>
         <add name="end" type="uint"/>
-        <add name="name" type="FixedString" arg="64" />
+        <add name="name" type="FixedString" arg="64" />in version 4295032833, this filled with the following 64 bytes
 
         <add name="data" cond="type_id == 1" type="Sphere"/>
         <add name="data" cond="type_id == 3" type="BoundingBox"/>

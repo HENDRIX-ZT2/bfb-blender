@@ -180,7 +180,7 @@ class FixedString(ZString):
 		try:
 			return data.decode(errors="surrogatepass")
 		except:
-			return data
+			return "invalid_name"
 
 	@staticmethod
 	def to_stream(instance, stream, context=None, arg=0, template=None):

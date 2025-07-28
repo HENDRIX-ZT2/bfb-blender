@@ -262,7 +262,7 @@ def name_import(s: str):
 
 
 def get_armature():
-	src_armatures = [ob for ob in bpy.data.objects if type(ob.data) == bpy.types.Armature]
+	src_armatures = [ob for ob in bpy.data.objects if ob.type == "ARMATURE"]
 	# do we have armatures?
 	if src_armatures:
 		# see if one of these is selected -> get only that one

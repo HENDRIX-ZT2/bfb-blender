@@ -31,7 +31,7 @@ def add_lods(numlods, rate):
 	lodgroup = None
 	for ob in bpy.context.scene.objects:
 		ob.select_set(False)
-		if type(ob.data) in (type(None), bpy.types.Armature):
+		if ob.type in ("EMPTY", "ARMATURE"):
 			if ob.name.startswith("lodgroup"):
 				print("BFB model already has lodgroups!")
 				ob.select_set(True)
@@ -65,7 +65,7 @@ def add_lods(numlods, rate):
 	for ob in bpy.context.scene.objects:
 		# if we have more than one mesh we have to add a lod group node
 		# in some cases, a model is our root (eg. fence), then we add the lodgroup as the new root
-		if type(ob.data) == bpy.types.Mesh:
+		if ob.type == "MESH":
 			if ob.name.startswith('sphere') or ob.name.startswith('orientedbox') or ob.name.startswith('capsule'): pass
 			else:
 				# special cases

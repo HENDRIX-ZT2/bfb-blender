@@ -39,18 +39,15 @@ class AddCapsule(bpy.types.Operator, AddObjectHelper):
 		r = 1
 		ob = common_bfb.create_capsule("capsule", start, end, r)
 		for pa in bpy.context.scene.objects:
-			print(type(pa.data))
-			if type(pa.data) == bpy.types.Armature:
+			if pa.type == "ARMATURE":
 				ob.parent = pa
 				ob.parent_type = 'BONE'
 				for name in ("Bip01 Spine1", "Bip01 Spine", "Bip01 Pelvis", "Bip01"):
-					try:
-						ob.parent_bone = name
+					if name in pa.data.bones:
 						bone = pa.data.bones[name]
+						ob.parent_bone = name
 						ob.location.y = -bone.length
 						break
-					except:
-						pass
 				break
 		return {'FINISHED'}
 

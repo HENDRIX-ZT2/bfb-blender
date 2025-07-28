@@ -373,7 +373,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 					mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
 					mod.object = b_armature_ob
 
-			ob_postpro(use_mirror_mesh)
+				ob_postpro(b_me, use_mirror_mesh)
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
 	logging.info("Reading object hierarchy")

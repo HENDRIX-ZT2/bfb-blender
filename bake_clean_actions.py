@@ -191,7 +191,7 @@ def loop_fcurve_tangents():
 
 def is_constrained_armature(ob):
 	#finds an armature either via name (first) or if it has constraints (slower fallback)
-	if type(ob.data) == bpy.types.Armature:
+	if ob.type == "ARMATURE":
 		if ob.name.startswith("*"):
 				return True
 		for name, pbone in ob.pose.bones.items():

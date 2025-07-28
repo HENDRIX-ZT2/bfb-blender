@@ -263,14 +263,17 @@ def export_mesh(b_ob, bfb):
 	eval_me = eval_obj.to_mesh(preserve_all_data_layers=True, depsgraph=dg)
 
 	if not eval_me.vertices:
-		raise AttributeError(f"{b_ob.name} has no vertices. Delete the object and export again.")
+		raise AttributeError(f"{b_ob.name} has no vertices. Delete the object and export again")
 
-	# tangents have to be pre-calculated; this will also calculate loop normal
-	try:
-		eval_me.calc_tangents(uvmap=eval_me.uv_layers[0].name)
-	except RuntimeError:
-		raise RuntimeError(
-			f"Tangent space calculation for model {b_ob.name} failed. Make sure it has valid geometry")
+	if eval_me.uv_layers:
+		# tangents have to be pre-calculated; this will also calculate loop normal
+		try:
+			eval_me.calc_tangents(uvmap=eval_me.uv_layers[0].name)
+		except RuntimeError:
+			raise RuntimeError(
+				f"Tangent space calculation for model {b_ob.name} failed. Make sure it has valid geometry")
+	else:
+		logging.debug(f"No valid tangent space space for {b_ob.name} due to lack of UVs")
 	mesh_vertices = []
 	mesh_triangles = []
 	# used to ignore the normals for checking equality
@@ -409,23 +412,24 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	# keep track of objects without a parent, if >1 add an Auto Root
 	roots = []
 	for b_ob in b_scene.objects:
-		if type(b_ob.data) in (type(None), bpy.types.Armature, bpy.types.Mesh):
+		if b_ob.type in ("EMPTY", "MESH", "ARMATURE"):
 			if not b_ob.parent:
 				roots.append(b_ob)
 	if len(roots) == 1:
 		b_root = roots[0]
 		if b_root.name.startswith("lodgroup"):
-			logging.warning('Lodgroup must not be root! Created an Auto Root empty!')
-			b_root = create_empty(None, 'Auto Root', mathutils.Matrix())
+			logging.warning('Lodgroup must not be root! Created an AutoRoot empty!')
+			b_root = create_empty(None, 'AutoRoot', mathutils.Matrix())
 			roots[0].parent = b_root
 	else:
-		logging.warning('Found more than one root object! Created an Auto Root empty!')
-		b_root = create_empty(None, 'Auto Root', mathutils.Matrix())
+		logging.warning('Found more than one root object! Created an AutoRoot empty!')
+		b_root = create_empty(None, 'AutoRoot', mathutils.Matrix())
 		for b_ob in roots:
+			logging.debug(f"{b_root.name} -> {b_ob.name}")
 			b_ob.parent = b_root
 
 	for b_ob in b_scene.objects:
-		if type(b_ob.data) == bpy.types.Mesh:
+		if b_ob.type == "MESH":
 			b_armature = b_ob.find_armature()
 			if b_armature:
 				apply_transform(b_ob)
