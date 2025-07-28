@@ -46,7 +46,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 					frames_matrix= {}
 					for f in frames:
 						bpy.context.scene.frame_set(f)
-						bpy.context.scene.update()
+						bpy.context.view_layer.update()
 						
 						#inverted to change from free to linked
 						#update 6/18: use pose matrix and the inverse rest to get the root movement in armature space
@@ -57,7 +57,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 						
 					for f in frames_matrix:
 						bpy.context.scene.frame_set(f)
-						bpy.context.scene.update()
+						bpy.context.view_layer.update()
 						p_bone.matrix = frames_matrix[f]
 						p_bone.keyframe_insert("rotation_quaternion", -1, f, group.name)
 						p_bone.keyframe_insert("location", -1, f, group.name)
@@ -116,7 +116,7 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 				fcurve.update()
 		#call the tangent function
 		loop_fcurve_tangents()
-		bpy.context.scene.update()
+		bpy.context.view_layer.update()
 	return {'FINISHED'}
 	
 	

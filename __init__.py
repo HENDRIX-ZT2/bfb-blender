@@ -13,12 +13,17 @@ bl_info = {
 
 import os
 import sys
+import logging
 import bpy
 import mathutils
 from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, CollectionProperty, EnumProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy_extras.object_utils import AddObjectHelper
 import bpy.utils.previews
+
+for name in logging.root.manager.loggerDict:
+	logger = logging.getLogger(name)
+	logger.setLevel(logging.DEBUG)
 
 plugin_dir = os.path.dirname(__file__)
 if not plugin_dir in sys.path:
