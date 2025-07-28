@@ -14,6 +14,7 @@ bl_info = {
 import os
 import sys
 import bpy
+import mathutils
 from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, CollectionProperty, EnumProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy_extras.object_utils import AddObjectHelper
@@ -25,15 +26,17 @@ if not plugin_dir in sys.path:
 preview_collection = bpy.utils.previews.new()
 
 
-class AddCapsule(bpy.types.Operator, AddObjectHelper):
+class AddColliderBasic(bpy.types.Operator, AddObjectHelper):
+	bl_options = {'REGISTER', 'UNDO'}
+
+
+class AddCapsule(AddColliderBasic):
 	"""Create a new BFB Capsule Collider"""
 	bl_idname = "mesh.add_bfb_capsule_collider"
 	bl_label = "BFB Capsule Collider"
-	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
 		from . import common_bfb
-		import mathutils
 		start = mathutils.Vector((0, 0, 0))
 		end = mathutils.Vector((1, 0, 0))
 		r = 1
@@ -52,15 +55,13 @@ class AddCapsule(bpy.types.Operator, AddObjectHelper):
 		return {'FINISHED'}
 
 
-class AddSphere(bpy.types.Operator, AddObjectHelper):
+class AddSphere(AddColliderBasic):
 	"""Create a new BFB Sphere Collider"""
 	bl_idname = "mesh.add_bfb_sphere_collider"
 	bl_label = "BFB Sphere Collider"
-	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
 		from . import common_bfb
-		import mathutils
 		x = 0
 		y = 0
 		z = 1
@@ -77,15 +78,13 @@ class AddSphere(bpy.types.Operator, AddObjectHelper):
 		return {'FINISHED'}
 
 
-class AddBox(bpy.types.Operator, AddObjectHelper):
+class AddBox(AddColliderBasic):
 	"""Create a new BFB Box Collider"""
 	bl_idname = "mesh.add_bfb_box_collider"
 	bl_label = "BFB Box Collider"
-	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
 		from . import common_bfb
-		import mathutils
 		x = 1
 		y = 1
 		z = 1
