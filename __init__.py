@@ -28,6 +28,9 @@ for name in logging.root.manager.loggerDict:
 plugin_dir = os.path.dirname(__file__)
 if not plugin_dir in sys.path:
 	sys.path.append(plugin_dir)
+
+from import_bfb import attach_capsule
+
 preview_collection = bpy.utils.previews.new()
 
 
@@ -40,23 +43,31 @@ class AddCapsule(AddColliderBasic):
 	bl_idname = "mesh.add_bfb_capsule_collider"
 	bl_label = "BFB Capsule Collider"
 
+	bone: bpy.props.StringProperty(name="Parent Bone", default="Bip01 Spine1", description="Bone to attach the collider to")
+
+	@classmethod
+	def poll(cls, context):
+		return context.object and context.object.type == 'ARMATURE'
+
+	def invoke(self, context, event):
+		ob = context.object
+		for name in ("Bip01 Spine1", "Bip01 Spine", "Bip01 Pelvis", "Bip01"):
+			if name in ob.data.bones:
+				self.bone = name
+		return self.execute(context)
+
+	def draw(self, context):
+		self.layout.prop_search(self, "bone", context.object.data, "bones", text="")
+
 	def execute(self, context):
 		from . import common_bfb
 		start = mathutils.Vector((0, 0, 0))
 		end = mathutils.Vector((1, 0, 0))
 		r = 1
-		ob = common_bfb.create_capsule("capsule", start, end, r)
-		for pa in bpy.context.scene.objects:
-			if pa.type == "ARMATURE":
-				ob.parent = pa
-				ob.parent_type = 'BONE'
-				for name in ("Bip01 Spine1", "Bip01 Spine", "Bip01 Pelvis", "Bip01"):
-					if name in pa.data.bones:
-						bone = pa.data.bones[name]
-						ob.parent_bone = name
-						ob.location.y = -bone.length
-						break
-				break
+		arm_ob = context.object
+		b_ob = common_bfb.create_capsule("capsule", start, end, r)
+		attach_capsule(arm_ob, b_ob, self.bone)
+		context.view_layer.objects.active = arm_ob
 		return {'FINISHED'}
 
 

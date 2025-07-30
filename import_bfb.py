@@ -10,9 +10,9 @@ from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from modules_import.anim import Animation
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from util.fast_mesh import FastMesh
-from .common_bfb import *
-from .bfmat import Bfmat
-from .util import node_arrange, node_util
+from common_bfb import *
+from bfmat import Bfmat
+from util import node_arrange, node_util
 
 
 def log_error(error):
@@ -73,20 +73,25 @@ def import_scene_graph(b_parent, node, lod_level):
 		bone_name = name_import(node.bone_name)
 		for collision_id in node.collision_ids:
 			b_ob = id2data[collision_id]
-			b_ob.parent = b_armature_ob
-			b_ob.parent_bone = bone_name
-			b_ob.parent_type = 'BONE'
-			try:
-				b_ob.location.y = -b_armature_ob.data.bones[bone_name].length
-			except:
-				b_ob.parent_bone = "Bip01"
-				log_error(f"Capsule collider {node.name} has no parent bone, set to Bip01!")
+			attach_capsule(b_armature_ob, b_ob, bone_name)
 	# if we have children, the newly created empty is their parent
 	for child in node.children:
 		import_scene_graph(b_ob, child, lod_level)
 		# if this is a lod level, move next child to its respective layer
 		if b_ob.name.startswith("lodgroup"):
 			lod_level += 1
+
+
+def attach_capsule(b_armature_ob, b_ob, bone_name):
+	b_ob.parent = b_armature_ob
+	b_ob.parent_type = 'BONE'
+	if bone_name in b_armature_ob.data.bones:
+		parent_bone = b_armature_ob.data.bones[bone_name]
+	else:
+		parent_bone = b_armature_ob.data.bones[0]
+		logging.warning(f"Attaching capsule to '{parent_bone.name}' instead of the missing '{bone_name}'")
+	b_ob.parent_bone = parent_bone.name
+	b_ob.location.y = -parent_bone.length
 
 
 def create_material(b_ob, mat_name, anim):
