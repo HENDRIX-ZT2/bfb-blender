@@ -262,7 +262,7 @@ def bake_and_clean(error=0.25, exp_power=2):
 				armature_copy.name = arm_ob_name
 				armature_copy_data = armature.data.copy()
 				armature_copy_data.name = arm_name
-				# armature_copy = create_ob(arm_ob_name, armature_copy_data)
+				# armature_copy = create_ob(bpy.context.scene, arm_ob_name, armature_copy_data)
 				bpy.context.scene.collection.objects.link(armature_copy)
 				bpy.context.view_layer.objects.active = armature_copy
 				logging.debug(f"Created armature {armature_copy.name} without constraints")

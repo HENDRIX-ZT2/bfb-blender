@@ -1,5 +1,3 @@
-import logging
-import os
 import time
 import bpy
 import mathutils
@@ -8,7 +6,9 @@ from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from modules_import.anim import Animation
+from modules_import.armature import import_bones, get_matrix
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
+from modules_import.collision import attach_capsule, create_capsule
 from util.fast_mesh import FastMesh
 from common_bfb import *
 from bfmat import Bfmat
@@ -23,11 +23,6 @@ def log_error(error):
 
 anim = Animation()
 
-
-def get_matrix(matrix):
-	matrix = mathutils.Matrix(matrix.data)
-	matrix.transpose()
-	return matrix
 
 def import_scene_graph(b_parent, node, lod_level):
 	b_ob = None
@@ -60,7 +55,7 @@ def import_scene_graph(b_parent, node, lod_level):
 				global camera
 				if not camera:
 					camera_data = bpy.data.cameras.new("TrackingCameraData")
-					camera = create_ob("TrackingCamera", camera_data)
+					camera = create_ob(bpy.context.scene, "TrackingCamera", camera_data)
 					camera.location = (2, -2, 2)
 					camera.rotation_euler = (1.047, 0.0, 0.785)
 				const = b_ob.constraints.new('COPY_ROTATION')
@@ -80,18 +75,6 @@ def import_scene_graph(b_parent, node, lod_level):
 		# if this is a lod level, move next child to its respective layer
 		if b_ob.name.startswith("lodgroup"):
 			lod_level += 1
-
-
-def attach_capsule(b_armature_ob, b_ob, bone_name):
-	b_ob.parent = b_armature_ob
-	b_ob.parent_type = 'BONE'
-	if bone_name in b_armature_ob.data.bones:
-		parent_bone = b_armature_ob.data.bones[bone_name]
-	else:
-		parent_bone = b_armature_ob.data.bones[0]
-		logging.warning(f"Attaching capsule to '{parent_bone.name}' instead of the missing '{bone_name}'")
-	b_ob.parent_bone = parent_bone.name
-	b_ob.location.y = -parent_bone.length
 
 
 def create_material(b_ob, mat_name, anim):
@@ -304,8 +287,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 			id2data[block.id] = create_bounding_box(block.name, get_matrix(data.matrix),
 													data.extent.x, data.extent.y, data.extent.z)
 		elif block.type_id == BlockType.CAPSULE:
-			id2data[block.id] = create_capsule(block.name, mathutils.Vector(data.start),
-											   mathutils.Vector(data.end), data.radius)
+			id2data[block.id] = create_capsule(block.name, mathutils.Vector(data.start), mathutils.Vector(data.end), data.radius)
 		elif block.type_id == BlockType.MESH_DATA:
 			id2data[block.id] = data
 		elif block.type_id in (BlockType.MESH, BlockType.MESH_SKINNED):
@@ -313,7 +295,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 
 			if block.type_id == BlockType.MESH_SKINNED:
 				if not b_armature_ob:
-					import_bones(basename, data, scales)
+					b_armature_ob = import_bones(basename, data, scales)
 			# build mesh
 			for chunk_i, chunk in enumerate(data.chunks):
 				tris = mesh_data.tris[chunk.tri_index_offset // 3: (chunk.tri_index_offset + chunk.num_tri_indices) // 3]
@@ -332,7 +314,7 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 
 				b_me = FastMesh.new(block.name)
 				b_me.from_pydata(verts_unique, [], tris_sorted)
-				ob = create_ob(block.name, b_me)
+				ob = create_ob(bpy.context.scene, block.name, b_me)
 				id2data[block.id] = ob
 				# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
 				# We store them as a vertex group so they can be easily modified.
@@ -416,44 +398,3 @@ def apply_rest_scale_correction(b_armature_ob, context, scales, skinned_meshes):
 				fcurve.keyframe_points.insert(0, scale)
 
 
-def import_bones(basename, data, scales):
-	global b_armature_ob
-	# create the b_armature_ob
-	b_armature_data = bpy.data.armatures.new(basename[:-4])
-	b_armature_data.show_axes = True
-	b_armature_data.display_type = 'STICK'
-	b_armature_ob = create_ob(basename[:-4], b_armature_data)
-	b_armature_ob.show_in_front = True
-	bpy.ops.object.mode_set(mode='EDIT')
-	mat_storage = {}
-	for bfb_bone in data.bones:
-		bone_name = name_import(bfb_bone.name)
-		bind = get_matrix(bfb_bone.matrix)
-		# support for bone scale
-		scale = bind.to_scale()[0]
-		if int(round(scale * 1000)) != 1000:
-			scales[bone_name] = scale
-		# create a bone
-		b_edit_bone = b_armature_data.edit_bones.new(bone_name)
-		# parent it and get the armature space matrix
-		if bfb_bone.parent_id > 0:
-			# calculate bfb armature space matrix
-			bind = mat_storage[bfb_bone.parent_id] @ bind
-			b_edit_bone.parent = b_armature_data.edit_bones[bfb_bone.parent_id - 1]
-		# we store the bfb space armature matrix of each bone
-		mat_storage[bfb_bone.id] = bind.copy()
-		# set transformation
-		bind = correction_global @ correction_local @ bind @ correction_local.inverted()
-		tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
-		b_edit_bone.head = bind.to_translation()
-		b_edit_bone.tail = tail + b_edit_bone.head
-		b_edit_bone.roll = roll
-	# fix the bone length
-	for edit_bone in b_armature_data.edit_bones:
-		fix_bone_length(edit_bone)
-	bpy.ops.object.mode_set(mode='OBJECT')
-	# priority
-	for bfb_bone in data.bones:
-		bone_name = name_import(bfb_bone.name)
-		p_bone = b_armature_ob.pose.bones[bone_name]
-		p_bone["priority"] = bfb_bone.priority

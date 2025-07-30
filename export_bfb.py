@@ -1,17 +1,13 @@
 import itertools
-import logging
-import os
 import time
 import bpy
 import mathutils
 import xml.etree.ElementTree as ET
-from struct import pack
 
 from bfb_gen.formats.bfb import BfbFile
-from bfb_gen.formats.bfb.compounds.BfbBlock import BfbBlock
-from bfb_gen.formats.bfb.compounds.BfbNode import BfbNode
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
+from modules_export.collision import export_bounding_box, export_sphere, export_capsule
 from modules_import.anim import get_rna_path
 from .common_bfb import *
 
@@ -557,39 +553,6 @@ def get_rest_scale_matrix(b_bone):
 		scale = scales[0].keyframe_points[0].co[1]
 	except:
 		scale = 1.0
-	return mathutils.Matrix.Scale(scale, 4) 
+	return mathutils.Matrix.Scale(scale, 4)
 
 
-def export_capsule(b_ob, bfb):
-	logging.debug('Found capsule collider')
-	me = b_ob.data
-	start = (me.vertices[0].co + me.vertices[12].co) / 2
-	end = (me.vertices[37].co + me.vertices[49].co) / 2 - start
-	radius = ((me.vertices[0].co - me.vertices[12].co) / 2).length
-	block = bfb.create_block(b_ob, bfb, BlockType.CAPSULE)
-	block.name = "capsule"
-	block.data.start[:] = start
-	block.data.end[:] = end
-	block.data.radius = radius
-	return block.id
-
-
-def export_bounding_box(b_ob, bfb):
-	logging.debug('Found bounding box collider')
-	me = b_ob.data
-	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
-	block.name = "orientedbox"
-	block.data.matrix.set_rows(b_ob.matrix_local)
-	block.data.extent[:] = me.vertices[4].co * 2
-	return block.id
-
-
-def export_sphere(b_ob, bfb):
-	logging.debug('Found sphere collider')
-	me = b_ob.data
-	block = bfb.create_block(b_ob, bfb, BlockType.SPHERE)
-	block.name = "sphere"
-	center = (me.vertices[2].co + me.vertices[23].co) / 2
-	block.data.pos[:] = b_ob.location
-	block.data.radius = (me.vertices[2].co - center).length
-	return block.id

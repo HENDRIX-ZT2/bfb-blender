@@ -1,3 +1,4 @@
+import logging
 import math
 import bpy
 import mathutils
@@ -41,22 +42,6 @@ def ensure_active_object():
 		print("No objects in scene, nothing to export!")
 
 
-def fix_bone_length(edit_bone):
-	# don't change Bip01
-	if edit_bone.parent:
-		if edit_bone.children:
-			childheads = mathutils.Vector()
-			for child in edit_bone.children:
-				childheads += child.head
-			bone_length = (edit_bone.head - childheads / len(edit_bone.children)).length
-			if bone_length < 0.01:
-				bone_length = 0.25
-		# end of a chain
-		else:
-			bone_length = edit_bone.parent.length
-		edit_bone.length = bone_length
-
-
 def load_config():
 	d = {}
 	f = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_bfb.ini"), 'rb')
@@ -93,9 +78,30 @@ def config_to_str(config):
 	return stream
 
 
-def create_ob(ob_name, ob_data):
+def link_to_collection(scene, ob, coll_name):
+	# turn any relative collection names to include the scene prefix
+	if not coll_name.startswith(f"{scene.name}_"):
+		coll_name = f"{scene.name}_{coll_name}"
+	if coll_name not in bpy.data.collections:
+		coll = bpy.data.collections.new(coll_name)
+		scene.collection.children.link(coll)
+	else:
+		coll = bpy.data.collections[coll_name]
+	# Link active object to the new collection
+	coll.objects.link(ob)
+	return coll_name
+
+
+def create_ob(scene, ob_name, ob_data, coll_name=None, coll=None):
+	logging.debug(f"Adding {ob_name} to scene {scene.name}")
 	ob = bpy.data.objects.new(ob_name, ob_data)
-	bpy.context.scene.collection.objects.link(ob)
+	if coll_name is not None:
+		link_to_collection(scene, ob, coll_name)
+	elif coll is not None:
+		coll.objects.link(ob)
+	else:
+		# link to scene root collection
+		scene.collection.objects.link(ob)
 	bpy.context.view_layer.objects.active = ob
 	return ob
 
@@ -112,10 +118,11 @@ def per_loop(flattened_tris, per_vertex_input):
 	return np.take(per_vertex_input, flattened_tris, axis=0)
 
 
-def mesh_from_data(name, verts, faces, wireframe=True):
+def mesh_from_data(scene, name, verts, faces, wireframe=False, coll_name=None, coll=None):
 	me = bpy.data.meshes.new(name)
 	me.from_pydata(verts, [], faces)
-	ob = create_ob(name, me)
+	# me.update()
+	ob = create_ob(scene, name, me, coll_name=coll_name, coll=coll)
 	if wireframe:
 		ob.display_type = 'WIRE'
 	return ob, me
@@ -157,53 +164,55 @@ def create_bounding_box(name, matrix, x, y, z):
 	return ob
 
 
-def create_capsule(name, start, end, r):
-	# print(start,end,r)
-	l = end.length
-	# this primitive stands up and has radius of 0.5, height 1, the caps extend outward
-	verts = [(1.00 * r, 0.00 * r, -0.00 * r), (0.87 * r, 0.00 * r, -0.50 * r), (0.50 * r, 0.00 * r, -0.87 * r),
-			 (0.35 * r, 0.35 * r, -0.87 * r), (0.61 * r, 0.61 * r, -0.50 * r), (0.71 * r, 0.71 * r, 0.00 * r),
-			 (-0.00 * r, 1.00 * r, 0.00 * r), (-0.00 * r, 0.87 * r, -0.50 * r), (-0.00 * r, 0.50 * r, -0.87 * r),
-			 (-0.35 * r, 0.35 * r, -0.87 * r), (-0.61 * r, 0.61 * r, -0.50 * r), (-0.71 * r, 0.71 * r, 0.00 * r),
-			 (-1.00 * r, -0.00 * r, 0.00 * r), (-0.87 * r, -0.00 * r, -0.50 * r), (-0.50 * r, -0.00 * r, -0.87 * r),
-			 (-0.00 * r, -0.00 * r, -1.00 * r), (-0.35 * r, -0.35 * r, -0.87 * r), (-0.61 * r, -0.61 * r, -0.50 * r),
-			 (-0.71 * r, -0.71 * r, 0.00 * r), (0.00 * r, -1.00 * r, 0.00 * r), (0.00 * r, -0.87 * r, -0.50 * r),
-			 (0.00 * r, -0.50 * r, -0.87 * r), (0.35 * r, -0.35 * r, -0.87 * r), (0.61 * r, -0.61 * r, -0.50 * r),
-			 (0.71 * r, -0.71 * r, 0.00 * r), (0.71 * r, -0.71 * r, 0.00 * r + l), (0.61 * r, -0.61 * r, 0.50 * r + l),
-			 (0.35 * r, -0.35 * r, 0.87 * r + l), (0.00 * r, -0.50 * r, 0.87 * r + l),
-			 (0.00 * r, -0.87 * r, 0.50 * r + l), (0.00 * r, -1.00 * r, 0.00 * r + l),
-			 (-0.71 * r, -0.71 * r, 0.00 * r + l), (-0.61 * r, -0.61 * r, 0.50 * r + l),
-			 (-0.35 * r, -0.35 * r, 0.87 * r + l), (-0.00 * r, -0.00 * r, 1.00 * r + l),
-			 (-0.50 * r, -0.00 * r, 0.87 * r + l), (-0.87 * r, -0.00 * r, 0.50 * r + l),
-			 (-1.00 * r, -0.00 * r, 0.00 * r + l), (-0.71 * r, 0.71 * r, 0.00 * r + l),
-			 (-0.61 * r, 0.61 * r, 0.50 * r + l), (-0.35 * r, 0.35 * r, 0.87 * r + l),
-			 (-0.00 * r, 0.50 * r, 0.87 * r + l), (-0.00 * r, 0.87 * r, 0.50 * r + l),
-			 (-0.00 * r, 1.00 * r, 0.00 * r + l), (0.71 * r, 0.71 * r, 0.00 * r + l),
-			 (0.61 * r, 0.61 * r, 0.50 * r + l), (0.35 * r, 0.35 * r, 0.87 * r + l), (0.50 * r, 0.00 * r, 0.87 * r + l),
-			 (0.87 * r, 0.00 * r, 0.50 * r + l), (1.00 * r, 0.00 * r, 0.00 * r + l)]
-	faces = [(15, 3, 2), (2, 3, 4, 1), (5, 0, 1, 4), (4, 7, 6, 5), (3, 8, 7, 4), (15, 8, 3), (15, 9, 8), (8, 9, 10, 7),
-			 (7, 10, 11, 6), (10, 13, 12, 11), (9, 14, 13, 10), (15, 14, 9), (15, 16, 14), (14, 16, 17, 13),
-			 (13, 17, 18, 12), (17, 20, 19, 18), (16, 21, 20, 17), (15, 21, 16), (15, 22, 21), (21, 22, 23, 20),
-			 (20, 23, 24, 19), (0, 24, 23, 1), (22, 2, 1, 23), (15, 2, 22), (34, 47, 27), (27, 47, 48, 26),
-			 (49, 25, 26, 48), (29, 26, 25, 30), (28, 27, 26, 29), (34, 27, 28), (34, 28, 33), (33, 28, 29, 32),
-			 (32, 29, 30, 31), (36, 32, 31, 37), (35, 33, 32, 36), (34, 33, 35), (34, 35, 40), (40, 35, 36, 39),
-			 (39, 36, 37, 38), (42, 39, 38, 43), (41, 40, 39, 42), (34, 40, 41), (34, 41, 46), (46, 41, 42, 45),
-			 (45, 42, 43, 44), (44, 49, 48, 45), (47, 46, 45, 48), (34, 46, 47), (18, 19, 30, 31), (19, 24, 25, 30),
-			 (0, 49, 25, 24), (0, 5, 44, 49), (5, 6, 43, 44), (6, 11, 38, 43), (11, 12, 37, 38), (12, 18, 31, 37)]
-	ob, me = mesh_from_data(name, verts, faces)
-	# we want a rotation that, when multiplied with the up vector, equals the end vector
-	rot = end.to_track_quat("Z", "Y")
-	# this shows our rotation is correct	#up = mathutils.Vector((0,0,1))	#result = rot*up*l	#print(result)	#print(end)	#these are all working = identical
-	for v in me.vertices:
-		v.co = rot @ v.co + start
-	ob.rotation_euler.x = 1.5708
-	ob.rotation_euler.z = 1.5708
-	# ob.layers = select_layer(5)
-	return ob
+def set_b_collider(b_obj, bounds_type='BOX', display_type='BOX'):
+	"""Helper function to set up b_obj so it becomes recognizable as a collision object"""
+	# set bounds type
+	if display_type == "MESH":
+		b_obj.display_type = 'WIRE'
+	else:
+		b_obj.show_bounds = True
+		b_obj.display_type = 'BOUNDS'
+		b_obj.display_bounds_type = display_type
+
+	# alternative
+	bpy.context.view_layer.objects.active = b_obj
+	with bpy.context.temp_override(selected_objects=[b_obj], object=b_obj, active_object=b_obj):
+		logging.debug(f"Operating on obj '{b_obj.name}'")
+		bpy.ops.rigidbody.object_add()
+
+	#bpy.context.view_layer.objects.active = b_obj
+	#bpy.ops.rigidbody.object_add()
+
+	b_r_body = b_obj.rigid_body
+	b_r_body.enabled = True
+	# b_r_body.use_margin = True
+	# b_r_body.collision_margin = radius
+	b_r_body.collision_shape = bounds_type
+	# if they are set to active they explode once you play back an anim
+	b_r_body.type = "PASSIVE"
+
+
+def box_from_extents(b_name, minx, maxx, miny, maxy, minz, maxz, coll=None):
+	verts = []
+	for x in [minx, maxx]:
+		for y in [miny, maxy]:
+			for z in [minz, maxz]:
+				verts.append((x, y, z))
+	faces = [[0, 1, 3, 2], [6, 7, 5, 4], [0, 2, 6, 4], [3, 1, 5, 7], [4, 5, 1, 0], [7, 6, 2, 3]]
+	scene = bpy.context.scene
+	return mesh_from_data(scene, b_name, verts, faces, coll_name=None, coll=coll)
+
+def center_origin_to_matrix(n_center, n_dir):
+	"""Helper for capsules to transform nif data into a local matrix """
+	# get the rotation that makes (1,0,0) match m_dir
+	m_dir = mathutils.Vector(n_dir).normalized()
+	rot = m_dir.to_track_quat("Z", "Y").to_matrix().to_4x4()
+	rot.translation = n_center
+	return rot
 
 
 def create_empty(parent, name, matrix):
-	empty = create_ob(name, None)
+	empty = create_ob(bpy.context.scene, name, None)
 	if parent:
 		empty.parent = parent
 	empty.matrix_local = matrix

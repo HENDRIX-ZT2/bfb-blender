@@ -1,5 +1,7 @@
 import bpy
 import mathutils
+
+from modules_import.armature import fix_bone_length
 from .common_bfb import *
 from .bake_clean_actions import *
 

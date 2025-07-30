@@ -29,7 +29,8 @@ plugin_dir = os.path.dirname(__file__)
 if not plugin_dir in sys.path:
 	sys.path.append(plugin_dir)
 
-from import_bfb import attach_capsule
+from modules_import.collision import attach_capsule
+import modules_import.collision
 
 preview_collection = bpy.utils.previews.new()
 
@@ -43,6 +44,9 @@ class AddCapsule(AddColliderBasic):
 	bl_idname = "mesh.add_bfb_capsule_collider"
 	bl_label = "BFB Capsule Collider"
 
+	start: bpy.props.FloatVectorProperty(name="Start", default=(0.0, 0.0, 0.0))
+	end: bpy.props.FloatVectorProperty(name="End", default=(1.0, 0.0, 0.0))
+	radius: bpy.props.FloatProperty(name="Radius", default=0.5, min=0.0, description="Radius of collider")
 	bone: bpy.props.StringProperty(name="Parent Bone", default="Bip01 Spine1", description="Bone to attach the collider to")
 
 	@classmethod
@@ -58,14 +62,13 @@ class AddCapsule(AddColliderBasic):
 
 	def draw(self, context):
 		self.layout.prop_search(self, "bone", context.object.data, "bones", text="")
+		self.layout.prop(self, "start")
+		self.layout.prop(self, "end")
+		self.layout.prop(self, "radius")
 
 	def execute(self, context):
-		from . import common_bfb
-		start = mathutils.Vector((0, 0, 0))
-		end = mathutils.Vector((1, 0, 0))
-		r = 1
 		arm_ob = context.object
-		b_ob = common_bfb.create_capsule("capsule", start, end, r)
+		b_ob = modules_import.collision.create_capsule("capsule", mathutils.Vector(self.start), mathutils.Vector(self.end), self.radius)
 		attach_capsule(arm_ob, b_ob, self.bone)
 		context.view_layer.objects.active = arm_ob
 		return {'FINISHED'}
