@@ -8,7 +8,7 @@ from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from modules_import.anim import Animation
 from modules_import.armature import import_bones, get_matrix
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
-from modules_import.collision import attach_capsule, create_capsule
+from modules_import.collision import attach_capsule, create_capsule, create_sphere, create_bounding_box
 from util.fast_mesh import FastMesh
 from common_bfb import *
 from bfmat import Bfmat

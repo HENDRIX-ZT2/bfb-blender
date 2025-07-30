@@ -9,10 +9,11 @@ from common_bfb import correction_local
 def get_collider_matrix(b_hitcheck):
 	"""Return the matrix relative to the armature for an object parented to a bone"""
 	# reflect the parenting: bone > hitchecks
-	b_armature = b_hitcheck.parent
-	b_bone = b_armature.data.bones[b_hitcheck.parent_bone]
+	b_parent = b_hitcheck.parent
 	m = mathutils.Matrix(b_hitcheck.matrix_basis)
-	m.translation.y += b_bone.length
+	if b_parent.type == "ARMATURE":
+		b_bone = b_parent.data.bones[b_hitcheck.parent_bone]
+		m.translation.y += b_bone.length
 	# print(b_bone.matrix_local)
 	# print(b_hitcheck.matrix_local)
 	# print(b_bone.matrix_local @ b_hitcheck.matrix_local)
@@ -47,20 +48,19 @@ def export_capsule(b_ob, bfb):
 
 def export_bounding_box(b_ob, bfb):
 	logging.debug('Found bounding box collider')
-	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.BOUNDING_BOX)
 	block.name = "orientedbox"
-	block.data.matrix.set_rows(b_ob.matrix_local)
-	block.data.extent[:] = me.vertices[4].co * 2
+	matrix = get_collider_matrix(b_ob)
+	block.data.matrix.set_rows(matrix)
+	block.data.extent[:] = b_ob.dimensions
 	return block.id
 
 
 def export_sphere(b_ob, bfb):
 	logging.debug('Found sphere collider')
-	me = b_ob.data
 	block = bfb.create_block(b_ob, bfb, BlockType.SPHERE)
 	block.name = "sphere"
-	center = (me.vertices[2].co + me.vertices[23].co) / 2
-	block.data.pos[:] = b_ob.location
-	block.data.radius = (me.vertices[2].co - center).length
+	matrix = get_collider_matrix(b_ob)
+	block.data.pos[:] = matrix.translation
+	block.data.radius = b_ob.dimensions.x / 2
 	return block.id

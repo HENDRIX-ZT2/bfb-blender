@@ -86,7 +86,7 @@ class AddSphere(AddColliderBasic):
 		z = 1
 		r = 1
 		pa = None
-		col = common_bfb.create_sphere("sphere", x, y, z, r)
+		col = modules_import.collision.create_sphere("sphere", x, y, z, r)
 		for ob in bpy.context.scene.objects:
 			if ob.name.startswith("paint_"):
 				pa = ob
@@ -108,7 +108,7 @@ class AddBox(AddColliderBasic):
 		y = 1
 		z = 1
 		pa = None
-		col = common_bfb.create_bounding_box("orientedbox", mathutils.Matrix(), x, y, z)
+		col = modules_import.collision.create_bounding_box("orientedbox", mathutils.Matrix(), x, y, z)
 		for ob in bpy.context.scene.objects:
 			if ob.name.startswith("footprint"):
 				pa = ob

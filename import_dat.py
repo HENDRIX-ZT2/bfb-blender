@@ -78,7 +78,7 @@ def load(operator, context, filepath = ""):
 	formatstr = "="+"".join([pair[3] for pair in info])
 	vertlist = list(iter_unpack(formatstr, datastream[p : p+calcsize(formatstr)*x_verts*y_verts]))
 	verts, quads = generate_mesh(x_verts, y_verts, scale, [v[0] for v in vertlist])
-	map_ob, me = mesh_from_data("map", verts, quads, False)
+	map_ob, me = mesh_from_data(bpy.context.scene, "map", verts, quads, False)
 	for face in me.polygons:
 		face.use_smooth = True
 	
@@ -106,7 +106,7 @@ def load(operator, context, filepath = ""):
 	print("Water Bodies:",num_water_bodies)
 	p+= 4
 	v, f = generate_mesh(x_verts, y_verts, scale, [0 for v in vertlist])
-	water_ob, water_me = mesh_from_data("water", v, f, False)
+	water_ob, water_me = mesh_from_data(bpy.context.scene, "water", v, f, False)
 	water_padding = 5 if version > 11 else 0
 	for face in water_me.polygons:
 		face.use_smooth = True
