@@ -244,17 +244,19 @@ def export_mesh(b_ob, bfb):
 	b_armature = b_ob.find_armature()
 	# we have an armature on one mesh, means we can't export meshes without armature
 	if has_armature and not b_armature:
-		log_error(f"{b_ob.name} does not use an armature while other models do, skipping.")
-		return None
+		raise AttributeError(f"{b_ob.name} does not use an armature while other models do")
 	if b_armature:
 		bones_names = {name: i for i, name in enumerate(b_armature.data.bones.keys())}
 	else:
 		bones_names = {}
 
 	# remove unneeded modifiers
-	for mod in b_ob.modifiers:
-		if mod.type in ('TRIANGULATE',):
-			b_ob.modifiers.remove(mod)
+	for b_mod in b_ob.modifiers:
+		if b_mod.type in ('TRIANGULATE',):
+			b_ob.modifiers.remove(b_mod)
+		if b_mod.type in ('ARMATURE',):
+			if not b_mod.object:
+				raise AttributeError(f"{b_ob.name} has an armature modifier without object reference")
 	b_ob.modifiers.new('Triangulate', 'TRIANGULATE')
 
 	# make a copy with all modifiers applied
