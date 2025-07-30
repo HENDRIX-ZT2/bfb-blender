@@ -197,7 +197,10 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 					# or 0, 2, or rarely 0, 0
 					data = bfb_node.geometry
 				data.object_ids[0] = mesh_id
-				data.materials[0] = get_mat_name(b_ob)
+				mat_names = list(get_mat_names(b_ob))
+				data.num_materials = len(mat_names)
+				data.reset_field("materials")
+				data.materials[:] = mat_names
 	else:
 		# lamps etc, just ignore them
 		return None
@@ -208,8 +211,8 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 	return bfb_node
 
 
-def get_mat_name(b_ob):
-	mat_name = 'none'
+def get_mat_names(b_ob):
+
 	if len(b_ob.data.materials):
 		# sometimes there will be empty slots before a material
 		for material in b_ob.data.materials:
@@ -220,10 +223,10 @@ def get_mat_name(b_ob):
 						write_bfmat(b_ob, material, mat_name)
 					except:
 						logging.exception(f"Bfmat export failed")
-				break
-	else:
-		log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
-	return mat_name
+				yield mat_name
+	# else:
+	# log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
+	# mat_name = 'none'
 
 
 def apply_transform(ob, ):
@@ -273,7 +276,7 @@ def export_mesh(b_ob, bfb):
 	else:
 		logging.debug(f"No valid tangent space space for {b_ob.name} due to lack of UVs")
 	mesh_vertices = []
-	mesh_triangles = []
+	mesh_chunks = {}
 	# used to ignore the normals for checking equality
 	dummy_vertices = {}
 
@@ -298,6 +301,10 @@ def export_mesh(b_ob, bfb):
 	unweighted_vertices = set()
 	group_map = {vg.index: bones_names.get(vg.name, -1) for vg in b_ob.vertex_groups}
 	for polygon in eval_me.polygons:
+		# split by material index
+		if polygon.material_index not in mesh_chunks:
+			mesh_chunks[polygon.material_index] = []
+		chunk_triangles = mesh_chunks[polygon.material_index]
 		tri = []
 		for loop_index in polygon.loop_indices:
 			vertex_index = eval_me.loops[loop_index].vertex_index
@@ -341,7 +348,7 @@ def export_mesh(b_ob, bfb):
 					else:
 						unweighted_vertices.add(vertex_index)
 			tri.append(dummy_vertices[key])
-		mesh_triangles.append(tri)
+		chunk_triangles.append(tri)
 
 	if unweighted_vertices:
 		raise AttributeError(
@@ -353,7 +360,7 @@ def export_mesh(b_ob, bfb):
 		mesh_data_block.data.b_f_r_vertex = f"BFRVertex{BFRVertex}"
 		mesh_data_block.users = []
 		mesh_data_block.vertex_lists = []
-		mesh_data_block.triangle_lists = []
+		mesh_data_block.chunks_lists = []
 		BFRVertex_2_meshData[BFRVertex] = mesh_data_block
 	else:
 		mesh_data_block = BFRVertex_2_meshData[BFRVertex]
@@ -373,7 +380,7 @@ def export_mesh(b_ob, bfb):
 	mesh_block.name = "mesh"
 	mesh_data_block.users.append(mesh_block)
 	mesh_data_block.vertex_lists.append(mesh_vertices)
-	mesh_data_block.triangle_lists.append(mesh_triangles)
+	mesh_data_block.chunks_lists.append(mesh_chunks)
 	return mesh_block.id
 
 
@@ -467,30 +474,32 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 
 		# fill in the meshData block
 		verts = join_lists(mesh_data_block.vertex_lists)
-		tris = join_lists(mesh_data_block.triangle_lists)
+		chunks = [join_lists(chunk.values()) for chunk in mesh_data_block.chunks_lists]
 		mesh_data_block.data.verts.set_verts(verts)
 		mesh_data_block.data.vertex_count = len(verts)
-		mesh_data_block.data.num_tri_indices = len(tris) * 3
+		mesh_data_block.data.num_tri_indices = sum(len(tris) for tris in chunks) * 3
 		mesh_data_block.data.reset_field("tris")
-		mesh_data_block.data.tris[:] = tris
+		mesh_data_block.data.tris[:] =  list(itertools.chain(*chunks))
 		# index into mesh_data_block
 		vertex_offset = 0
 		tris_offset = 0
-		for mesh_block, vertex_list, triangle_list in zip(mesh_data_block.users, mesh_data_block.vertex_lists, mesh_data_block.triangle_lists):
+		for mesh_block, vertex_list, chunks_list in zip(mesh_data_block.users, mesh_data_block.vertex_lists, mesh_data_block.chunks_lists):
 			# create just 1 chunk
-			chunk = mesh_block.data.chunks[0]
-			chunk.vertex_offset = vertex_offset
-			chunk.vertex_count = len(vertex_list)
-			chunk.num_tris = len(triangle_list)
-			chunk.tri_index_offset = tris_offset * 3
-			chunk.num_tri_indices = chunk.num_tris * 3
-			chunk_verts = mesh_data_block.data.verts.verts_data[chunk.vertex_offset: chunk.vertex_offset + chunk.vertex_count]["pos"]
-			cog = np.mean(chunk_verts, axis=0)
-			chunk.bounds_cog[:] = cog
-			chunk.bounds_radius = np.max(np.linalg.norm(chunk_verts-cog, axis=1))
+			mesh_block.data.num_chunks = len(chunks_list)
+			mesh_block.data.reset_field("chunks")
+			for chunk, triangle_list in zip(mesh_block.data.chunks, chunks_list.values()):
+				chunk.vertex_offset = vertex_offset
+				chunk.vertex_count = len(vertex_list)
+				chunk.num_tris = len(triangle_list)
+				chunk.tri_index_offset = tris_offset * 3
+				chunk.num_tri_indices = chunk.num_tris * 3
+				chunk_verts = mesh_data_block.data.verts.verts_data[chunk.vertex_offset: chunk.vertex_offset + chunk.vertex_count]["pos"]
+				cog = np.mean(chunk_verts, axis=0)
+				chunk.bounds_cog[:] = cog
+				chunk.bounds_radius = np.max(np.linalg.norm(chunk_verts-cog, axis=1))
 
+				tris_offset += chunk.num_tris
 			vertex_offset += chunk.vertex_count
-			tris_offset += chunk.num_tris
 
 	bfb.header.author = author_name
 	bfb.header.num_blocks = len(bfb.blocks)
