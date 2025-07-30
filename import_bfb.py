@@ -37,11 +37,14 @@ def import_scene_graph(b_parent, node, lod_level):
 			b_ob.matrix_local = matrix
 		else:
 			b_ob = create_empty(b_parent, node.name, matrix)
-		for collision_id in node.collision_ids:
-			id2data[collision_id].parent = b_ob
+		if len(node.collision_ids):
+			logging.info(f"collisions: {node.collision_ids}")
+			for collision_id in node.collision_ids:
+				id2data[collision_id].parent = b_ob
 	elif node.type_id == NodeType.LOD_GROUP:
 		b_ob = create_empty(b_parent, "lodgroup", matrix)
 	elif node.type_id in (NodeType.MESH_LINK, NodeType.BILLBOARD_LINK):
+		logging.info(f"geometries: {node.geometry.object_ids}")
 		for object_id in node.geometry.object_ids:
 			b_ob = id2data[object_id]
 			b_ob.name = node.name
@@ -296,71 +299,83 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 			if block.type_id == BlockType.MESH_SKINNED:
 				if not b_armature_ob:
 					b_armature_ob = import_bones(basename, data, scales)
-			# build mesh
+			num_tris = sum(chunk.num_tri_indices // 3 for chunk in data.chunks)
+			num_verts = sum(chunk.vertex_count for chunk in data.chunks)
+			material_indices = np.empty(shape=num_tris, dtype=int)
+			tris = np.empty(shape=(num_tris, 3), dtype=mesh_data.tris.dtype)
+			verts = np.empty(shape=num_verts, dtype=mesh_data.verts.verts_data.dtype)
+			verts_offset = 0
+			tris_offset = 0
+			# build mesh from chunks
 			for chunk_i, chunk in enumerate(data.chunks):
-				tris = mesh_data.tris[chunk.tri_index_offset // 3: (chunk.tri_index_offset + chunk.num_tri_indices) // 3]
-				verts = mesh_data.verts.verts_data[chunk.vertex_offset: chunk.vertex_offset + chunk.vertex_count]
+				num_chunk_tris = chunk.num_tri_indices // 3
+				tris[tris_offset: tris_offset + num_chunk_tris] = mesh_data.tris[chunk.tri_index_offset // 3: (chunk.tri_index_offset + chunk.num_tri_indices) // 3]
+				tris[tris_offset: tris_offset + num_chunk_tris] += verts_offset
+				material_indices[tris_offset: tris_offset + num_chunk_tris] = chunk_i
+				verts[verts_offset: verts_offset + chunk.vertex_count] = mesh_data.verts.verts_data[chunk.vertex_offset: chunk.vertex_offset + chunk.vertex_count]
+				verts_offset += chunk.vertex_count
+				tris_offset += num_chunk_tris
 
-				vertices = verts["pos"].copy()
-				verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
-				sorted_indices = np.sort(unique_indices)
-				verts_unique = vertices[sorted_indices]
-				transsort = np.argsort(unique_indices)
-				i_rev = transsort.copy()
-				i_rev[transsort] = np.arange(len(i_rev))
-				unique_inverse = i_rev[unique_inverse]
-				tris_sorted = np.take(unique_inverse, tris)
-				mesh_tris_flat = tris.flatten()
+			vertices = verts["pos"].copy()
+			verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
+			sorted_indices = np.sort(unique_indices)
+			verts_unique = vertices[sorted_indices]
+			transsort = np.argsort(unique_indices)
+			i_rev = transsort.copy()
+			i_rev[transsort] = np.arange(len(i_rev))
+			unique_inverse = i_rev[unique_inverse]
+			tris_sorted = np.take(unique_inverse, tris)
+			material_indices_sorted = np.take(unique_inverse, material_indices)
+			mesh_tris_flat = tris.flatten()
 
-				b_me = FastMesh.new(block.name)
-				b_me.from_pydata(verts_unique, [], tris_sorted)
-				ob = create_ob(bpy.context.scene, block.name, b_me)
-				id2data[block.id] = ob
-				# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
-				# We store them as a vertex group so they can be easily modified.
-				if "w" in verts.dtype.fields:
-					logging.debug("Found fx_wind weights!")
-					ob.vertex_groups.new(name="fx_wind")
-					for i, vert in enumerate(verts["w"][sorted_indices]):
-						ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
+			b_me = FastMesh.new(block.name)
+			b_me.from_pydata(verts_unique, [], tris_sorted)
+			ob = create_ob(bpy.context.scene, block.name, b_me)
+			id2data[block.id] = ob
+			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
+			# We store them as a vertex group so they can be easily modified.
+			if "w" in verts.dtype.fields:
+				logging.debug("Found fx_wind weights!")
+				ob.vertex_groups.new(name="fx_wind")
+				for i, vert in enumerate(verts["w"][sorted_indices]):
+					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
-				b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
-				for face in b_me.polygons:
-					face.material_index = 0
+			b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
+			b_me.polygons.foreach_set('material_index', material_indices_sorted)
 
-				if use_custom_normals:
-					set_auto_smooth_safe(b_me)
-					b_me.normals_split_custom_set(per_loop(mesh_tris_flat, verts["normal"]))
+			if use_custom_normals:
+				set_auto_smooth_safe(b_me)
+				b_me.normals_split_custom_set(per_loop(mesh_tris_flat, verts["normal"]))
 
-				for uv_layer in ("u0", "u1", "u2"):
-					if uv_layer in verts.dtype.fields:
-						b_me.uv_layers.new(name=uv_layer[-1])
-						uvs = verts[uv_layer].copy()
-						uvs[:, 1] = 1.0 - uvs[:, 1]
-						b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
-				if "rgba" in verts.dtype.fields:
-					rgba = verts["rgba"].astype(float) / 255.0
-					cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
-					cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, (2, 1, 0, 3)]).flatten())
+			for uv_layer in ("u0", "u1", "u2"):
+				if uv_layer in verts.dtype.fields:
+					b_me.uv_layers.new(name=uv_layer[-1])
+					uvs = verts[uv_layer].copy()
+					uvs[:, 1] = 1.0 - uvs[:, 1]
+					b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
+			if "rgba" in verts.dtype.fields:
+				rgba = verts["rgba"].astype(float) / 255.0
+				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
+				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, (2, 1, 0, 3)]).flatten())
 
-				if block.type_id == BlockType.MESH_SKINNED:
-					bone_names = b_armature_ob.data.bones.keys()
-					for i, vert in enumerate([(
-							(w.b_0, w.w_0),
-							(w.b_1, w.w_1),
-							(w.b_2, w.w_2),
-							(w.b_3, 1.0 - w.w_0 - w.w_1 - w.w_2)) for w in data.weights[sorted_indices]]):
-						for bone_id, weight in vert:
-							if bone_id < 255 and weight > 0.0:
-								bone_name = bone_names[bone_id]
-								if bone_name not in ob.vertex_groups:
-									ob.vertex_groups.new(name=bone_name)
-								ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
-					skinned_meshes.append(ob)
-					mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
-					mod.object = b_armature_ob
+			if block.type_id == BlockType.MESH_SKINNED:
+				bone_names = b_armature_ob.data.bones.keys()
+				for i, vert in enumerate([(
+						(w.b_0, w.w_0),
+						(w.b_1, w.w_1),
+						(w.b_2, w.w_2),
+						(w.b_3, 1.0 - w.w_0 - w.w_1 - w.w_2)) for w in data.weights[sorted_indices]]):
+					for bone_id, weight in vert:
+						if bone_id < 255 and weight > 0.0:
+							bone_name = bone_names[bone_id]
+							if bone_name not in ob.vertex_groups:
+								ob.vertex_groups.new(name=bone_name)
+							ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
+				skinned_meshes.append(ob)
+				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
+				mod.object = b_armature_ob
 
-				ob_postpro(b_me, use_mirror_mesh)
+			ob_postpro(b_me, use_mirror_mesh)
 		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
 	logging.info("Reading object hierarchy")
