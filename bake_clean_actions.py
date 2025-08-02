@@ -275,17 +275,17 @@ def bake_and_clean(error=0.25, exp_power=2):
 			if not src_actions:
 				reported_errors.append(
 					"Could not find any actions marked for baking - marking all existing actions with *!")
-				for action in bpy.data.actions:
-					action.name = f"*{action.name}"
+				for src_action in bpy.data.actions:
+					src_action.name = f"*{src_action.name}"
 				src_actions = bpy.data.actions
 
-			for action in src_actions:
-				logging.info(f"Baking {action.name}")
+			for src_action in src_actions:
+				logging.info(f"Baking {src_action.name}")
 				pose_info = []
 				# thylacine demands +1
-				frame_range = range(int(action.frame_range[0]), int(action.frame_range[1]) + 1)
+				frame_range = range(int(src_action.frame_range[0]), int(src_action.frame_range[1]) + 1)
 
-				armature.animation_data.action = action
+				armature.animation_data.action = src_action
 				# Collect transformations
 				for f in frame_range:
 					bpy.context.scene.frame_set(f)
@@ -296,14 +296,21 @@ def bake_and_clean(error=0.25, exp_power=2):
 
 				# in case animation data hasn't been created
 				atd = armature_copy.animation_data_create()
+				baked_name = src_action.name[1:]
 				# Create or clear action
-				if action.name[1:] in bpy.data.actions:
-					copy_action = bpy.data.actions[action.name[1:]]
+				if baked_name in bpy.data.actions:
+					copy_action = bpy.data.actions[baked_name]
 					for fcurve in copy_action.fcurves:
 						copy_action.fcurves.remove(fcurve)
+					for copy_marker in copy_action.pose_markers:
+						copy_action.pose_markers.remove(copy_marker)
 				else:
-					copy_action = bpy.data.actions.new(action.name[1:])
+					copy_action = bpy.data.actions.new(baked_name)
 				copy_action.use_fake_user = True
+				# copy pose markers
+				for src_marker in src_action.pose_markers:
+					copy_marker = copy_action.pose_markers.new(src_marker.name)
+					copy_marker.frame = src_marker.frame
 				atd.action = copy_action
 
 				# Apply transformations to action
