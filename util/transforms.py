@@ -1,5 +1,3 @@
-import math
-
 from bpy_extras.io_utils import axis_conversion
 import mathutils
 
@@ -12,16 +10,7 @@ class Corrector:
 	#             (-0.0000, 1.0000, -0.0000, 0.0000)
 	#             ( 0.0000, 0.0000,  0.0000, 1.0000)>
 	local = axis_conversion(from_forward='X', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
-	# self.local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
 	local_inv = local.inverted()
-
-	# <Matrix 4x4 (-0.0000,  1.0000, 0.0000, 0.0000)
-	#             (-0.0000, -0.0000, 1.0000, 0.0000)
-	#             ( 1.0000,  0.0000, 0.0000, 0.0000)
-	#             ( 0.0000,  0.0000, 0.0000, 1.0000)>
-	global_corr = axis_conversion(from_forward='Z', from_up='X', to_forward='Y', to_up='Z').to_4x4()
-	# self.global_corr = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
-	global_corr_inv = global_corr.inverted()
 
 	@classmethod
 	def import_vec(cls, vec):
@@ -42,24 +31,17 @@ class Corrector:
 		return rest_rot @ key_matrix
 
 	@classmethod
-	def get_blender_matrix(cls, bind):
-		return cls.global_corr @ cls.local @ bind @ cls.local_inv
-
-	# @classmethod
-	# def get_bfb_matrix(cls, b_bone):
-	# 	bind = cls.global_corr_inv @ cls.local_inv @ b_bone.matrix_local @ cls.local
-	# 	if b_bone.parent:
-	# 		p_bind_restored = cls.global_corr_inv @ cls.local_inv @ b_bone.parent.matrix_local @ cls.local
-	# 		bind = p_bind_restored.inverted() @ bind
-	# 	return bind
+	def get_blender_matrix(cls, bfb_armature_space):
+		return cls.local_inv @ cls.local @ bfb_armature_space @ cls.local_inv
 
 	@classmethod
 	def get_bfb_matrix(cls, b_bone):
+		"""Returns bone space matrix in bfb coordinates"""
 		if b_bone.parent:
 			bind = b_bone.parent.matrix_local.inverted() @ b_bone.matrix_local
-			return cls.global_corr @ bind @ cls.global_corr_inv
+			return cls.local_inv @ bind @ cls.local
 		else:
-			return b_bone.matrix_local @ cls.global_corr_inv
+			return b_bone.matrix_local @ cls.local
 
 
 def center_origin_to_matrix(n_center, n_dir):
