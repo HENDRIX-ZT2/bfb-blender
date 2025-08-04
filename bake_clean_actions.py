@@ -6,6 +6,11 @@ import time
 
 from common_bfb import create_ob
 
+# references
+# https://technology.riotgames.com/news/compressing-skeletal-animation-data
+# https://takinginitiative.net/2020/03/07/an-idiots-guide-to-animation-compression/
+# https://animcoding.com/post/animation-tech-intro-part-2-compression/
+
 
 #########################################
 #### Ramer-Douglas-Peucker algorithm ####
@@ -81,8 +86,8 @@ def clean_group(group, type_id):
 
 def pose_frame_info(obj):
 	matrices = {}
-	for name, pbone in obj.pose.bones.items():
-		matrices[name] = obj.convert_space(pose_bone=pbone, matrix=pbone.matrix, from_space='POSE', to_space='LOCAL')
+	for name, p_bone in obj.pose.bones.items():
+		matrices[name] = obj.convert_space(pose_bone=p_bone, matrix=p_bone.matrix, from_space='POSE', to_space='LOCAL')
 	return matrices
 
 
@@ -214,8 +219,8 @@ def is_constrained_armature(ob):
 	if ob.type == "ARMATURE":
 		if ob.name.startswith("*"):
 			return True
-		for name, pbone in ob.pose.bones.items():
-			if pbone.constraints:
+		for name, p_bone in ob.pose.bones.items():
+			if p_bone.constraints:
 				ob.name = f"*{ob.name}"
 				return True
 	return False

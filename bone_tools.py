@@ -126,7 +126,7 @@ def add_correction_bone(operator, context, layers=(), location=mathutils.Vector(
 	#location and rotation of the new bone in bonespace	
 	c_bspace = rotation.to_matrix().to_4x4()
 	#c_bspace.translation = location
-	pbone = bpy.context.active_bone
+	p_bone = bpy.context.active_bone
 	
 	parent = None
 	for bone in bpy.context.selected_bones:

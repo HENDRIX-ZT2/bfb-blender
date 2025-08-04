@@ -190,7 +190,8 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 						for fcu in fcurves:
 							for key in fcu.keyframe_points:
 								key_time = key.co[0]
-								if key_time not in times: times.append(key_time)
+								if key_time not in times:
+									times.append(key_time)
 						times.sort()
 						# sample and recreate all fcurves according to the full times
 						for fcu in fcurves:
