@@ -26,9 +26,13 @@ class Corrector:
 		return cls.local @ key_matrix @ cls.local_inv
 
 	@classmethod
-	def export_keymat(cls, rest_rot, key_matrix):
-		key_matrix = cls.local_inv @ key_matrix @ cls.local
-		return rest_rot @ key_matrix
+	def export_keymat(cls, bfb_rest_rot, b_key_matrix):
+		key_matrix = cls.local_inv @ b_key_matrix @ cls.local
+		return bfb_rest_rot @ key_matrix
+
+	@classmethod
+	def export_keymat2(cls, b_rest_rot, b_key_matrix):
+		return cls.local_inv @ (b_rest_rot @ b_key_matrix) @ cls.local
 
 	@classmethod
 	def get_blender_matrix(cls, bfb_armature_space):
@@ -42,6 +46,14 @@ class Corrector:
 			return cls.local_inv @ bind @ cls.local
 		else:
 			return b_bone.matrix_local @ cls.local
+
+	@classmethod
+	def get_b_matrix(cls, b_bone):
+		"""Returns bone space matrix in coordinates suitable for anim keyframes"""
+		if b_bone.parent:
+			return b_bone.parent.matrix_local.inverted() @ b_bone.matrix_local
+		else:
+			return cls.local @ b_bone.matrix_local
 
 
 def center_origin_to_matrix(n_center, n_dir):
