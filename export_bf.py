@@ -1,21 +1,26 @@
 import logging
 import os
 import time
+import math
+
 import bpy
 import mathutils
 
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
+from util.transforms import Corrector
 from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
-import math
+
+
+corrector = Corrector()
 
 
 def write_nodes(dir_path, b_action, nodes, bones_data):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
-	duration = b_action.frame_range[1] / fps
+	duration = b_action.frame_end / fps
 	bf.header.version = bf.context.version = 2
 	bf.header.duration = duration
 	bf.header.num_nodes = len(nodes)
@@ -24,7 +29,7 @@ def write_nodes(dir_path, b_action, nodes, bones_data):
 		bf_node.name = blendername_to_bfbname(name)
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
-		rest_scale, rest_rot, rest_trans, rest_quat = bones_data[name]
+		rest, rest_scale, rest_rot, rest_quat = bones_data[name]
 		for modifier, dt in zip(bf_node.modifiers, storage):
 			fcurves = storage[dt]
 			modifier.num_keys = len(fcurves[0].keyframe_points)
@@ -33,21 +38,21 @@ def write_nodes(dir_path, b_action, nodes, bones_data):
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					quat = export_keymat(rest_rot, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
+					quat = corrector.export_keymat(rest, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
 					set_quat(bf_key, fps, frame, quat, rest_quat)
 			if dt == "rotation_euler":
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					# todo: use to_euler( ) with compatible euler to fix distortions
-					quat = export_keymat(rest_rot, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
+					quat = corrector.export_keymat(rest, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
 					set_quat(bf_key, fps, frame, quat, rest_quat)
 
 			if dt == "location":
 				modifier.key_type = KeyType.LOC_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					trans = export_keymat(rest_rot, mathutils.Matrix.Translation(key)).to_translation() + rest_trans
+					trans = corrector.export_keymat(rest, mathutils.Matrix.Translation(key)).to_translation()
 					bf_key.time = frame / fps
 					bf_key.x = trans.x
 					bf_key.y = trans.y
@@ -84,15 +89,6 @@ def set_quat(bf_key, fps, frame, quat, rest_quat):
 	bf_key.w = quat.w
 
 
-correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-correction_local_inv = correction_local.inverted()
-
-
-def export_keymat(rest_rot, key_matrix):
-	key_matrix = correction_local_inv @ key_matrix @ correction_local
-	return rest_rot @ key_matrix
-
-
 def keys_iter(fcurves):
 	num_keys = len(fcurves[0].keyframe_points)
 	for i in range(0, num_keys):
@@ -118,17 +114,19 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 			errors.append(
 				"Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
 		for bone in armature.data.bones:
-			rest_scale, rest_rot, rest_trans = decompose_srt(get_bfb_matrix(bone))
-			bones_data[bone.name] = (rest_scale, rest_rot.to_4x4(), rest_trans, rest_rot.to_quaternion())
+			rest = get_bfb_matrix(bone)
+			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
+			bones_data[bone.name] = (rest, rest_scale, rest_rot.to_4x4(), rest_rot.to_quaternion())
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
-			rest_scale, rest_rot, rest_trans = decompose_srt(mathutils.Matrix().to_4x4())
-			bones_data[b_ob.name] = (rest_scale, rest_rot.to_4x4(), rest_trans, rest_rot.to_quaternion())
+			rest = mathutils.Matrix().to_4x4()
+			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
+			bones_data[b_ob.name] = (rest, rest_scale, rest_rot.to_4x4(), rest_rot.to_quaternion())
 
 	for action in bpy.data.actions:
 		# make sure it starts precisely at frame 0
-		anim_start = action.frame_range[0]
+		anim_start = action.frame_start
 		if anim_start != 0:
 			errors.append(
 				f"Action {action.name} did not start at frame 0! This has been automatically fixed!")

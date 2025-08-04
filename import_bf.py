@@ -2,13 +2,13 @@ import os
 import time
 import bpy
 import mathutils
-import math
 import logging
 
 import numpy as np
 
 from bfb_gen.formats.bf import BfFile
 from modules_import.anim import Animation
+from util.transforms import Corrector
 from .common_bfb import get_bfb_matrix, decompose_srt, create_empty, get_armature, name_import
 
 
@@ -24,15 +24,7 @@ info = {
 	16: ("QUAD", "scale", 3),
 	17: ("LINEAR", "scale", 3)}
 
-
-correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-correction_local_inv = correction_local.inverted()
-
-
-def import_keymat(rest_rot_inv, key_matrix):
-	key_matrix = rest_rot_inv @ key_matrix
-	return correction_local @ key_matrix @ correction_local_inv
-
+corrector = Corrector()
 
 def load(operator, context, files=(), filepath="", set_fps=False):
 	starttime = time.time()
@@ -105,10 +97,10 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 				if data_type == "scale":
 					keys[i] = [k.scale, k.scale, k.scale]
 				elif data_type == "location":
-					keys[i] = import_keymat(rest_rot_inv, mathutils.Matrix.Translation(mathutils.Vector(
+					keys[i] = corrector.import_keymat(rest_rot_inv, mathutils.Matrix.Translation(mathutils.Vector(
 						[k.x, k.y, k.z]) - rest_trans)).to_translation()
 				elif data_type == "rotation_quaternion":
-					keys[i] = import_keymat(rest_rot_inv, mathutils.Quaternion(
+					keys[i] = corrector.import_keymat(rest_rot_inv, mathutils.Quaternion(
 						[k.w, k.x, k.y, k.z]).to_matrix().to_4x4()).to_quaternion()
 				elif data_type == "rotation_euler":
 					keys[i] = k.value
@@ -130,7 +122,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 				keys = np.stack(list(
 					np.interp(times, dict_times[x], dict_eulers[x].flat) for x in range(6, 9)), axis=1)
 				for i, key in enumerate(keys):
-					keys[i] = import_keymat(rest_rot_inv,
+					keys[i] = corrector.import_keymat(rest_rot_inv,
 										mathutils.Euler(key).to_matrix().to_4x4()).to_euler()
 			# unsure how the extra data for quad is to be interpreted
 			# if interp == "QUAD":
