@@ -48,13 +48,4 @@ def get_bfb_matrix(b_bone):
 	if b_bone.parent:
 		p_bind_restored = correction_global.inverted() @ correction_local.inverted() @ b_bone.parent.matrix_local @ correction_local
 		bind = p_bind_restored.inverted() @ bind
-
-	return bind.transposed()
-
-
-def decompose_srt(mat):
-	mat.transpose()
-	b_scale = 1.0
-	b_rot = mat.to_quaternion().to_matrix()
-	b_trans = mat.translation
-	return b_scale, b_rot, b_trans
+	return bind

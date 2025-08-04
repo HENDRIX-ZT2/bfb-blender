@@ -8,7 +8,7 @@ import mathutils
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
-from util.transforms import Corrector, get_bfb_matrix, decompose_srt
+from util.transforms import Corrector, get_bfb_matrix
 from common_bfb import name_export, get_armature
 
 
@@ -114,14 +114,12 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 				"Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
 		for bone in armature.data.bones:
 			rest = get_bfb_matrix(bone)
-			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
-			bones_data[bone.name] = (rest, rest_rot.to_quaternion())
+			bones_data[bone.name] = (rest, rest.to_quaternion())
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
 			rest = mathutils.Matrix().to_4x4()
-			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
-			bones_data[b_ob.name] = (rest, rest_rot.to_quaternion())
+			bones_data[b_ob.name] = (rest, rest.to_quaternion())
 
 	for action in bpy.data.actions:
 		# make sure it starts precisely at frame 0

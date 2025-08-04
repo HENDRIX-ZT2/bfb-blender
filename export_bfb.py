@@ -556,7 +556,7 @@ def export_bones(b_armature, mesh_block):
 		scale_matrix = get_rest_scale_matrix(b_bone)
 		bfb_bone.priority = p_bone.get("priority", -1)
 		bfb_bone.name = name_export(b_bone.name).lower()
-		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone).transposed())
+		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone))
 
 
 def get_rest_scale_matrix(b_bone):
