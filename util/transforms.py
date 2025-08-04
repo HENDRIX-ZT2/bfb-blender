@@ -5,6 +5,8 @@ import mathutils
 
 
 class Corrector:
+	# https://stackoverflow.com/questions/1263072/changing-a-matrix-from-right-handed-to-left-handed-coordinate-system
+
 	# <Matrix 4x4 (-0.0000, 0.0000,  1.0000, 0.0000)
 	#             ( 1.0000, 0.0000,  0.0000, 0.0000)
 	#             (-0.0000, 1.0000, -0.0000, 0.0000)
@@ -43,24 +45,21 @@ class Corrector:
 	def get_blender_matrix(cls, bind):
 		return cls.global_corr @ cls.local @ bind @ cls.local_inv
 
+	# @classmethod
+	# def get_bfb_matrix(cls, b_bone):
+	# 	bind = cls.global_corr_inv @ cls.local_inv @ b_bone.matrix_local @ cls.local
+	# 	if b_bone.parent:
+	# 		p_bind_restored = cls.global_corr_inv @ cls.local_inv @ b_bone.parent.matrix_local @ cls.local
+	# 		bind = p_bind_restored.inverted() @ bind
+	# 	return bind
+
 	@classmethod
 	def get_bfb_matrix(cls, b_bone):
-		bind = cls.global_corr.inverted() @ cls.local_inv @ b_bone.matrix_local @ cls.local
 		if b_bone.parent:
-			p_bind_restored = cls.global_corr_inv @ cls.local_inv @ b_bone.parent.matrix_local @ cls.local
-			bind = p_bind_restored.inverted() @ bind
-		return bind
-	
-	# # https://stackoverflow.com/questions/1263072/changing-a-matrix-from-right-handed-to-left-handed-coordinate-system
-	# def to_blender(self, nif_armature_space_matrix):
-	# 	# post multiplication: local space
-	# 	# position of xflip does not matter
-	# 	return self.xflip @ self.correction_glob @ nif_armature_space_matrix @ self.correction_inv @ self.xflip
-	#
-	# def from_blender(self, blender_armature_space_matrix):
-	# 	# xflip must be done before the conversions
-	# 	bind = self.xflip @ blender_armature_space_matrix @ self.xflip
-	# 	return self.correction_glob_inv @ bind @ self.correction
+			bind = b_bone.parent.matrix_local.inverted() @ b_bone.matrix_local
+			return cls.global_corr @ bind @ cls.global_corr_inv
+		else:
+			return b_bone.matrix_local @ cls.global_corr_inv
 
 
 def center_origin_to_matrix(n_center, n_dir):
