@@ -29,7 +29,7 @@ def write_nodes(dir_path, b_action, nodes, bones_data):
 		bf_node.name = blendername_to_bfbname(name)
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
-		rest, rest_scale, rest_rot, rest_quat = bones_data[name]
+		rest, rest_quat = bones_data[name]
 		for modifier, dt in zip(bf_node.modifiers, storage):
 			fcurves = storage[dt]
 			modifier.num_keys = len(fcurves[0].keyframe_points)
@@ -116,13 +116,13 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 		for bone in armature.data.bones:
 			rest = get_bfb_matrix(bone)
 			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
-			bones_data[bone.name] = (rest, rest_scale, rest_rot.to_4x4(), rest_rot.to_quaternion())
+			bones_data[bone.name] = (rest, rest_rot.to_quaternion())
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
 			rest = mathutils.Matrix().to_4x4()
 			rest_scale, rest_rot, rest_trans = decompose_srt(rest)
-			bones_data[b_ob.name] = (rest, rest_scale, rest_rot.to_4x4(), rest_rot.to_quaternion())
+			bones_data[b_ob.name] = (rest, rest_rot.to_quaternion())
 
 	for action in bpy.data.actions:
 		# make sure it starts precisely at frame 0
