@@ -1,7 +1,8 @@
 import bpy
 import logging
 
-from common_bfb import correction_local, center_origin_to_matrix, mesh_from_data
+from common_bfb import mesh_from_data
+from util.transforms import center_origin_to_matrix, correction_local
 
 
 def attach_capsule(b_armature_ob, b_ob, bone_name):

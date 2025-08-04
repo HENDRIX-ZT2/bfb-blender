@@ -1,7 +1,8 @@
 import bpy
 import mathutils
 
-from common_bfb import create_ob, name_import, correction_global, correction_local, create_anim
+from common_bfb import create_ob, name_import
+from util.transforms import correction_local, correction_global
 
 
 def import_bones(basename, data, scales):
@@ -68,7 +69,7 @@ def fix_bone_length(edit_bone):
 		edit_bone.length = bone_length
 
 
-def apply_rest_scale_correction(b_armature_ob, scales, skinned_meshes):
+def apply_rest_scale_correction(b_armature_ob, scales, anim, skinned_meshes):
 	# handle scale on armature and meshes
 	if b_armature_ob and scales:
 		# set inverse scale to all bones
@@ -86,7 +87,7 @@ def apply_rest_scale_correction(b_armature_ob, scales, skinned_meshes):
 		bpy.ops.pose.armature_apply()
 		bpy.ops.object.mode_set(mode='OBJECT')
 		# add scale back in as dummy action
-		scale_action = create_anim(b_armature_ob, "!scale!")
+		scale_action = anim.create_action(b_armature_ob, "!scale!")
 		for bone_name, scale in scales.items():
 			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,
 												action_group=bone_name) for i in range(3)]

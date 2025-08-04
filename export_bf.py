@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-import math
 
 import bpy
 import mathutils
@@ -9,8 +8,8 @@ import mathutils
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
-from util.transforms import Corrector
-from common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
+from util.transforms import Corrector, get_bfb_matrix, decompose_srt
+from common_bfb import name_export, get_armature
 
 
 corrector = Corrector()
@@ -26,7 +25,7 @@ def write_nodes(dir_path, b_action, nodes, bones_data):
 	bf.header.num_nodes = len(nodes)
 	bf.reset_field("nodes")
 	for bf_node, (name, storage) in zip(bf.nodes, nodes):
-		bf_node.name = blendername_to_bfbname(name)
+		bf_node.name = name_export(name)
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
 		rest, rest_quat = bones_data[name]

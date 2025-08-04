@@ -3,7 +3,7 @@ import logging
 import mathutils
 
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
-from common_bfb import correction_local
+from util.transforms import correction_local
 
 
 def get_collider_matrix(b_hitcheck):

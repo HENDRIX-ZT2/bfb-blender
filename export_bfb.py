@@ -12,7 +12,8 @@ import batch_bfb
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
-from common_bfb import create_empty, ensure_active_object, blendername_to_bfbname, get_bfb_matrix
+from common_bfb import create_empty, ensure_active_object, name_export
+from util.transforms import get_bfb_matrix
 from modules_export.collision import export_bounding_box, export_sphere, export_capsule
 from modules_import.anim import get_rna_path
 
@@ -182,7 +183,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 		elif b_ob.name.startswith('capsule'):
 			if b_ob.parent_type != "BONE" or not b_ob.parent_bone:
 				log_error(f"Capsule collider {b_ob.name} is not parented to a bone.")
-			bone_name = blendername_to_bfbname(b_ob.parent_bone)
+			bone_name = name_export(b_ob.parent_bone)
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.CAPSULE_LINK, bfb_parent)
 			bfb_node.name = bone_name.lower()
 			bfb_node.bone_name = bone_name
@@ -554,7 +555,7 @@ def export_bones(b_armature, mesh_block):
 			bfb_bone.parent_id = 0
 		scale_matrix = get_rest_scale_matrix(b_bone)
 		bfb_bone.priority = p_bone.get("priority", -1)
-		bfb_bone.name = blendername_to_bfbname(b_bone.name).lower()
+		bfb_bone.name = name_export(b_bone.name).lower()
 		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone).transposed())
 
 

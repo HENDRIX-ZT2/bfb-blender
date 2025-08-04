@@ -8,8 +8,8 @@ import numpy as np
 
 from bfb_gen.formats.bf import BfFile
 from modules_import.anim import Animation
-from util.transforms import Corrector
-from common_bfb import get_bfb_matrix, decompose_srt, create_empty, get_armature, name_import
+from util.transforms import Corrector, get_bfb_matrix, decompose_srt
+from common_bfb import create_empty, get_armature, name_import
 
 
 anim_sys = Animation()

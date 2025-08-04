@@ -200,7 +200,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False)
 	logging.info("Reading object hierarchy")
 	import_scene_graph(None, bfb.tree, 0)
 
-	apply_rest_scale_correction(b_armature_ob, scales, skinned_meshes)
+	apply_rest_scale_correction(b_armature_ob, scales, anim, skinned_meshes)
 
 	logging.info(f'Finished BFB Import in {time.time() - start_time:.2f} seconds')
 	return errors
