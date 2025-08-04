@@ -3,8 +3,12 @@ import bpy.utils.previews
 from bpy.props import StringProperty, BoolProperty, IntProperty, FloatProperty, EnumProperty, CollectionProperty
 from bpy_extras.io_utils import ImportHelper
 
-from plugin import import_banis, import_manis, import_matcol, import_fgm, import_ms2, import_spl, import_voxelskirt
-from plugin.utils.operators import BaseOp
+from util.operators import BaseOp
+
+import import_bf
+import import_bfb
+import import_dat
+import import_psys
 
 
 class ImportOp(BaseOp, ImportHelper):
@@ -28,162 +32,52 @@ class BulkImportOp(ImportOp):
 	)
 
 	def execute(self, context):
-		error_count = 0
 		if self.files:
-			for current_file in self.files:
-				filepath = os.path.join(self.directory, current_file.name)
-				result = self.report_messages(self.target, filepath=filepath, **self.kwargs)
-				if 'CANCELLED' in result:
-					error_count += 1
-				self.report({'INFO'},
-							f"Attempt to import {len(self.files)} {self.filename_ext}s, {error_count} errors found.")
+			filepaths = [file.name for file in self.files]
+			result = self.report_messages(self.target, files=filepaths, filepath=self.filepath, **self.kwargs)
 		# return only material result
 		return {'FINISHED'}
 
 
-class ImportBanis(BulkImportOp):
-	"""Import from Cobra baked animations file format (.banis)"""
-	bl_idname = "import_scene.cobra_banis"
-	bl_label = 'Import Banis'
-	filename_ext = ".banis"
-	filter_glob: StringProperty(default="*.banis", options={'HIDDEN'})
-	files: CollectionProperty(type=bpy.types.PropertyGroup)
-	# set_fps = BoolProperty(name="Adjust FPS", description="Set the scene to FPS used by BANI", default=True)
-	target = import_banis.load
+class ImportBF(BulkImportOp):
+	"""Import from BF file format (.bf)"""
+	bl_idname = "import_scene.bluefang_bf"
+	bl_label = 'Import BF'
+	filename_ext = ".bf"
+	filter_glob: StringProperty(default="*.bf", options={'HIDDEN'})
+	set_fps: BoolProperty(name="Adjust FPS",
+						  description="Set the scene to 30 frames per second to conform with BFs", default=True)
+	target = import_bf.load
 
 
-class ImportManis(BulkImportOp):
-	"""Import from Cobra animations file format (.manis)"""
-	bl_idname = "import_scene.cobra_manis"
-	bl_label = 'Import Manis'
-	filename_ext = ".manis"
-	filter_glob: StringProperty(default="*.manis", options={'HIDDEN'})
-	files: CollectionProperty(type=bpy.types.PropertyGroup)
-	disable_ik: BoolProperty(name="Disable IK",
-							 description="Disable IK constraints on armature to enable jitter-free playback of baked animations",
-							 default=True)
-	# set_fps: BoolProperty(name="Adjust FPS", description="Set the scene to FPS used by BANI", default=True)
-	target = import_manis.load
+class ImportPSYS(ImportOp):
+	"""Import from PSYS file format (.psys)"""
+	bl_idname = "import_scene.bluefang_psys"
+	bl_label = 'Import PSYS'
+	filename_ext = ".psys"
+	filter_glob: StringProperty(default="*.psys", options={'HIDDEN'})
+	target = import_psys.load
 
 
-class ImportMatcol(ImportOp):
-	"""Import from Matcol file format (.matcol, .dinosaurmateriallayers)"""
-	bl_idname = "import_scene.cobra_matcol"
-	bl_label = 'Import Matcol'
-	filename_ext = ".dinosaurmateriallayers"
-	# filter_glob: StringProperty(default="*.matcol", options={'HIDDEN'})
-	# filter_glob: StringProperty(default="*.matcol;*.materialcollection;*.dinosaurmateriallayers", options={'HIDDEN'})
-	target = import_matcol.load
+class ImportBFB(ImportOp):
+	"""Import from BFB file format (.bfb)"""
+	bl_idname = "import_scene.bluefang_bfb"
+	bl_label = 'Import BFB'
+	filename_ext = ".bfb"
+	filter_glob: StringProperty(default="*.bfb", options={'HIDDEN'})
+	use_custom_normals: BoolProperty(name="Use BFB Normals", description="Preserves the original shading of a BFB.",
+									 default=True)
+	use_mirror_mesh: BoolProperty(name="Mirror Rigged Meshes",
+							  description="Mirrors models with a skeleton. Careful, sometimes bones don't match!",
+							  default=False)
+	target = import_bfb.load
 
 
-class ImportFgm(BulkImportOp):
-	"""Import from Fgm file format (.fgm), allows importing multiple files"""
-	bl_idname = "import_scene.cobra_fgm"
-	bl_label = "Import Fgm(s)"
-	filename_ext = ".fgm"
-	target = import_fgm.load
+class ImportDAT(bpy.types.Operator, ImportHelper):
+	"""Import from DAT map format (.dat)"""
+	bl_idname = "import_scene.bluefang_dat"
+	bl_label = 'Import DAT'
+	filename_ext = ".dat"
+	filter_glob: StringProperty(default="*.dat", options={'HIDDEN'})
+	target = import_dat.load
 
-	filter_glob: StringProperty(
-		default="*.fgm",
-		options={'HIDDEN'},
-		maxlen=255,  # Max internal buffer length, longer would be clamped.
-	)
-	replace: BoolProperty(
-		name="Replace existing materials",
-		description="If a material exists in the scene, it will be replaced with this one",
-		default=True,
-	)
-
-
-class ImportMS2(BulkImportOp):
-	"""Import from MS2 file format (.MS2), multiple files allowed"""
-	bl_idname = "import_scene.cobra_ms2"
-	bl_label = 'Import MS2(s)'
-	filename_ext = ".ms2"
-	target = import_ms2.load
-	filter_glob: StringProperty(default="*.ms2", options={'HIDDEN'})
-	use_custom_normals: BoolProperty(
-		name="Use MS2 Normals",
-		description="Applies MS2 normals as custom normals to preserve the original shading. May crash on some meshes due to a blender bug",
-		default=False)
-	use_mirror_mesh: BoolProperty(
-		name="Mirror Meshes",
-		description="Mirrors models. Careful, sometimes bones don't match",
-		default=False)
-
-
-class ImportSPL(BulkImportOp):
-	"""Import from spline file format (.spl), multiple files allowed"""
-	bl_idname = "import_scene.cobra_spl"
-	bl_label = 'Import SPL(s)'
-	filename_ext = ".spl"
-	target = import_spl.load
-	filter_glob: StringProperty(default="*.spl", options={'HIDDEN'})
-
-
-class ImportVoxelskirt(ImportOp):
-	"""Import from Voxelskirt file format (.voxelskirt)"""
-	bl_idname = "import_scene.cobra_voxelskirt"
-	bl_label = 'Import Voxelskirt'
-	filename_ext = ".voxelskirt"
-	target = import_voxelskirt.load
-	filter_glob: StringProperty(default="*.voxelskirt", options={'HIDDEN'})
-
-
-class BrowserImportOp(ImportOp):
-
-	@classmethod
-	def poll(cls, context):
-		return context.active_object is not None
-
-	# @property
-	def get_filepath(self, context) -> str:
-		folder = context.space_data.params.directory.decode('ascii')
-		file = context.space_data.params.filename
-		filepath = os.path.join(folder, file).replace("\\", "/")
-		print(f"Importing: {filepath}")
-		return filepath
-
-	def execute(self, context):
-		return self.report_messages(self.target, filepath=self.get_filepath(context), **self.kwargs)
-
-
-class ImportMS2FromBrowser(BrowserImportOp):
-	"""Imports ms2 content as new scenes from the file browser"""
-	bl_idname = "ct_wm.import_ms2"
-	bl_label = "Import ms2"
-	target = import_ms2.load
-
-
-class ImportFGMFromBrowser(BrowserImportOp):
-	"""Imports fgm as a new material from the file browser"""
-	bl_idname = "ct_wm.import_fgm"
-	bl_label = "Import fgm"
-	target = import_fgm.load
-
-
-if hasattr(bpy.types, 'FileHandler'):
-	class MS2_FH_script_import(bpy.types.FileHandler):
-		bl_idname = "MS2_FH_script_import"
-		bl_label = "File handler for ms2 script node import"
-		bl_import_operator = "import_scene.cobra_ms2"
-		bl_file_extensions = ".ms2"
-
-		@classmethod
-		def poll_drop(cls, context):
-			return context.area and context.area.type == 'VIEW_3D'
-
-
-	class FGM_FH_script_import(bpy.types.FileHandler):
-		bl_idname = "FGM_FH_script_import"
-		bl_label = "File handler for fgm script node import"
-		bl_import_operator = "import_scene.cobra_fgm"
-		bl_file_extensions = ".fgm"
-
-		@classmethod
-		def poll_drop(cls, context):
-			return (context.area and context.area.type == 'VIEW_3D') or (
-						context.region and context.region.type == 'WINDOW'
-						and context.area and context.area.ui_type == 'ShaderNodeTree'
-						and context.object and context.object.type == 'MESH'
-						and context.material)

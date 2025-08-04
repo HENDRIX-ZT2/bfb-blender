@@ -1,24 +1,16 @@
 import time
-import bpy
 import mathutils
 
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from modules_import.anim import Animation
-from modules_import.armature import import_bones, get_matrix
+from modules_import.armature import import_bones, get_matrix, apply_rest_scale_correction
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from modules_import.collision import attach_capsule, create_capsule, create_sphere, create_bounding_box
+from modules_import.materials import create_material
 from util.fast_mesh import FastMesh
 from common_bfb import *
-from bfmat import Bfmat
-from util import node_arrange, node_util
-
-
-def log_error(error):
-	logging.warning(error)
-	global errors
-	errors.append(error)
 
 
 anim = Animation()
@@ -52,7 +44,7 @@ def import_scene_graph(b_parent, node, lod_level):
 				b_ob.parent = b_parent
 			b_ob.matrix_local = matrix
 			for mat_name in node.geometry.materials:
-				create_material(b_ob, mat_name, anim)
+				create_material(b_ob, dir_path, mat_name, anim)
 			assign_to_lod(b_ob, lod_level)
 			if node.type_id == NodeType.BILLBOARD_LINK:
 				global camera
@@ -80,189 +72,17 @@ def import_scene_graph(b_parent, node, lod_level):
 			lod_level += 1
 
 
-def create_material(b_ob, mat_name, anim):
-	logging.info(f"MATERIAL: {mat_name}")
-	# only create the material if we haven't already created it, then just grab it
-	if mat_name not in bpy.data.materials:
-		b_mat = bpy.data.materials.new(mat_name)
-		b_mat.use_nodes = True
-		try:
-			bfmat = Bfmat(dirname, f"{mat_name}.bfmat")
-			for error in bfmat.errors:
-				log_error(error)
-			if not bfmat.root:
-				return
-			fx = bfmat.fx
-			cull_mode = bfmat.CullMode
-			alpha_ref = bfmat.AlphaRef
-			fps = bpy.context.scene.render.fps
-
-			# see which sub-shaders are used by this fx shader, and get the used ones in order
-			shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
-			tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
-
-
-			tree = b_mat.node_tree
-			# clear default nodes
-			for node in tree.nodes:
-				tree.nodes.remove(node)
-			output = tree.nodes.new('ShaderNodeOutputMaterial')
-			output.label = fx
-			# principled = tree.nodes.new('ShaderNodeBsdfPrincipled')
-			shader_diffuse = tree.nodes.new('ShaderNodeBsdfDiffuse')
-			diffuse = None
-
-			textures = []
-			for i, (texture, tex_index, tex_transform, tex_anim) in enumerate(
-					zip(bfmat.Texture, bfmat.TexCoordIndex, bfmat.TextureTransform, bfmat.TextureAnimation)):
-				if texture is not None:
-					tex = node_util.load_tex_node(tree, bfmat.find_recursive(texture + ".dds"))
-					textures.append(tex)
-					tex.name = "Texture" + str(i)
-					# e.g. African violets, but only in rendered view; but: glacier
-					tex.extension = "CLIP" if (cull_mode == "2" and not (
-							bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False)) else "REPEAT"
-					# use generated UV coords for reflection maps
-					if tex_shaders[i] == "Reflect":
-						uv = tree.nodes.new('ShaderNodeTexCoord')
-						tree.links.new(uv.outputs[6], tex.inputs[0])
-					# use supplied UV maps for everything else, if present
-					else:
-						uv = tree.nodes.new('ShaderNodeUVMap')
-						uv.name = f"TexCoordIndex{i}"
-						uv.uv_map = tex_index if tex_index else str(i)
-						if tex_transform or tex_anim:
-							transform = tree.nodes.new('ShaderNodeMapping')
-							transform.name = f"TextureTransform{i}"
-							if tex_transform:
-								matrix_4x4 = mathutils.Matrix(tex_transform)
-								transform.inputs["Scale"].default_value = matrix_4x4.to_scale()
-								transform.inputs["Rotation"].default_value = matrix_4x4.to_euler()
-								loc = matrix_4x4.to_translation()
-								# negate V coordinate
-								loc.y *= -1.0
-								transform.inputs["Location"].default_value = loc
-							if tex_anim:
-								b_action = anim.create_action(tree, f"{b_mat.name}_Action")
-								u = tex_anim["offsetu"]
-								v = tex_anim["offsetv"]
-								anim.add_keys(b_action, transform.name, (0,), None, [k[0] * fps for k in u], [k[1] for k in u], None, n_node_input=1)
-								anim.add_keys(b_action, transform.name, (1,), None, [k[0] * fps for k in v], [-k[1] for k in v], None, n_node_input=1)
-							tree.links.new(uv.outputs[0], transform.inputs[0])
-							tree.links.new(transform.outputs[0], tex.inputs[0])
-						else:
-							tree.links.new(uv.outputs[0], tex.inputs[0])
-					tex.update()
-			# gather & premix all diffuse colors into one RGB color to plug into the shader
-			if textures:
-				diffuse = textures[0]
-				for texture, tex_shader in zip(textures, tex_shaders):
-					if tex_shader in ("Detail", "Decal", "Reflect"):
-						mixRGB = tree.nodes.new('ShaderNodeMixRGB')
-						if tex_shader == "Decal":
-							tree.links.new(texture.outputs[1], mixRGB.inputs[0])
-						elif tex_shader in ("Detail", "Reflect"):
-							mixRGB.inputs[0].default_value = 1
-							mixRGB.blend_type = "OVERLAY"
-						tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
-						tree.links.new(texture.outputs[0], mixRGB.inputs[2])
-						diffuse = mixRGB
-			if b_ob.data.vertex_colors:
-				vcol = tree.nodes.new('ShaderNodeAttribute')
-				vcol.attribute_name = "RGBA"
-				mixRGB = tree.nodes.new('ShaderNodeMixRGB')
-				mixRGB.inputs[0].default_value = 1
-				mixRGB.blend_type = "OVERLAY"
-				if textures:
-					tree.links.new(diffuse.outputs[0], mixRGB.inputs[1])
-					tree.links.new(vcol.outputs["Color"], mixRGB.inputs[2])
-					diffuse = mixRGB
-				# fallback for missing texture
-				else:
-					diffuse = vcol
-			if diffuse:
-				tree.links.new(diffuse.outputs[0], shader_diffuse.inputs[0])
-
-			# glow / emit
-			for texture, tex_shader in zip(textures, tex_shaders):
-				if tex_shader == "Glow":
-					# create a glow shader and link this texture to it
-					shader_glow = tree.nodes.new('ShaderNodeEmission')
-					tree.links.new(texture.outputs[0], shader_glow.inputs[0])
-					tree.links.new(texture.outputs[1], shader_glow.inputs[1])
-					# now add glow to diffuse shader with an add shader
-					shader_add = tree.nodes.new('ShaderNodeAddShader')
-					tree.links.new(shader_diffuse.outputs[0], shader_add.inputs[0])
-					tree.links.new(shader_glow.outputs[0], shader_add.inputs[1])
-					shader_diffuse = shader_add
-
-			# transparency
-			if bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False:
-				b_mat.blend_method = "OPAQUE"
-				tree.links.new(shader_diffuse.outputs[0], output.inputs[0])
-			else:
-				if bfmat.AlphaTestEnable:
-					b_mat.blend_method = "CLIP"
-					b_mat.alpha_threshold = 1 - float(alpha_ref) / 255
-				if bfmat.AlphaBlendEnable:
-					b_mat.blend_method = "BLEND"
-				transp = tree.nodes.new('ShaderNodeBsdfTransparent')
-				alpha_mixer = tree.nodes.new('ShaderNodeMixShader')
-
-				if textures and b_ob.data.vertex_colors:
-					mix_rgba = tree.nodes.new('ShaderNodeMixRGB')
-					mix_rgba.inputs[0].default_value = 1
-					mix_rgba.blend_type = "MULTIPLY"
-					tree.links.new(textures[0].outputs[1], mix_rgba.inputs[1])
-					tree.links.new(vcol.outputs["Alpha"], mix_rgba.inputs[2])
-					tree.links.new(mix_rgba.outputs[0], alpha_mixer.inputs[0])
-				elif textures:
-					tree.links.new(textures[0].outputs[1], alpha_mixer.inputs[0])
-				elif b_ob.data.vertex_colors:
-					tree.links.new(vcol.outputs["Alpha"], alpha_mixer.inputs[0])
-
-				tree.links.new(transp.outputs[0], alpha_mixer.inputs[1])
-				tree.links.new(shader_diffuse.outputs[0], alpha_mixer.inputs[2])
-				tree.links.new(alpha_mixer.outputs[0], output.inputs[0])
-
-			node_arrange.nodes_iterate(tree, output)
-			# finally, set interpolation and extrapolation for all fcurves we have created
-			if tree.animation_data:
-				for fcu in tree.animation_data.action.fcurves:
-					for k in fcu.keyframe_points:
-						k.interpolation = 'LINEAR'
-					mod = fcu.modifiers.new('CYCLES')
-					mod.mode_after = 'REPEAT_OFFSET'
-					mod.mode_before = 'REPEAT_OFFSET'
-		except Exception as error:
-			log_error(str(error))
-	else:
-		b_mat = bpy.data.materials[mat_name]
-	me = b_ob.data
-	me.materials.append(b_mat)
-
-
-def check_children(node):
-	try:
-		print(node.name, node.num_children, len(node.get_children([])))
-		for child in node.children:
-			check_children(child)
-	except:
-		print(node.name, "nope", len(node.get_children()))
-		pass
-
-
-def load(operator, context, filepath="", use_custom_normals=False, use_mirror_mesh=False):
+def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False):
 	start_time = time.time()
 	global errors
 	errors = []
 	global b_armature_ob
 	global camera
-	global dirname
+	global dir_path
 	global id2data
 	b_armature_ob = None
 	camera = None
-	dirname, basename = os.path.split(filepath)
+	dir_path, basename = os.path.split(filepath)
 	# used to access data from the BFB by ID
 	id2data = {}
 	scales = {}
@@ -275,10 +95,9 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 	logging.info(f"Importing {basename}")
 	bfb = BfbFile()
 	bfb.load(filepath)
-	print(bfb)
-	# check_children(bfb.tree)
+	# print(bfb)
 	if bfb.header.version != 4295098369:
-		log_error(f"Unsupported BFB version: {bfb.header.version}")
+		reporter.show_warning(f"Unsupported BFB version: {bfb.header.version}")
 	logging.debug(f"BFB Version: {bfb.header.version}")
 	logging.debug(f"BFB Author: {bfb.header.author}")
 	logging.info("Reading object blocks...")
@@ -330,15 +149,15 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 
 			b_me = FastMesh.new(block.name)
 			b_me.from_pydata(verts_unique, [], tris_sorted)
-			ob = create_ob(bpy.context.scene, block.name, b_me)
-			id2data[block.id] = ob
+			b_ob = create_ob(bpy.context.scene, block.name, b_me)
+			id2data[block.id] = b_ob
 			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
 			# We store them as a vertex group so they can be easily modified.
 			if "w" in verts.dtype.fields:
 				logging.debug("Found fx_wind weights!")
-				ob.vertex_groups.new(name="fx_wind")
+				b_ob.vertex_groups.new(name="fx_wind")
 				for i, vert in enumerate(verts["w"][sorted_indices]):
-					ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
+					b_ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
 			b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
 			b_me.polygons.foreach_set('material_index', material_indices_sorted)
@@ -368,11 +187,11 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 					for bone_id, weight in vert:
 						if bone_id < 255 and weight > 0.0:
 							bone_name = bone_names[bone_id]
-							if bone_name not in ob.vertex_groups:
-								ob.vertex_groups.new(name=bone_name)
-							ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
-				skinned_meshes.append(ob)
-				mod = ob.modifiers.new('SkinDeform', 'ARMATURE')
+							if bone_name not in b_ob.vertex_groups:
+								b_ob.vertex_groups.new(name=bone_name)
+							b_ob.vertex_groups[bone_name].add([i], weight, 'REPLACE')
+				skinned_meshes.append(b_ob)
+				mod = b_ob.modifiers.new('SkinDeform', 'ARMATURE')
 				mod.object = b_armature_ob
 
 			ob_postpro(b_me, use_mirror_mesh)
@@ -381,35 +200,8 @@ def load(operator, context, filepath="", use_custom_normals=False, use_mirror_me
 	logging.info("Reading object hierarchy")
 	import_scene_graph(None, bfb.tree, 0)
 
-	apply_rest_scale_correction(b_armature_ob, context, scales, skinned_meshes)
+	apply_rest_scale_correction(b_armature_ob, scales, skinned_meshes)
 
 	logging.info(f'Finished BFB Import in {time.time() - start_time:.2f} seconds')
 	return errors
-
-
-def apply_rest_scale_correction(b_armature_ob, context, scales, skinned_meshes):
-	# handle scale on armature and meshes
-	if b_armature_ob and scales:
-		# set inverse scale to all bones
-		for bone_name, scale in scales.items():
-			p_bone = b_armature_ob.pose.bones[bone_name]
-			p_bone.matrix_basis = mathutils.Matrix.Scale(1 / scale, 4)
-		depsgraph = context.evaluated_depsgraph_get()
-		# apply skin deformation
-		for ob in skinned_meshes:
-			object_eval = ob.evaluated_get(depsgraph)
-			ob.data = bpy.data.meshes.new_from_object(object_eval)
-		# remove scales from armature
-		bpy.context.view_layer.objects.active = b_armature_ob
-		bpy.ops.object.mode_set(mode='POSE')
-		bpy.ops.pose.armature_apply()
-		bpy.ops.object.mode_set(mode='OBJECT')
-		# add scale back in as dummy action
-		scale_action = create_anim(b_armature_ob, "!scale!")
-		for bone_name, scale in scales.items():
-			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,
-												action_group=bone_name) for i in range(3)]
-			for fcurve in fcurves:
-				fcurve.keyframe_points.insert(0, scale)
-
 

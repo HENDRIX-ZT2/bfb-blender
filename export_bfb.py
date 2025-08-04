@@ -1,15 +1,20 @@
 import itertools
+import logging
+import os
 import time
 import bpy
 import mathutils
 import xml.etree.ElementTree as ET
 
+import numpy as np
+
+import batch_bfb
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
+from common_bfb import create_empty, ensure_active_object, blendername_to_bfbname, get_bfb_matrix
 from modules_export.collision import export_bounding_box, export_sphere, export_capsule
 from modules_import.anim import get_rna_path
-from .common_bfb import *
 
 
 def flatten(mat):
@@ -385,11 +390,10 @@ def export_mesh(b_ob, bfb):
 
 
 def save(operator, context, filepath='', author_name="HENDRIX", export_materials=True, create_lods=False,
-		 fix_root_bones=False, numlods=1, rate=1):
+		 fix_root_bones=False, num_lods=1, rate=1):
 	if create_lods:
 		logging.info('Adding LODs')
-		from . import batch_bfb
-		batch_bfb.add_lods(numlods, rate)
+		batch_bfb.add_lods(num_lods, rate)
 
 	logging.info(f'Exporting {filepath}')
 	global errors

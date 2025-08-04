@@ -3,8 +3,8 @@ import os
 import mathutils
 import time
 
-from .common_bfb import *
-from .import_bfb import assign_to_lod
+from common_bfb import *
+from import_bfb import assign_to_lod
 
 def clear_scene():
 	#set the visible layers for this scene
@@ -24,7 +24,7 @@ def get_children(childlist):
 		get_children(child.children)
 
 
-def add_lods(numlods, rate):
+def add_lods(num_lods, rate):
 	ensure_active_object()
 	root = None
 	meshes = []
@@ -84,11 +84,11 @@ def add_lods(numlods, rate):
 	bpy.ops.object.delete(use_global=True)
 	
 	# only add a lodgroup if needed
-	if numlods > 1:
+	if num_lods > 1:
 		lodgroup = create_empty(root,"lodgroup",mathutils.Matrix())
 		# when obs are parented to empties with offset it will cause trouble!
 		# decide what the parent should be
-		for i in range(numlods):
+		for i in range(num_lods):
 			# create lod level if needed
 			if len(meshes) > 1:
 				lodlevel = create_empty(lodgroup,"LOD"+str(i),mathutils.Matrix())
@@ -112,7 +112,7 @@ def add_lods(numlods, rate):
 	# maybe a final cleanup
 	# if armature > clear any empties without children
 				
-def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1):
+def process(operator, context, files = [], filepath = "", num_lods = 1, rate = 1):
 	dir = os.path.dirname(filepath)
 	starttime = time.time()
 
@@ -122,12 +122,12 @@ def process(operator, context, files = [], filepath = "", numlods = 1, rate = 1)
 	for file in files:
 		if file.name.endswith(".bfb"):
 			bpy.ops.import_scene.bluefang_bfb(filepath = os.path.join(dir, file.name), use_custom_normals = True)
-			add_lods(numlods, rate)
+			add_lods(num_lods, rate)
 			bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name)+"new.bfb", author_name="HENDRIX", export_materials = False)
 		elif file.name.endswith(".nif"):
 			try:
 				bpy.ops.import_scene.nif(filepath = os.path.join(dir, file.name), combine_vertices = True, axis_forward='X', axis_up='Y')
-				add_lods(numlods, rate)
+				add_lods(num_lods, rate)
 				bpy.ops.export_scene.bluefang_bfb(filepath = os.path.join(dir, file.name).replace(".nif",".bfb"), author_name="HENDRIX", export_materials = True, fix_root_bones = True)
 			except: print("NIF import didn't work")
 		else: continue

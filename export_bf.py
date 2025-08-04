@@ -10,7 +10,7 @@ from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
 from util.transforms import Corrector
-from .common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
+from common_bfb import get_bfb_matrix, decompose_srt, blendername_to_bfbname, get_armature
 
 
 corrector = Corrector()
@@ -100,7 +100,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 	start_time = time.time()
 	errors = []
 	if bake_actions:
-		from . import bake_clean_actions
+		import bake_clean_actions
 		errors.extend(bake_clean_actions.bake_and_clean(error, exp_power))
 
 	dir_path = os.path.dirname(filepath)

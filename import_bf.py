@@ -9,7 +9,7 @@ import numpy as np
 from bfb_gen.formats.bf import BfFile
 from modules_import.anim import Animation
 from util.transforms import Corrector
-from .common_bfb import get_bfb_matrix, decompose_srt, create_empty, get_armature, name_import
+from common_bfb import get_bfb_matrix, decompose_srt, create_empty, get_armature, name_import
 
 
 anim_sys = Animation()
@@ -26,7 +26,8 @@ info = {
 
 corrector = Corrector()
 
-def load(operator, context, files=(), filepath="", set_fps=False):
+def load(reporter, files=(), filepath="", set_fps=False):
+	print(files, filepath)
 	starttime = time.time()
 	dir_path = os.path.dirname(filepath)
 	if set_fps:
@@ -44,8 +45,8 @@ def load(operator, context, files=(), filepath="", set_fps=False):
 	else:
 		logging.info(
 			"The scene doesn't contain any armature! If you want to do skeletal anims, import a BFB file and try again!")
-	for anim in files:
-		read_bf(dir_path, anim.name, armature, bones_data, fps)
+	for bf_name in files:
+		read_bf(dir_path, bf_name, armature, bones_data, fps)
 	logging.info(f'Finished BF Import in {time.time() - starttime:.2f} seconds')
 	return {'FINISHED'}
 

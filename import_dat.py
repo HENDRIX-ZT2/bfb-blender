@@ -2,7 +2,7 @@ import os
 import time
 import bpy
 from struct import unpack_from,iter_unpack,calcsize
-from .common_bfb import *
+from common_bfb import *
 
 def generate_mesh(x_verts, y_verts, scale, heights):
 	verts=[]

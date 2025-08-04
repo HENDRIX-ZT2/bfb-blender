@@ -29,8 +29,9 @@ plugin_dir = os.path.dirname(__file__)
 if not plugin_dir in sys.path:
 	sys.path.append(plugin_dir)
 
-from modules_import.collision import attach_capsule
 import modules_import.collision
+from modules_import.operators import ImportBF, ImportPSYS, ImportBFB, ImportDAT
+from modules_export.operators import ExportDAT, ExportBFB, ExportBF
 
 preview_collection = bpy.utils.previews.new()
 
@@ -69,7 +70,7 @@ class AddCapsule(AddColliderBasic):
 	def execute(self, context):
 		arm_ob = context.object
 		b_ob = modules_import.collision.create_capsule("capsule", mathutils.Vector(self.start), mathutils.Vector(self.end), self.radius)
-		attach_capsule(arm_ob, b_ob, self.bone)
+		modules_import.collision.attach_capsule(arm_ob, b_ob, self.bone)
 		context.view_layer.objects.active = arm_ob
 		return {'FINISHED'}
 
@@ -119,162 +120,6 @@ class AddBox(AddColliderBasic):
 		return {'FINISHED'}
 
 
-class ImportBF(bpy.types.Operator, ImportHelper):
-	"""Import from BF file format (.bf)"""
-	bl_idname = "import_scene.bluefang_bf"
-	bl_label = 'Import BF'
-	bl_options = {'UNDO'}
-	filename_ext = ".bf"
-	filter_glob: StringProperty(default="*.bf", options={'HIDDEN'})
-	files: CollectionProperty(type=bpy.types.PropertyGroup)
-	set_fps: BoolProperty(name="Adjust FPS",
-						  description="Set the scene to 30 frames per second to conform with the BFs.", default=True)
-
-	def execute(self, context):
-		from . import import_bf
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob"))
-		return import_bf.load(self, context, **keywords)
-
-
-class ImportPSYS(bpy.types.Operator, ImportHelper):
-	"""Import from PSYS file format (.psys)"""
-	bl_idname = "import_scene.bluefang_psys"
-	bl_label = 'Import PSYS'
-	bl_options = {'UNDO'}
-	filename_ext = ".psys"
-	filter_glob: StringProperty(default="*.psys", options={'HIDDEN'})
-
-	def execute(self, context):
-		from . import import_psys
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob"))
-		return import_psys.load(self, context, **keywords)
-
-
-class ImportBFB(bpy.types.Operator, ImportHelper):
-	"""Import from BFB file format (.bfb)"""
-	bl_idname = "import_scene.bluefang_bfb"
-	bl_label = 'Import BFB'
-	bl_options = {'UNDO'}
-	filename_ext = ".bfb"
-	filter_glob: StringProperty(default="*.bfb", options={'HIDDEN'})
-	use_custom_normals: BoolProperty(name="Use BFB Normals", description="Preserves the original shading of a BFB.",
-									 default=True)
-	use_mirror_mesh: BoolProperty(name="Mirror Rigged Meshes",
-							  description="Mirrors models with a skeleton. Careful, sometimes bones don't match!",
-							  default=False)
-
-	def execute(self, context):
-		from . import import_bfb
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob"))
-		errors = import_bfb.load(self, context, **keywords)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
-
-
-class ImportDAT(bpy.types.Operator, ImportHelper):
-	"""Import from DAT map format (.dat)"""
-	bl_idname = "import_scene.bluefang_dat"
-	bl_label = 'Import DAT'
-	bl_options = {'UNDO'}
-	filename_ext = ".dat"
-	filter_glob: StringProperty(default="*.dat", options={'HIDDEN'})
-
-	def execute(self, context):
-		from . import import_dat
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob"))
-		errors = import_dat.load(self, context, **keywords)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
-
-
-class ExportDAT(bpy.types.Operator, ExportHelper):
-	"""Export to DAT map format (.dat)"""
-	bl_idname = "export_scene.bluefang_dat"
-	bl_label = 'Export DAT'
-	filename_ext = ".dat"
-	filter_glob: StringProperty(default="*.dat", options={'HIDDEN'})
-
-	def execute(self, context):
-		from . import export_dat
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "check_existing"))
-		errors = export_dat.save(self, context, **keywords)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
-
-
-class ExportBFB(bpy.types.Operator, ExportHelper):
-	"""Export to BFB file format (.bfb)"""
-	bl_idname = "export_scene.bluefang_bfb"
-	bl_label = 'Export BFB'
-	filename_ext = ".bfb"
-	filter_glob: StringProperty(default="*.bfb", options={'HIDDEN'})
-	try:
-		from . import common_bfb
-		cfg = common_bfb.load_config()
-		author = cfg["author"]
-	except:
-		author = "somebody"
-	export_materials: BoolProperty(name="Export Materials",
-								   description="Should BFMAT materials be exported? Beware, they might not be identical to the existing material!",
-								   default=True)
-	author_name: StringProperty(name="Author", description="A signature included in the BFB file.", default=author)
-	fix_root_bones: BoolProperty(name="Fix Root Bones", description="Deletes surplus root bones automatically.",
-								 default=False)
-	create_lods: BoolProperty(name="Create LODs", description="Adds Levels of Detail - overwrites existing LODs!",
-							  default=False)
-	numlods: IntProperty(name="Number of LODs",
-						 description="Number of Levels Of Detail, including the original",
-						 min=1, max=5,
-						 default=2, )
-	rate: IntProperty(name="Detail Decrease Rate",
-					  description="The higher, the faster the detail will decrease: ratio = 1 /(LODX + Rate)",
-					  min=1, max=5,
-					  default=2, )
-
-	def execute(self, context):
-		from . import export_bfb
-		try:
-			from . import common_bfb
-			common_bfb.update_config("author", self.author_name)
-		except:
-			pass
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "check_existing"))
-		errors = export_bfb.save(self, context, **keywords)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
-
-
-class ExportBF(bpy.types.Operator, ExportHelper):
-	"""Export to BF file format (.bf)"""
-	bl_idname = "export_scene.bluefang_bf"
-	bl_label = 'Export BF'
-	filename_ext = ".bf"
-	filter_glob: StringProperty(default="*.bf", options={'HIDDEN'})
-	bake_actions: BoolProperty(name="Fix Tangents, Bake Actions and Clean Results",
-							   description="Smoothes tangents between actions, creates armature without constraints and baked actions for armatures and actions marked with *.",
-							   default=True)
-	error: FloatProperty(name="Max Cleaning Error",
-						 description="Adaptive Error - the more children a bone has, the less error it gets. The larger the error value, the smaller the file size, but the more error you get.",
-						 precision=3, step=1, soft_min=0.0, min=0.0, default=0.05)
-	exp_power: FloatProperty(name="Error Exponent",
-							 description="This influences how fast the error increases along the bone chain. Use larger values for a steeper falloff",
-							 precision=3, step=1, soft_min=0.0, min=0.0, default=1.0)
-
-	# TODO: replace these settings with the more transparent curve UI
-	# https://blender.stackexchange.com/questions/61618/add-a-custom-curve-mapping-property-for-an-add-on
-	def execute(self, context):
-		from . import export_bf
-		keywords = self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "check_existing"))
-		errors = export_bf.save(self, context, **keywords)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
-
-
 class BatchBFB(bpy.types.Operator, ImportHelper):
 	"""Batch process BFB and NIF files. Converts all NIFs to BFBs, and adds LODs to all BFBs."""
 	bl_idname = "import_scene.bluefang_bfb_batch"
@@ -283,7 +128,7 @@ class BatchBFB(bpy.types.Operator, ImportHelper):
 	filename_ext = ".bfb"
 	filter_glob: StringProperty(default="*.bfb;*.nif", options={'HIDDEN'})
 	files: CollectionProperty(type=bpy.types.PropertyGroup)
-	numlods: IntProperty(name="Number of LODs",
+	num_lods: IntProperty(name="Number of LODs",
 						 description="Number of Levels Of Detail, including the original",
 						 min=1, max=5,
 						 default=2, )
