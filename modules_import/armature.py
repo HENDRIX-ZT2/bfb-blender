@@ -2,8 +2,7 @@ import bpy
 import mathutils
 
 from common_bfb import create_ob, name_import
-from util.transforms import correction_local, correction_global
-
+from util.transforms import Corrector
 
 TOLERANCE = 0.001
 
@@ -34,7 +33,7 @@ def import_bones(basename, data, scales):
 		# we store the bfb space armature matrix of each bone
 		mat_storage[bfb_bone.id] = bind.copy()
 		# set transformation
-		bind = correction_global @ correction_local @ bind @ correction_local.inverted()
+		bind = Corrector.get_blender_matrix(bind)
 		tail, roll = bpy.types.Bone.AxisRollFromMatrix(bind.to_3x3())
 		b_edit_bone.head = bind.to_translation()
 		b_edit_bone.tail = tail + b_edit_bone.head

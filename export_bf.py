@@ -8,11 +8,8 @@ import mathutils
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
-from util.transforms import Corrector, get_bfb_matrix
+from util.transforms import Corrector
 from common_bfb import name_export, get_armature
-
-
-corrector = Corrector()
 
 
 def write_nodes(dir_path, b_action, nodes, bones_data):
@@ -37,21 +34,21 @@ def write_nodes(dir_path, b_action, nodes, bones_data):
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					quat = corrector.export_keymat(rest, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
+					quat = Corrector.export_keymat(rest, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
 					set_quat(bf_key, fps, frame, quat, rest_quat)
 			if dt == "rotation_euler":
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
 					# todo: use to_euler( ) with compatible euler to fix distortions
-					quat = corrector.export_keymat(rest, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
+					quat = Corrector.export_keymat(rest, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
 					set_quat(bf_key, fps, frame, quat, rest_quat)
 
 			if dt == "location":
 				modifier.key_type = KeyType.LOC_LINEAR
 				modifier.reset_field("keys")
 				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					trans = corrector.export_keymat(rest, mathutils.Matrix.Translation(key)).to_translation()
+					trans = Corrector.export_keymat(rest, mathutils.Matrix.Translation(key)).to_translation()
 					bf_key.time = frame / fps
 					bf_key.x = trans.x
 					bf_key.y = trans.y
@@ -113,7 +110,7 @@ def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_pow
 			errors.append(
 				"Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
 		for bone in armature.data.bones:
-			rest = get_bfb_matrix(bone)
+			rest = Corrector.get_bfb_matrix(bone)
 			bones_data[bone.name] = (rest, rest.to_quaternion())
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")

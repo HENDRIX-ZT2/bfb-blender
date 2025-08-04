@@ -13,7 +13,7 @@ from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from common_bfb import create_empty, ensure_active_object, name_export
-from util.transforms import get_bfb_matrix
+from util.transforms import Corrector
 from modules_export.collision import export_bounding_box, export_sphere, export_capsule
 from modules_import.anim import get_rna_path
 
@@ -556,7 +556,7 @@ def export_bones(b_armature, mesh_block):
 		scale_matrix = get_rest_scale_matrix(b_bone)
 		bfb_bone.priority = p_bone.get("priority", -1)
 		bfb_bone.name = name_export(b_bone.name).lower()
-		bfb_bone.matrix.set_rows(scale_matrix @ get_bfb_matrix(b_bone))
+		bfb_bone.matrix.set_rows(scale_matrix @ Corrector.get_bfb_matrix(b_bone))
 
 
 def get_rest_scale_matrix(b_bone):

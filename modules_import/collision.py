@@ -2,7 +2,7 @@ import bpy
 import logging
 
 from common_bfb import mesh_from_data
-from util.transforms import center_origin_to_matrix, correction_local
+from util.transforms import center_origin_to_matrix, Corrector
 
 
 def attach_capsule(b_armature_ob, b_ob, bone_name):
@@ -19,8 +19,8 @@ def attach_capsule(b_armature_ob, b_ob, bone_name):
 
 def create_capsule(name, start, end, r):
 	# positions of the box verts
-	start = correction_local @ start
-	end = correction_local @ end
+	start = Corrector.import_vec(start)
+	end = Corrector.import_vec(end)
 	minx = miny = -r
 	maxx = maxy = +r
 	extent = end-start

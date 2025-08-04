@@ -3,7 +3,7 @@ import logging
 import mathutils
 
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
-from util.transforms import correction_local
+from util.transforms import Corrector
 
 
 def get_collider_matrix(b_hitcheck):
@@ -35,9 +35,8 @@ def export_capsule(b_ob, bfb):
 	# print(offset, v_dir, radius)
 	start = offset - v_dir
 	end = offset + v_dir
-	start = correction_local.inverted() @ start
-	end = correction_local.inverted() @ end
-	print(start, end)
+	start = Corrector.export_vec(start)
+	end = Corrector.export_vec(end)
 	block = bfb.create_block(b_ob, bfb, BlockType.CAPSULE)
 	block.name = "capsule"
 	block.data.start[:] = start

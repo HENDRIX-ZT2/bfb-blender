@@ -5,19 +5,52 @@ import mathutils
 
 
 class Corrector:
-	def __init__(self):
-		self.local = axis_conversion(from_forward='X', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
-		# self.local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-		self.local_inv = self.local.inverted()
+	# <Matrix 4x4 (-0.0000, 0.0000,  1.0000, 0.0000)
+	#             ( 1.0000, 0.0000,  0.0000, 0.0000)
+	#             (-0.0000, 1.0000, -0.0000, 0.0000)
+	#             ( 0.0000, 0.0000,  0.0000, 1.0000)>
+	local = axis_conversion(from_forward='X', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
+	# self.local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
+	local_inv = local.inverted()
 
-	def import_keymat(self, rest_rot_inv, key_matrix):
+	# <Matrix 4x4 (-0.0000,  1.0000, 0.0000, 0.0000)
+	#             (-0.0000, -0.0000, 1.0000, 0.0000)
+	#             ( 1.0000,  0.0000, 0.0000, 0.0000)
+	#             ( 0.0000,  0.0000, 0.0000, 1.0000)>
+	global_corr = axis_conversion(from_forward='Z', from_up='X', to_forward='Y', to_up='Z').to_4x4()
+	# self.global_corr = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
+	global_corr_inv = global_corr.inverted()
+
+	@classmethod
+	def import_vec(cls, vec):
+		return cls.local @ vec
+
+	@classmethod
+	def export_vec(cls, vec):
+		return cls.local_inv @ vec
+
+	@classmethod
+	def import_keymat(cls, rest_rot_inv, key_matrix):
 		key_matrix = rest_rot_inv @ key_matrix
-		return self.local @ key_matrix @ self.local_inv
+		return cls.local @ key_matrix @ cls.local_inv
 
-	def export_keymat(self, rest_rot, key_matrix):
-		key_matrix = self.local_inv @ key_matrix @ self.local
+	@classmethod
+	def export_keymat(cls, rest_rot, key_matrix):
+		key_matrix = cls.local_inv @ key_matrix @ cls.local
 		return rest_rot @ key_matrix
 
+	@classmethod
+	def get_blender_matrix(cls, bind):
+		return cls.global_corr @ cls.local @ bind @ cls.local_inv
+
+	@classmethod
+	def get_bfb_matrix(cls, b_bone):
+		bind = cls.global_corr.inverted() @ cls.local_inv @ b_bone.matrix_local @ cls.local
+		if b_bone.parent:
+			p_bind_restored = cls.global_corr_inv @ cls.local_inv @ b_bone.parent.matrix_local @ cls.local
+			bind = p_bind_restored.inverted() @ bind
+		return bind
+	
 	# # https://stackoverflow.com/questions/1263072/changing-a-matrix-from-right-handed-to-left-handed-coordinate-system
 	# def to_blender(self, nif_armature_space_matrix):
 	# 	# post multiplication: local space
@@ -38,14 +71,3 @@ def center_origin_to_matrix(n_center, n_dir):
 	rot.translation = n_center
 	return rot
 
-
-correction_local = mathutils.Euler((math.radians(90), 0, math.radians(90))).to_matrix().to_4x4()
-correction_global = mathutils.Euler((math.radians(-90), math.radians(-90), 0)).to_matrix().to_4x4()
-
-
-def get_bfb_matrix(b_bone):
-	bind = correction_global.inverted() @ correction_local.inverted() @ b_bone.matrix_local @ correction_local
-	if b_bone.parent:
-		p_bind_restored = correction_global.inverted() @ correction_local.inverted() @ b_bone.parent.matrix_local @ correction_local
-		bind = p_bind_restored.inverted() @ bind
-	return bind

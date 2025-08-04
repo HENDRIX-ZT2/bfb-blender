@@ -8,7 +8,7 @@ import numpy as np
 
 from bfb_gen.formats.bf import BfFile
 from modules_import.anim import Animation
-from util.transforms import Corrector, get_bfb_matrix
+from util.transforms import Corrector
 from common_bfb import create_empty, get_armature, name_import
 
 
@@ -24,7 +24,6 @@ info = {
 	16: ("QUAD", "scale", 3),
 	17: ("LINEAR", "scale", 3)}
 
-corrector = Corrector()
 
 def load(reporter, files=(), filepath="", set_fps=False):
 	print(files, filepath)
@@ -39,7 +38,7 @@ def load(reporter, files=(), filepath="", set_fps=False):
 	armature = get_armature()
 	if armature:
 		for bone in armature.data.bones:
-			bones_data[bone.name] = get_bfb_matrix(bone).inverted()
+			bones_data[bone.name] = Corrector.get_bfb_matrix(bone).inverted()
 	else:
 		logging.info(
 			"The scene doesn't contain any armature! If you want to do skeletal anims, import a BFB file and try again!")
@@ -95,10 +94,10 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 				if data_type == "scale":
 					keys[i] = [k.scale, k.scale, k.scale]
 				elif data_type == "location":
-					keys[i] = corrector.import_keymat(rest_inv, mathutils.Matrix.Translation(mathutils.Vector(
+					keys[i] = Corrector.import_keymat(rest_inv, mathutils.Matrix.Translation(mathutils.Vector(
 						[k.x, k.y, k.z]))).to_translation()
 				elif data_type == "rotation_quaternion":
-					keys[i] = corrector.import_keymat(rest_inv, mathutils.Quaternion(
+					keys[i] = Corrector.import_keymat(rest_inv, mathutils.Quaternion(
 						[k.w, k.x, k.y, k.z]).to_matrix().to_4x4()).to_quaternion()
 				elif data_type == "rotation_euler":
 					keys[i] = k.value
@@ -120,7 +119,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 				keys = np.stack(list(
 					np.interp(times, dict_times[x], dict_eulers[x].flat) for x in range(6, 9)), axis=1)
 				for i, key in enumerate(keys):
-					keys[i] = corrector.import_keymat(rest_inv,
+					keys[i] = Corrector.import_keymat(rest_inv,
 										mathutils.Euler(key).to_matrix().to_4x4()).to_euler()
 			# unsure how the extra data for quad is to be interpreted
 			# if interp == "QUAD":
