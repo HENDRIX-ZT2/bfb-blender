@@ -33,6 +33,13 @@ key_map = {
 	EUL_Z: KeyType.EULER_Z_QUADRATIC,
 }
 
+def handle_legacy_name(b_struct):
+	# do not export helper bones for constraints
+	if b_struct.name.startswith("*"):
+		logging.warning(f"Removing * from legacy name for {b_struct.name}")
+		b_struct.name = b_struct.name[1:]
+
+
 def fill_in_rest_data(m_name, mat_local_to_parent, rest_data):
 	pos, quat, sca = mat_local_to_parent.decompose()
 	rest_data[m_name] = {}
@@ -91,6 +98,10 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 		if bone_name == "Bip01":
 			# keep all channels
 			continue
+		# do not export helper bones for constraints
+		elif bone_name.startswith("*"):
+			channel_storage.pop(bone_name)
+			continue
 		for channel_id, keys in tuple(channels.items()):
 			needed_axes = list(needs_keyframes(keys))
 			# decimate channels that are static and identical to rest pose
@@ -98,9 +109,6 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 				# no need to keyframe this bone, discard it
 				logging.debug(f"Discarding {bone_name}.{channel_id}")
 				channels.pop(channel_id)
-		# do not export helper bones for constraints
-		if "*" in bone_name:
-			channel_storage.pop(bone_name)
 		if not channels:
 			channel_storage.pop(bone_name)
 			logging.debug(f"Discarding {bone_name} completely")
@@ -212,6 +220,8 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 	b_armature_ob = get_armature()
 
 	if b_armature_ob:
+		handle_legacy_name(b_armature_ob)
+		handle_legacy_name(b_armature_ob.data)
 		if not reasonably_close(b_armature_ob.matrix_world.to_scale(), (1.0, 1.0, 1.0)):
 			errors.append(
 				"Your armature (or one of its parents) is scaled in object mode! Apply scale to armature, objects and animations and try again.")
@@ -229,10 +239,11 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 		for b_ob in bpy.data.objects:
 			bones_data[b_ob.name] = mathutils.Matrix().to_4x4()
 
-	for b_action in bpy.data.actions:
+	for b_action in list(bpy.data.actions):
 		# do not export scale library
 		if "!scale!" in b_action.name:
 			continue
+		handle_legacy_name(b_action)
 		channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
 		logging.info(f"Exporting {b_action.name}")
 
