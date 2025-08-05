@@ -18,9 +18,20 @@ import bake_clean_actions
 LOC = "location"
 ROT = "rotation_quaternion"
 EUL = "rotation_euler"
+EUL_X = f"{EUL}.X"
+EUL_Y = f"{EUL}.Y"
+EUL_Z = f"{EUL}.Z"
 SCL = "scale"
 FLO = "float"
 
+key_map = {
+	ROT: KeyType.QUATERNION_LINEAR,
+	LOC: KeyType.LOC_LINEAR,
+	SCL: KeyType.SCALE_LINEAR,
+	EUL_X: KeyType.EULER_X_QUADRATIC,
+	EUL_Y: KeyType.EULER_Y_QUADRATIC,
+	EUL_Z: KeyType.EULER_Z_QUADRATIC,
+}
 
 def fill_in_rest_data(m_name, mat_local_to_parent, rest_data):
 	pos, quat, sca = mat_local_to_parent.decompose()
@@ -28,6 +39,9 @@ def fill_in_rest_data(m_name, mat_local_to_parent, rest_data):
 	rest_data[m_name][ROT] = [quat.x, quat.y, quat.z, quat.w]
 	rest_data[m_name][LOC] = pos
 	rest_data[m_name][SCL] = sca
+	eul = quat.to_euler()
+	rest_data[m_name][EUL] = eul
+	rest_data[m_name][EUL_X], rest_data[m_name][EUL_Y], rest_data[m_name][EUL_Z] = eul
 
 
 def reasonably_close(a, b):
@@ -56,9 +70,10 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 		LOC: np.zeros((frame_count, 3), float),
 		ROT: np.zeros((frame_count, 4), float),
 		SCL: np.zeros((frame_count, 3), float),
+		EUL_X: np.zeros((frame_count, 1), float),
+		EUL_Y: np.zeros((frame_count, 1), float),
+		EUL_Z: np.zeros((frame_count, 1), float),
 	} for b_bone in b_ob.data.bones}
-	# todo add euler export
-	# 	channel_storage[srb_name][EUL] = np.zeros((frame_count, 3), float)
 	# store pose data for b_action
 	b_ob.animation_data.action = b_action
 	for trg_frame, src_frame in enumerate(range(first_frame, last_frame)):
@@ -66,6 +81,13 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 
 	# decide which channels to keyframe by determining if the keys are static
 	for bone_name, channels in tuple(channel_storage.items()):
+		# decide on rotation mode
+		if b_ob.pose.bones[bone_name].rotation_mode == "QUATERNION":
+			channels.pop(EUL_X)
+			channels.pop(EUL_Y)
+			channels.pop(EUL_Z)
+		else:
+			channels.pop(ROT)
 		if bone_name == "Bip01":
 			# keep all channels
 			continue
@@ -99,15 +121,18 @@ def store_pose_frame_info(b_ob, src_frame, trg_frame, bones_data, channel_storag
 			store_transform_data(channel_storage, rest_data, matrix, b_name, trg_frame)
 
 
-def store_transform_data(channel_storage, rest_data, matrix, name, trg_frame):
+def store_transform_data(channel_storage, rest_data, matrix, name, frame):
 	matrix = Corrector.export_keymat2(matrix)
-	channel_storage[name][LOC][trg_frame] = matrix.to_translation()
+	bone_storage = channel_storage[name]
+	bone_storage[LOC][frame] = matrix.to_translation()
 	key = matrix.to_quaternion()
 	# some quats need to be negated to match the rest_quat; otherwise the bf breaks bones when applied to nif models
 	key.make_compatible(rest_data[name][ROT])
-	channel_storage[name][ROT][trg_frame] = key.x, key.y, key.z, key.w
-	channel_storage[name][SCL][trg_frame] = matrix.to_scale()[0]
-	# channel_storage[name][EUL][trg_frame] = key.to_euler()
+	bone_storage[ROT][frame] = key.x, key.y, key.z, key.w
+	bone_storage[SCL][frame] = matrix.to_scale()[0]
+	euler = key.to_euler()
+	euler.make_compatible(rest_data[name][EUL])
+	bone_storage[EUL_X][frame], bone_storage[EUL_Y][frame], bone_storage[EUL_Z][frame] = euler
 
 def write_nodes(dir_path, b_action, channel_storage, error_margins):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
@@ -120,39 +145,32 @@ def write_nodes(dir_path, b_action, channel_storage, error_margins):
 	bf.reset_field("nodes")
 	for bf_node, (name, storage) in zip(bf.nodes, channel_storage.items()):
 		bf_node.name = name_export(name)
-		# todo euler boosts count by 3 instead of 1
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
 		for modifier, (dt, arr) in zip(bf_node.modifiers, storage.items()):
 
 			times = np.arange(len(arr), dtype=float) / fps
 			# use RDP to simplify the curve
-			# mask = rdp.rdp_numpy(arr, epsilon=error_margins[name])
 			mask = rdp.get_mask(arr, error_margins[name])
 			times = times[mask]
 			arr = arr[mask]
 			modifier.num_keys = len(arr)
+			kt = key_map[dt]
+			modifier.key_type = kt
+			modifier.reset_field("keys")
 			if dt == ROT:
-				modifier.key_type = KeyType.QUATERNION_LINEAR
-				modifier.reset_field("keys")
 				for bf_key, t, key in zip(modifier.keys, times, arr):
 					bf_key.time = t
 					bf_key.x, bf_key.y, bf_key.z, bf_key.w = key
-			if dt == EUL:
-				modifier.key_type = KeyType.QUATERNION_LINEAR
-				modifier.reset_field("keys")
+			elif dt.startswith(EUL):
 				for bf_key, t, key in zip(modifier.keys, times, arr):
 					bf_key.time = t
-					bf_key.x, bf_key.y, bf_key.z, bf_key.w = key
-			if dt == LOC:
-				modifier.key_type = KeyType.LOC_LINEAR
-				modifier.reset_field("keys")
+					bf_key.value = key[0]
+			elif dt == LOC:
 				for bf_key, t, key in zip(modifier.keys, times, arr):
 					bf_key.time = t
 					bf_key.x, bf_key.y, bf_key.z = key
-			if dt == SCL:
-				modifier.key_type = KeyType.SCALE_LINEAR
-				modifier.reset_field("keys")
+			elif dt == SCL:
 				for bf_key, t, key in zip(modifier.keys, times, arr):
 					bf_key.time = t
 					bf_key.scale = key[0]
