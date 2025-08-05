@@ -251,7 +251,7 @@ def export_mesh(b_ob, bfb):
 	if has_armature and not b_armature:
 		raise AttributeError(f"{b_ob.name} does not use an armature while other models do")
 	if b_armature:
-		bones_names = {name: i for i, name in enumerate(b_armature.data.bones.keys())}
+		bones_names = {b_bone.name: i for i, b_bone in enumerate(get_valid_bones(b_armature))}
 	else:
 		bones_names = {}
 
@@ -391,7 +391,7 @@ def export_mesh(b_ob, bfb):
 
 
 def save(operator, context, filepath='', author_name="HENDRIX", export_materials=True, create_lods=False,
-		 fix_root_bones=False, num_lods=1, rate=1):
+		 num_lods=1, rate=1):
 	if create_lods:
 		logging.info('Adding LODs')
 		batch_bfb.add_lods(num_lods, rate)
@@ -444,7 +444,6 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 			if b_armature:
 				apply_transform(b_ob)
 				has_armature = True
-				ensure_valid_root_bones(b_armature, fix_root_bones, b_scene)
 				# clear pose to ensure no distorted pose is applied
 				for p_bone in b_armature.pose.bones:
 					p_bone.matrix_basis = mathutils.Matrix()
@@ -519,31 +518,11 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 def join_lists(lists):
 	return list(itertools.chain(*lists))
 
-def ensure_valid_root_bones(b_armature, fix_root_bones, b_scene):
-	root_bones = [bone for bone in b_armature.data.bones.values() if not bone.parent]
-	# fatal
-	if len(root_bones) > 1:
-		if fix_root_bones:
-			# determine the proper root
-			root_bone = root_bones[0]
-			for bone in root_bones:
-				if bone.name == "Bip01":
-					root_bone = bone
-					break
-			b_scene.objects.active = b_armature
-			bpy.ops.object.mode_set(mode='EDIT')
-			# delete the other root bones
-			for bone in root_bones:
-				if bone != root_bone:
-					e_bone = b_armature.data.edit_bones[bone.name]
-					b_armature.data.edit_bones.remove(e_bone)
-					logging.warning(f"Removed {bone.name} because it is a superfluous root bone")
-			bpy.ops.object.mode_set(mode='OBJECT')
-		else:
-			raise AttributeError(f"{b_armature.name} has more than one root bone. Remove all other root bones so that only Bip01 remains. This usually means: Bake and export your animations and then remove all control bones before you export the model.")
+def get_valid_bones(b_armature):
+	return [bone for bone in b_armature.data.bones.values() if bone.parent or bone.name == "Bip01"]
 
 def export_bones(b_armature, mesh_block):
-	b_bones = b_armature.data.bones.values()
+	b_bones = get_valid_bones(b_armature)
 	# export bones
 	mesh_block.data.num_bones = len(b_bones)
 	mesh_block.data.reset_field("bones")
