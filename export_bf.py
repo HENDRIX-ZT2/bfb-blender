@@ -4,61 +4,157 @@ import time
 
 import bpy
 import mathutils
+import numpy as np
 
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
+from util import rdp
 from util.transforms import Corrector
 from common_bfb import name_export, get_armature
+import bake_clean_actions
 
 
-def write_nodes(dir_path, b_action, nodes, bones_data):
+LOC = "location"
+ROT = "rotation_quaternion"
+EUL = "rotation_euler"
+SCL = "scale"
+FLO = "float"
+
+
+def fill_in_rest_data(m_name, mat_local_to_parent, rest_data):
+	pos, quat, sca = mat_local_to_parent.decompose()
+	rest_data[m_name] = {}
+	rest_data[m_name][ROT] = [quat.x, quat.y, quat.z, quat.w]
+	rest_data[m_name][LOC] = pos
+	rest_data[m_name][SCL] = sca
+
+
+def reasonably_close(a, b):
+	return np.allclose(a, b, rtol=1e-04, atol=1e-06, equal_nan=False)
+
+
+def needs_keyframes(keys):
+	"""Checks an array of keys and yields the indices that have temporal changes"""
+	if len(keys):
+		# get the first key
+		key0 = keys[0]
+		# go over the channels
+		for ch_i, ch_v in enumerate(key0):
+			# do keys differ from first key?
+			if not reasonably_close(keys[:, ch_i], ch_v):
+				yield ch_i
+
+
+def sample_action(b_ob, b_action, bones_data, rest_data):
+	first_frame, last_frame = b_action.frame_range
+	first_frame = int(first_frame)
+	last_frame = int(last_frame) + 1
+	frame_count = last_frame - first_frame
+	# create arrays for loc, rot, scale keys
+	channel_storage = {b_bone.name: {
+		LOC: np.zeros((frame_count, 3), float),
+		ROT: np.zeros((frame_count, 4), float),
+		SCL: np.zeros((frame_count, 3), float),
+	} for b_bone in b_ob.data.bones}
+	# todo add euler export
+	# 	channel_storage[srb_name][EUL] = np.zeros((frame_count, 3), float)
+	# store pose data for b_action
+	b_ob.animation_data.action = b_action
+	for trg_frame, src_frame in enumerate(range(first_frame, last_frame)):
+		store_pose_frame_info(b_ob, src_frame, trg_frame, bones_data, channel_storage, rest_data)
+
+	# decide which channels to keyframe by determining if the keys are static
+	for bone_name, channels in tuple(channel_storage.items()):
+		if bone_name == "Bip01":
+			# keep all channels
+			continue
+		for channel_id, keys in tuple(channels.items()):
+			needed_axes = list(needs_keyframes(keys))
+			# decimate channels that are static and identical to rest pose
+			if not needed_axes and reasonably_close(keys[0], rest_data[bone_name][channel_id]):
+				# no need to keyframe this bone, discard it
+				logging.debug(f"Discarding {bone_name}.{channel_id}")
+				channels.pop(channel_id)
+		# do not export helper bones for constraints
+		if "*" in bone_name:
+			channel_storage.pop(bone_name)
+		if not channels:
+			channel_storage.pop(bone_name)
+			logging.debug(f"Discarding {bone_name} completely")
+	return channel_storage
+
+
+def store_pose_frame_info(b_ob, src_frame, trg_frame, bones_data, channel_storage, rest_data):
+	bpy.context.scene.frame_set(src_frame)
+	bpy.context.view_layer.update()
+	if b_ob.type == "ARMATURE":
+		for b_name, p_bone in b_ob.pose.bones.items():
+			# Get the final transform of the bone in its own local space...
+			# then make it relative to the parent bone
+			# transform is stored relative to the parent rest
+			# whereas blender stores translation relative to the bone itself, not the parent
+			matrix = bones_data[b_name] @ b_ob.convert_space(
+				pose_bone=p_bone, matrix=p_bone.matrix, from_space='POSE', to_space='LOCAL')
+			store_transform_data(channel_storage, rest_data, matrix, b_name, trg_frame)
+
+
+def store_transform_data(channel_storage, rest_data, matrix, name, trg_frame):
+	matrix = Corrector.export_keymat2(matrix)
+	channel_storage[name][LOC][trg_frame] = matrix.to_translation()
+	key = matrix.to_quaternion()
+	# some quats need to be negated to match the rest_quat; otherwise the bf breaks bones when applied to nif models
+	key.make_compatible(rest_data[name][ROT])
+	channel_storage[name][ROT][trg_frame] = key.x, key.y, key.z, key.w
+	channel_storage[name][SCL][trg_frame] = matrix.to_scale()[0]
+	# channel_storage[name][EUL][trg_frame] = key.to_euler()
+
+def write_nodes(dir_path, b_action, channel_storage, error_margins):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
 	duration = b_action.frame_end / fps
 	bf.header.version = bf.context.version = 2
 	bf.header.duration = duration
-	bf.header.num_nodes = len(nodes)
+	bf.header.num_nodes = len(channel_storage)
 	bf.reset_field("nodes")
-	for bf_node, (name, storage) in zip(bf.nodes, nodes):
+	for bf_node, (name, storage) in zip(bf.nodes, channel_storage.items()):
 		bf_node.name = name_export(name)
+		# todo euler boosts count by 3 instead of 1
 		bf_node.num_mod_types = len(storage)
 		bf_node.reset_field("modifiers")
-		rest, rest_quat = bones_data[name]
-		for modifier, dt in zip(bf_node.modifiers, storage):
-			fcurves = storage[dt]
-			modifier.num_keys = len(fcurves[0].keyframe_points)
+		for modifier, (dt, arr) in zip(bf_node.modifiers, storage.items()):
 
-			if dt == "rotation_quaternion":
+			times = np.arange(len(arr), dtype=float) / fps
+			# use RDP to simplify the curve
+			# mask = rdp.rdp_numpy(arr, epsilon=error_margins[name])
+			mask = rdp.get_mask(arr, error_margins[name])
+			times = times[mask]
+			arr = arr[mask]
+			modifier.num_keys = len(arr)
+			if dt == ROT:
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
-				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					quat = Corrector.export_keymat2(rest, mathutils.Quaternion(key).to_matrix().to_4x4()).to_quaternion()
-					set_quat(bf_key, fps, frame, quat, rest_quat)
-			if dt == "rotation_euler":
+				for bf_key, t, key in zip(modifier.keys, times, arr):
+					bf_key.time = t
+					bf_key.x, bf_key.y, bf_key.z, bf_key.w = key
+			if dt == EUL:
 				modifier.key_type = KeyType.QUATERNION_LINEAR
 				modifier.reset_field("keys")
-				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					# todo: use to_euler( ) with compatible euler to fix distortions
-					quat = Corrector.export_keymat2(rest, mathutils.Euler(key).to_matrix().to_4x4()).to_quaternion()
-					set_quat(bf_key, fps, frame, quat, rest_quat)
-
-			if dt == "location":
+				for bf_key, t, key in zip(modifier.keys, times, arr):
+					bf_key.time = t
+					bf_key.x, bf_key.y, bf_key.z, bf_key.w = key
+			if dt == LOC:
 				modifier.key_type = KeyType.LOC_LINEAR
 				modifier.reset_field("keys")
-				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					trans = Corrector.export_keymat2(rest, mathutils.Matrix.Translation(key)).to_translation()
-					bf_key.time = frame / fps
-					bf_key.x = trans.x
-					bf_key.y = trans.y
-					bf_key.z = trans.z
-
-			if dt == "scale":
+				for bf_key, t, key in zip(modifier.keys, times, arr):
+					bf_key.time = t
+					bf_key.x, bf_key.y, bf_key.z = key
+			if dt == SCL:
 				modifier.key_type = KeyType.SCALE_LINEAR
 				modifier.reset_field("keys")
-				for bf_key, (frame, key) in zip(modifier.keys, keys_iter(fcurves)):
-					bf_key.time = frame / fps
+				for bf_key, t, key in zip(modifier.keys, times, arr):
+					bf_key.time = t
 					bf_key.scale = key[0]
 	create_txtkey(bf, 0.0, "start")
 	# export any custom txtkeys
@@ -75,16 +171,6 @@ def create_txtkey(bf, key_time, name):
 	bf.footer.txtkeys.append(txtkey)
 
 
-def set_quat(bf_key, fps, frame, quat, rest_quat):
-	bf_key.time = frame / fps
-	# some quats need to be negated to match the rest_quat; otherwise the bf breaks bones when applied to nif models
-	quat.make_compatible(rest_quat)
-	bf_key.x = quat.x
-	bf_key.y = quat.y
-	bf_key.z = quat.z
-	bf_key.w = quat.w
-
-
 def keys_iter(fcurves):
 	num_keys = len(fcurves[0].keyframe_points)
 	for i in range(0, num_keys):
@@ -92,121 +178,46 @@ def keys_iter(fcurves):
 		yield frame, [fcurve.keyframe_points[i].co[1] for fcurve in fcurves]
 
 
-def save(operator, context, filepath='', bake_actions=False, error=0.25, exp_power=2):
+def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 	start_time = time.time()
 	errors = []
-	if bake_actions:
-		import bake_clean_actions
-		errors.extend(bake_clean_actions.bake_and_clean(error, exp_power))
+	if fix_tangents:
+		bake_clean_actions.loop_fcurve_tangents()
 
 	dir_path = os.path.dirname(filepath)
 
 	logging.info(f'Exporting BF animations into {dir_path}')
 
 	bones_data = {}
-	armature = get_armature()
-	if armature:
-		if armature.matrix_world.to_scale().length < 1:
+	rest_data = {}
+	error_margins = {}
+	b_armature_ob = get_armature()
+
+	if b_armature_ob:
+		if not reasonably_close(b_armature_ob.matrix_world.to_scale(), (1.0, 1.0, 1.0)):
 			errors.append(
-				"Your armature (or one of its parents) is scaled down in object mode! Apply scale to armature, objects and animations and try again.")
-		for bone in armature.data.bones:
-			rest = Corrector.get_b_matrix(bone)
-			bones_data[bone.name] = (rest, rest.to_quaternion())
+				"Your armature (or one of its parents) is scaled in object mode! Apply scale to armature, objects and animations and try again.")
+		for bone in b_armature_ob.data.bones:
+			b_rest = Corrector.get_b_matrix(bone)
+			bones_data[bone.name] = b_rest
+			fill_in_rest_data(bone.name, Corrector.export_keymat2(b_rest), rest_data)
+			# create error margins based on the amount of children
+			# exp_power = 2 seems reasonable
+			# a bone may have zero children, so add 1!
+			error_margins[bone.name] = error / (len(bone.children_recursive) + 1) ** exp_power
+		logging.info(f"Error margins for each bone: {error_margins}")
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
-			rest = mathutils.Matrix().to_4x4()
-			bones_data[b_ob.name] = (rest, rest.to_quaternion())
+			bones_data[b_ob.name] = mathutils.Matrix().to_4x4()
 
-	for action in bpy.data.actions:
-		# make sure it starts precisely at frame 0
-		anim_start = action.frame_start
-		if anim_start != 0:
-			errors.append(
-				f"Action {action.name} did not start at frame 0! This has been automatically fixed!")
-			for fcurve in action.fcurves:
-				for kp in fcurve.keyframe_points:
-					kp.co[0] -= anim_start
-
-		# skip IKed / unbaked versions
-		if action.name.startswith("*"):
+	for b_action in bpy.data.actions:
+		# do not export scale library
+		if "!scale!" in b_action.name:
 			continue
-		logging.info(f"Exporting {action.name}")
+		channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
+		logging.info(f"Exporting {b_action.name}")
 
-		constrained_name = f"*{action.name}"
-		# does an unbaked version exist, then store it
-		if constrained_name in bpy.data.actions and "secondary_" in action.name.lower():
-			errors.append(
-				f"Action {action.name} uses only bones keyframed in the original to avoid slithering.")
-			# remember which bones were keyframed in the IK version for the secondary anim treatment
-			raw_action_groups = [group.name for group in bpy.data.actions[constrained_name].groups]
-		else:
-			raw_action_groups = None
-		nodes = []
-		# these so-called action groups are the bones, ie one group contains all fcurves of one bone
-		for group in action.groups:
-			if group.name in bones_data:
-				# do not export scale library
-				if "!scale!" in action.name:
-					continue
-				# do not export helper bones for constraints
-				if "*" in group.name:
-					continue
-				# if it is a secondary anim, limit the baked channels to what was keyframed initially
-				if raw_action_groups and group.name not in raw_action_groups:
-					continue
-
-				# collect the fcurves here already
-				dtypes = {"rotation_quaternion": 4, "rotation_euler": 3, "location": 3, "scale": 3}
-				storage = {dt: [fcurve for fcurve in group.channels if fcurve.data_path.endswith(dt)] for dt in dtypes}
-
-				# force export of scale for Bip01
-				if not storage["scale"] and group.name == "Bip01":
-					logging.debug(f"Adding scale curves for Bip01 in {group.name}")
-					storage["scale"] = [
-						action.fcurves.new(data_path='pose.bones["Bip01"].scale', index=i, action_group="Bip01")
-						for i in range(3)]
-					for fcurve in storage["scale"]:
-						fcurve.keyframe_points.insert(0, 1)
-
-				# sample sparse keying sets
-				for dt, fcurves in storage.items():
-					if not fcurves:
-						continue
-					same_amount_of_keys = all(
-						len(fcu.keyframe_points) == len(fcurves[0].keyframe_points) for fcu in fcurves)
-					if not same_amount_of_keys:
-						logging.debug(f"{group.name} has differing keyframe numbers for {dt}")
-						times = []
-						# get all times
-						for fcu in fcurves:
-							for key in fcu.keyframe_points:
-								key_time = key.co[0]
-								if key_time not in times:
-									times.append(key_time)
-						times.sort()
-						# sample and recreate all fcurves according to the full times
-						for fcu in fcurves:
-							samples = [fcu.evaluate(key_time) for key_time in times]
-							fcu_dp, fcu_i = fcu.data_path, fcu.array_index
-							action.fcurves.remove(fcu)
-							fcu = action.fcurves.new(fcu_dp, index=fcu_i, action_group=group.name)
-							fcu.keyframe_points.add(count=len(times))
-							fcu.keyframe_points.foreach_set("co", [x for co in zip(times, samples) for x in co])
-							fcu.update()
-						# get the new curves because we deleted the original ones
-						storage[dt] = [fcurve for fcurve in group.channels if fcurve.data_path.endswith(dt)]
-
-				for dt, channel_count in dtypes.items():
-					fcurves = storage[dt]
-					if len(fcurves) == channel_count:
-						continue
-					if fcurves:
-						errors.append(
-							f"Incomplete {dt} key set in bone {group.name} for action {action.name}")
-					storage.pop(dt)
-
-				nodes.append((group.name, storage))
-		write_nodes(dir_path, action, nodes, bones_data)
+		write_nodes(dir_path, b_action, channel_storage, error_margins)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")
 	return errors

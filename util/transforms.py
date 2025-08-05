@@ -31,8 +31,8 @@ class Corrector:
 		return bfb_rest_rot @ key_matrix
 
 	@classmethod
-	def export_keymat2(cls, b_rest_rot, b_key_matrix):
-		return cls.local_inv @ (b_rest_rot @ b_key_matrix) @ cls.local
+	def export_keymat2(cls, b_local_key_matrix):
+		return cls.local_inv @ b_local_key_matrix @ cls.local
 
 	@classmethod
 	def get_blender_matrix(cls, bfb_armature_space):

@@ -80,15 +80,15 @@ class ExportBF(ExportOp):
 	bl_label = 'Export BF'
 	filename_ext = ".bf"
 	filter_glob: StringProperty(default="*.bf", options={'HIDDEN'})
-	bake_actions: BoolProperty(name="Fix Tangents, Bake Actions and Clean Results",
-							   description="Smoothes tangents between actions, creates armature without constraints and baked actions for armatures and actions marked with *.",
+	fix_tangents: BoolProperty(name="Fix Tangents",
+							   description="Smoothes tangents between actions",
 							   default=True)
 	error: FloatProperty(name="Max Cleaning Error",
 						 description="Adaptive Error - the more children a bone has, the less error it gets. The larger the error value, the smaller the file size, but the more error you get.",
-						 precision=3, step=1, soft_min=0.0, min=0.0, default=0.05)
+						 precision=3, step=1, soft_min=0.0, min=0.0, default=0.005)
 	exp_power: FloatProperty(name="Error Exponent",
 							 description="This influences how fast the error increases along the bone chain. Use larger values for a steeper falloff",
-							 precision=3, step=1, soft_min=0.0, min=0.0, default=1.0)
+							 precision=3, step=1, soft_min=1.0, min=1.0, default=1.0)
 
 	# TODO: replace these settings with the more transparent curve UI
 	# https://blender.stackexchange.com/questions/61618/add-a-custom-curve-mapping-property-for-an-add-on
