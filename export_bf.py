@@ -146,7 +146,8 @@ def write_nodes(dir_path, b_action, channel_storage, error_margins):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
-	duration = b_action.frame_end / fps
+	first_frame, last_frame = b_action.frame_range
+	duration = (last_frame - first_frame) / fps
 	bf.header.version = bf.context.version = 2
 	bf.header.duration = duration
 	bf.header.num_nodes = len(channel_storage)
