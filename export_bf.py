@@ -9,6 +9,7 @@ import numpy as np
 from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
+from modules_export.armature import clear_pose
 from util import rdp
 from util.transforms import Corrector
 from common_bfb import name_export, get_armature
@@ -95,7 +96,7 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 			channels.pop(EUL_Z)
 		else:
 			channels.pop(ROT)
-		if bone_name == "Bip01":
+		if bone_name == "Bip01" and not "secondary" in b_action.name.lower():
 			# keep all channels
 			continue
 		# do not export helper bones for constraints
@@ -234,7 +235,7 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 			# exp_power = 2 seems reasonable
 			# a bone may have zero children, so add 1!
 			error_margins[bone.name] = error / (len(bone.children_recursive) + 1) ** exp_power
-		logging.info(f"Error margins for each bone: {error_margins}")
+		logging.debug(f"Error margins for each bone: {error_margins}")
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
@@ -245,6 +246,7 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 		if "!scale!" in b_action.name:
 			continue
 		handle_legacy_name(b_action)
+		clear_pose(b_armature_ob)
 		channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
 		logging.info(f"Exporting {b_action.name}")
 

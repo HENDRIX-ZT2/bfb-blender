@@ -26,8 +26,7 @@ info = {
 
 
 def load(reporter, files=(), filepath="", set_fps=False):
-	print(files, filepath)
-	starttime = time.time()
+	start_time = time.time()
 	dir_path = os.path.dirname(filepath)
 	if set_fps:
 		bpy.context.scene.render.fps = 30
@@ -44,7 +43,7 @@ def load(reporter, files=(), filepath="", set_fps=False):
 			"The scene doesn't contain any armature! If you want to do skeletal anims, import a BFB file and try again!")
 	for bf_name in files:
 		read_bf(dir_path, bf_name, armature, bones_data, fps)
-	logging.info(f'Finished BF Import in {time.time() - starttime:.2f} seconds')
+	logging.info(f'Finished BF Import in {time.time() - start_time:.2f} seconds')
 	return {'FINISHED'}
 
 
