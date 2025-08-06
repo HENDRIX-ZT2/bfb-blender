@@ -62,6 +62,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 		b_bone_name = name_import(node.name)
 		dict_eulers = {}
 		dict_times = {}
+		# print(node.name, [int(m.key_type) for m in node.modifiers])
 		if bones_data:
 			if b_bone_name in bones_data:
 				rest_inv = bones_data[b_bone_name]

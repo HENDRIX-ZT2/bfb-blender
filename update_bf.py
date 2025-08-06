@@ -21,5 +21,8 @@ for root, dirs, files in os.walk(in_dir):
 
 			bf.load(src_path)
 			bf.header.version = bf.context.version = 2
+
+			# for node in bf.nodes:
+			# 	print(node.name, [int(m.key_type) for m in node.modifiers])
 			bf.save(out_path)
 

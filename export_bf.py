@@ -74,12 +74,12 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 	frame_count = last_frame - first_frame
 	# create arrays for loc, rot, scale keys
 	channel_storage = {b_bone.name: {
-		LOC: np.zeros((frame_count, 3), float),
 		ROT: np.zeros((frame_count, 4), float),
-		SCL: np.zeros((frame_count, 3), float),
 		EUL_X: np.zeros((frame_count, 1), float),
 		EUL_Y: np.zeros((frame_count, 1), float),
 		EUL_Z: np.zeros((frame_count, 1), float),
+		LOC: np.zeros((frame_count, 3), float),
+		SCL: np.zeros((frame_count, 3), float),
 	} for b_bone in b_ob.data.bones}
 	# store pose data for b_action
 	b_ob.animation_data.action = b_action
