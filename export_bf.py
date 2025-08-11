@@ -10,6 +10,7 @@ from bfb_gen.formats.bf import BfFile
 from bfb_gen.formats.bf.compounds.TxtKey import TxtKey
 from bfb_gen.formats.bf.enums.KeyType import KeyType
 from modules_export.armature import clear_pose
+from modules_import.anim import Animation
 from util import rdp
 from util.transforms import Corrector
 from common_bfb import name_export, get_armature
@@ -96,6 +97,11 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 			channels.pop(EUL_Z)
 		else:
 			channels.pop(ROT)
+		if "secondary" in b_action.name.lower() and bone_name not in b_action.groups:
+			logging.debug(f"Discarding {bone_name} completely because it is not keyframes in {b_action.name}")
+			# discard any bones that are not keyframed
+			channel_storage.pop(bone_name)
+			continue
 		if bone_name == "Bip01" and not "secondary" in b_action.name.lower():
 			# keep all channels
 			continue

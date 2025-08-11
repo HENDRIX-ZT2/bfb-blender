@@ -33,6 +33,11 @@ class Animation:
 		else:
 			b_action = bpy.data.actions.new(action_name)
 			b_action.use_fake_user = True
+		self.set_action(b_action, b_obj)
+		return b_action
+
+	@classmethod
+	def set_action(cls, b_action, b_obj):
 		# could probably skip this test and create always
 		if not b_obj.animation_data:
 			b_obj.animation_data_create()
@@ -47,7 +52,6 @@ class Animation:
 				id_type = "NODETREE"
 			slot = b_action.slots.new(id_type=id_type, name=b_obj.name)
 			b_obj.animation_data.action_slot = slot
-		return b_action
 
 	def create_fcurves(self, action, dtype, drange, flags=None, n_bone=None, n_shapekey=None, n_constraint=None, n_node_input=None):
 		""" Create fcurves in action for desired conditions. """
