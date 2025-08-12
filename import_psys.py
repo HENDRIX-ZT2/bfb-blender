@@ -156,7 +156,7 @@ def load(reporter, filepath=""):
 
 	fps = bpy.context.scene.render.fps
 
-	#init here
+	# init here
 	lcol = []
 
 	#create psys
@@ -187,11 +187,11 @@ def load(reporter, filepath=""):
 	# pset.child_radius = 1.1
 	# pset.child_roundness = 0.5
 
-	#note that some may have more than one top-level simulator!
+	# note that some may have more than one top-level simulator!
 	simulator = tree.getroot()
 	for block in simulator:
 		if block.tag == "emitter":
-			#unknown stuff
+			# unknown stuff
 			pset.emit_from = 'FACE'
 			emitter.show_instancer_for_render = False
 			pset.distribution = 'RAND'
@@ -223,7 +223,7 @@ def load(reporter, filepath=""):
 					if param.attrib["label"] == "velocity base":
 						pass
 				if param.tag == "birthrate":
-					#sadly we must use the maximum birthrate and can't animate it
+					# sadly we must use the maximum birthrate and can't animate it
 					count = 0
 					end = 0
 					for key in param:
@@ -286,10 +286,10 @@ def load(reporter, filepath=""):
 					pset.particle_size = values[i]
 					pset.keyframe_insert("particle_size", frame=ages[i])
 
-				#material is not yet created at this stage?!
-				#material.halo.size = values[i]
-				#material.keyframe_insert("halo.size", frame = ages[i])
-				#print(ages[i],values[i])
+				# material is not yet created at this stage?!
+				# material.halo.size = values[i]
+				# material.keyframe_insert("halo.size", frame = ages[i])
+				# print(ages[i],values[i])
 
 		if block.tag == "renderer":
 			# Display and render
