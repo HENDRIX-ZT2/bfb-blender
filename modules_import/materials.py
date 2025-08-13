@@ -25,7 +25,7 @@ def create_material(b_ob, dir_path, mat_name, anim):
 			fps = bpy.context.scene.render.fps
 
 			# see which sub-shaders are used by this fx shader, and get the used ones in order
-			shaders = ("Base", "Decal", "Detail", "Gloss", "Glow", "Reflect")
+			shaders = ("Base", "Dark", "Decal", "Detail", "Gloss", "Glow", "Reflect")
 			tex_shaders = [name for i, name in sorted(zip([fx.find(s) for s in shaders], shaders)) if i > -1]
 
 
