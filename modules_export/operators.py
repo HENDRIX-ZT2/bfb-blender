@@ -62,7 +62,7 @@ class ExportBFB(ExportOp):
 			common_bfb.update_config("author", self.author_name)
 		except:
 			pass
-		super().execute(context)
+		return super().execute(context)
 
 
 class ExportBF(ExportOp):

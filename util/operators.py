@@ -48,7 +48,7 @@ class BaseOp(bpy.types.Operator):
 
 	@property
 	def kwargs(self) -> dict:
-		return self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "files", "filepath", "directory"))
+		return self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "files", "filepath", "directory", "check_existing"))
 
 	def execute(self, context):
 		return self.report_messages(self.target, **self.kwargs)
