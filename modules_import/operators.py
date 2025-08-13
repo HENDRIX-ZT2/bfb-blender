@@ -70,6 +70,9 @@ class ImportBFB(ImportOp):
 	use_mirror_mesh: BoolProperty(name="Mirror Rigged Meshes",
 							  description="Mirrors models with a skeleton. Careful, sometimes bones don't match!",
 							  default=False)
+	cleanup_geometry: BoolProperty(name="Cleanup Geometry",
+							  description="Merge vertices while preserving normals. May crash some versions of blender on geometry with double sided faces",
+							  default=True)
 	target = import_bfb.load
 
 

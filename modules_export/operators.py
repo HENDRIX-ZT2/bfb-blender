@@ -16,9 +16,8 @@ from util.operators import BaseOp
 
 class ExportOp(BaseOp, ExportHelper):
 
-	@property
-	def kwargs(self) -> dict:
-		return self.as_keywords(ignore=("axis_forward", "axis_up", "filter_glob", "check_existing"))
+	def execute(self, context):
+		return self.report_messages(self.target, filepath=self.filepath, **self.kwargs)
 
 
 class ExportDAT(ExportOp):
@@ -27,12 +26,7 @@ class ExportDAT(ExportOp):
 	bl_label = 'Export DAT'
 	filename_ext = ".dat"
 	filter_glob: StringProperty(default="*.dat", options={'HIDDEN'})
-
-	def execute(self, context):
-		errors = export_dat.save(self, context, **self.kwargs)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
+	target = export_dat.save
 
 
 class ExportBFB(ExportOp):
@@ -60,16 +54,15 @@ class ExportBFB(ExportOp):
 					  description="The higher, the faster the detail will decrease: ratio = 1 /(LODX + Rate)",
 					  min=1, max=5,
 					  default=2, )
+	target = export_bfb.save
+
 
 	def execute(self, context):
 		try:
 			common_bfb.update_config("author", self.author_name)
 		except:
 			pass
-		errors = export_bfb.save(self, context, **self.kwargs)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
+		super().execute(context)
 
 
 class ExportBF(ExportOp):
@@ -90,8 +83,5 @@ class ExportBF(ExportOp):
 
 	# TODO: replace these settings with the more transparent curve UI
 	# https://blender.stackexchange.com/questions/61618/add-a-custom-curve-mapping-property-for-an-add-on
-	def execute(self, context):
-		errors = export_bf.save(self, context, **self.kwargs)
-		for error in errors:
-			self.report({"ERROR"}, error)
-		return {'FINISHED'}
+
+	target = export_bf.save

@@ -22,12 +22,6 @@ def flatten(mat):
 	return [v for row in mat for v in row]
 
 
-def log_error(error):
-	print(error)
-	global errors
-	errors.append(error)
-
-
 def indent(elem, level=0):
 	i = "\n" + level * "	"
 	if len(elem):
@@ -53,7 +47,7 @@ def find_fcurve(id_data, path, index=0):
 				return fcurve
 
 
-def write_bfmat(b_ob, b_mat, mat_name):
+def write_bfmat(reporter, b_ob, b_mat, mat_name):
 	matoptions = [
 		("AlphaApplyMode", "dword", "4"),
 		("AlphaBlendEnable", "bool", "false"),
@@ -92,7 +86,7 @@ def write_bfmat(b_ob, b_mat, mat_name):
 				# strip the extension and save it
 				matoptions.append((f"Texture{i}", "texture", os.path.splitext(os.path.basename(image))[0]))
 			else:
-				log_error(f"Texture {texture_node.texture.name} in material {b_mat.name} contains no image!")
+				reporter.show_warning(f"Texture {texture_node.texture.name} in material {b_mat.name} contains no image!")
 		transform_node = b_mat.node_tree.nodes.get(f"TextureTransform{i}")
 		if transform_node:
 			# UV anim
@@ -158,7 +152,7 @@ def attach_collision(bfb_node, new_collider_id):
 	bfb_node.collision_ids[:] = colliders
 
 
-def export_tree(b_ob, bfb, bfb_parent=None):
+def export_tree(reporter, b_ob, bfb, bfb_parent=None):
 	logging.debug(f'Gathering block data for {b_ob.name}')
 	if b_ob.type in ("EMPTY", "ARMATURE"):
 		if b_ob.name.startswith('lodgroup'):
@@ -182,7 +176,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 			return None
 		elif b_ob.name.startswith('capsule'):
 			if b_ob.parent_type != "BONE" or not b_ob.parent_bone:
-				log_error(f"Capsule collider {b_ob.name} is not parented to a bone.")
+				reporter.show_warning(f"Capsule collider {b_ob.name} is not parented to a bone.")
 			bone_name = name_export(b_ob.parent_bone)
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.CAPSULE_LINK, bfb_parent)
 			bfb_node.name = bone_name.lower()
@@ -203,7 +197,7 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 					# or 0, 2, or rarely 0, 0
 					data = bfb_node.geometry
 				data.object_ids[0] = mesh_id
-				mat_names = list(get_mat_names(b_ob))
+				mat_names = list(get_mat_names(reporter, b_ob))
 				data.num_materials = len(mat_names)
 				data.reset_field("materials")
 				data.materials[:] = mat_names
@@ -211,13 +205,13 @@ def export_tree(b_ob, bfb, bfb_parent=None):
 		# lamps etc, just ignore them
 		return None
 	for b_child in b_ob.children:
-		bfb_child = export_tree(b_child, bfb, bfb_node)
+		bfb_child = export_tree(reporter, b_child, bfb, bfb_node)
 		if bfb_child:
 			bfb_node.children.append(bfb_child)
 	return bfb_node
 
 
-def get_mat_names(b_ob):
+def get_mat_names(reporter, b_ob):
 
 	if len(b_ob.data.materials):
 		# sometimes there will be empty slots before a material
@@ -226,7 +220,7 @@ def get_mat_names(b_ob):
 				mat_name = material.name.replace(".", "")
 				if write_materials:
 					try:
-						write_bfmat(b_ob, material, mat_name)
+						write_bfmat(reporter, b_ob, material, mat_name)
 					except:
 						logging.exception(f"Bfmat export failed")
 				yield mat_name
@@ -235,14 +229,14 @@ def get_mat_names(b_ob):
 	# mat_name = 'none'
 
 
-def apply_transform(ob, ):
+def apply_transform(reporter, ob, ):
 	identity = mathutils.Matrix()
 	# the world space transform of every rigged mesh must be neutral
 	# local space transforms of the mesh and its parents may be different as long as the mesh origin ends up on the b_scene origin
 	if ob.matrix_world != identity:
 		ob.data.transform(ob.matrix_world)
 		ob.matrix_world = identity
-		log_error(f"{ob.name} has had its transform applied to avoid ingame distortion!")
+		reporter.show_warning(f"{ob.name} has had its transform applied to avoid ingame distortion!")
 
 
 def export_mesh(b_ob, bfb):
@@ -390,15 +384,13 @@ def export_mesh(b_ob, bfb):
 	return mesh_block.id
 
 
-def save(operator, context, filepath='', author_name="HENDRIX", export_materials=True, create_lods=False,
+def save(reporter, filepath='', author_name="HENDRIX", export_materials=True, create_lods=False,
 		 num_lods=1, rate=1):
 	if create_lods:
 		logging.info('Adding LODs')
 		batch_bfb.add_lods(num_lods, rate)
 
 	logging.info(f'Exporting {filepath}')
-	global errors
-	errors = []
 	ensure_active_object()
 
 	global write_materials
@@ -442,7 +434,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 		if b_ob.type == "MESH":
 			b_armature_ob = b_ob.find_armature()
 			if b_armature_ob:
-				apply_transform(b_ob)
+				apply_transform(reporter, b_ob)
 				has_armature = True
 				clear_pose(b_armature_ob)
 				# apply the scale dummy action
@@ -455,7 +447,7 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 					b_scale_action = None
 			# fix meshes parented to a bone by adding vgroups
 			if b_ob.parent_type == "BONE" and not b_ob.name.startswith('capsule'):
-				log_error(
+				reporter.show_warning(
 					f"{b_ob.name} was parented to a bone, which is not supported by BFBs. This has been fixed for you.")
 				bone_name = b_ob.parent_bone
 				b_ob.vertex_groups.new(name=bone_name)
@@ -467,9 +459,9 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 				b_ob.parent_type = "OBJECT"
 				b_scene.update()
 				# apply again just to be sure
-				apply_transform(b_ob)
+				apply_transform(reporter, b_ob)
 
-	bfb.tree = export_tree(b_root, bfb)
+	bfb.tree = export_tree(reporter, b_root, bfb)
 
 	for BFRVertex, mesh_data_block in BFRVertex_2_meshData.items():
 		logging.debug(f'Filling in BFRVertex{BFRVertex}')
@@ -511,7 +503,6 @@ def save(operator, context, filepath='', author_name="HENDRIX", export_materials
 	bfb.save(filepath)
 	# print(bfb)
 	logging.info(f'Finished BFB Export in {time.time() - start_time:.2f} seconds')
-	return errors
 
 
 def join_lists(lists):

@@ -1,5 +1,6 @@
 import time
 import mathutils
+import numpy as np
 
 from bfb_gen.formats.bfb import BfbFile
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
@@ -72,10 +73,8 @@ def import_scene_graph(b_parent, node, lod_level):
 			lod_level += 1
 
 
-def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False):
+def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False, cleanup_geometry=True):
 	start_time = time.time()
-	global errors
-	errors = []
 	global b_armature_ob
 	global camera
 	global dir_path
@@ -136,17 +135,10 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False)
 				tris_offset += num_chunk_tris
 
 			vertices = verts["pos"].copy()
-			verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
-			sorted_indices = np.sort(unique_indices)
-			verts_unique = vertices[sorted_indices]
-			transsort = np.argsort(unique_indices)
-			i_rev = transsort.copy()
-			i_rev[transsort] = np.arange(len(i_rev))
-			unique_inverse = i_rev[unique_inverse]
-			tris_sorted = np.take(unique_inverse, tris)
-			material_indices_sorted = np.take(unique_inverse, material_indices)
-			mesh_tris_flat = tris.flatten()
+			material_indices_sorted, sorted_indices, tris_sorted, verts_unique = cleanup_mesh_data(
+				material_indices, tris, vertices, cleanup_geometry)
 
+			mesh_tris_flat = tris.flatten()
 			b_me = FastMesh.new(block.name)
 			b_me.from_pydata(verts_unique, [], tris_sorted)
 			b_ob = create_ob(bpy.context.scene, block.name, b_me)
@@ -203,5 +195,23 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False)
 	apply_rest_scale_correction(b_armature_ob, scales, anim, skinned_meshes)
 
 	logging.info(f'Finished BFB Import in {time.time() - start_time:.2f} seconds')
-	return errors
+
+
+def cleanup_mesh_data(material_indices, tris, vertices, cleanup_geometry):
+	if cleanup_geometry:
+		verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
+		sorted_indices = np.sort(unique_indices)
+		verts_unique = vertices[sorted_indices]
+		transsort = np.argsort(unique_indices)
+		i_rev = transsort.copy()
+		i_rev[transsort] = np.arange(len(i_rev))
+		unique_inverse = i_rev[unique_inverse]
+		tris_sorted = np.take(unique_inverse, tris)
+		material_indices_sorted = np.take(unique_inverse, material_indices)
+	else:
+		sorted_indices = np.arange(len(vertices))
+		verts_unique = vertices
+		tris_sorted = tris
+		material_indices_sorted = material_indices
+	return material_indices_sorted, sorted_indices, tris_sorted, verts_unique
 

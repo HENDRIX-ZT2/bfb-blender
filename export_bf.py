@@ -212,9 +212,8 @@ def keys_iter(fcurves):
 		yield frame, [fcurve.keyframe_points[i].co[1] for fcurve in fcurves]
 
 
-def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_power=2):
+def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 	start_time = time.time()
-	errors = []
 	if fix_tangents:
 		bake_clean_actions.loop_fcurve_tangents()
 
@@ -231,7 +230,7 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 		handle_legacy_name(b_armature_ob)
 		handle_legacy_name(b_armature_ob.data)
 		if not reasonably_close(b_armature_ob.matrix_world.to_scale(), (1.0, 1.0, 1.0)):
-			errors.append(
+			reporter.show_warning(
 				"Your armature (or one of its parents) is scaled in object mode! Apply scale to armature, objects and animations and try again.")
 		for bone in b_armature_ob.data.bones:
 			b_rest = Corrector.get_b_matrix(bone)
@@ -258,4 +257,3 @@ def save(operator, context, filepath='', fix_tangents=False, error=0.25, exp_pow
 
 		write_nodes(dir_path, b_action, channel_storage, error_margins)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")
-	return errors

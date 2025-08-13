@@ -4,7 +4,7 @@ import math
 import bpy
 from struct import pack
 
-def save(operator, context, filepath = ''):
+def save(reporter, filepath = ''):
 	
 	print('Exporting',filepath,'...')
 	errors = []
@@ -86,4 +86,3 @@ def save(operator, context, filepath = ''):
 	f.close()
 
 	print('Finished DAT Export in %.2f seconds' %(time.time()-starttime))
-	return errors
