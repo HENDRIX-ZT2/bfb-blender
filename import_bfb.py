@@ -167,11 +167,10 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 					b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
 			if "rgba" in verts.dtype.fields:
 				rgba = (verts["rgba"].astype(float) / 255.0)
-				# strangely, color attributes must be set as linear color to blender
-				# export is fine, probably due to not using the attributes api
+				# color attributes must be set as linear color to blender
 				# https://blender.stackexchange.com/questions/286325/getting-and-using-the-selected-color-attribute
 				srgb_to_lin(rgba)
-				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
+				cols = b_me.attributes.new(f"RGBA", "FLOAT_COLOR", "CORNER")
 				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, (2, 1, 0, 3)]).flatten())
 
 			if block.type_id == BlockType.MESH_SKINNED:

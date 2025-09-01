@@ -314,6 +314,8 @@ def export_mesh(b_ob, bfb):
 
 			bfb_vertex = [(co.x, co.y, co.z), (no.x, no.y, no.z), ]
 			if eval_me.vertex_colors:
+				# legacy vertex_colors api converts the color to srgb float
+				# migration to attributes api must manually use lin_to_srgb
 				col = eval_me.vertex_colors[0].data[loop_index].color
 				bfb_vertex += [(int(col[2] * 255), int(col[1] * 255), int(col[0] * 255), int(col[3] * 255)), ]
 			for uv_layer in eval_me.uv_layers:
