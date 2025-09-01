@@ -140,7 +140,7 @@
         <add name="start_sibling" type="uint"/>
         <add name="unk_0" type="ubyte" />
         anky: lod0 geom + node = 4, other lods = 0, unsure about rest
-        lodroup: 2 or 0
+        lodgroup: 2 or 0
         <add name="name" type="FixedString" arg="64"/>
         <add name="matrix" type="Matrix44" />
         <add name="unk_1" type="uint" />

@@ -39,6 +39,7 @@ def import_scene_graph(b_parent, node, lod_level):
 		b_ob = create_empty(b_parent, "lodgroup", matrix)
 	elif node.type_id in (NodeType.MESH_LINK, NodeType.BILLBOARD_LINK):
 		logging.info(f"geometries: {node.geometry.object_ids}")
+		assert len(node.geometry.object_ids) == 1
 		for object_id in node.geometry.object_ids:
 			b_ob = id2data[object_id]
 			b_ob.name = node.name
@@ -136,12 +137,11 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 				tris_offset += num_chunk_tris
 
 			vertices = verts["pos"].copy()
-			material_indices_sorted, sorted_indices, tris_sorted, verts_unique = cleanup_mesh_data(
-				material_indices, tris, vertices, cleanup_geometry)
+			sorted_indices, tris_remapped, verts_unique = cleanup_mesh_data(tris, vertices, cleanup_geometry)
 
 			mesh_tris_flat = tris.flatten()
 			b_me = FastMesh.new(block.name)
-			b_me.from_pydata(verts_unique, [], tris_sorted)
+			b_me.from_pydata(verts_unique, [], tris_remapped)
 			b_ob = create_ob(bpy.context.scene, block.name, b_me)
 			id2data[block.id] = b_ob
 			# Do we have weights for the wind vertex shader? (UVW coordinates if you like)
@@ -153,7 +153,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 					b_ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
 
 			b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
-			b_me.polygons.foreach_set('material_index', material_indices_sorted)
+			b_me.polygons.foreach_set('material_index', material_indices)
 
 			if use_custom_normals:
 				set_auto_smooth_safe(b_me)
@@ -191,7 +191,8 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 				mod.object = b_armature_ob
 
 			ob_postpro(b_me, use_mirror_mesh)
-		logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
+			logging.info(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name} flag {data.flag}')
+		# logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 
 	logging.info("Reading object hierarchy")
 	import_scene_graph(None, bfb.tree, 0)
@@ -201,7 +202,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 	logging.info(f'Finished BFB Import in {time.time() - start_time:.2f} seconds')
 
 
-def cleanup_mesh_data(material_indices, tris, vertices, cleanup_geometry):
+def cleanup_mesh_data(tris, vertices, cleanup_geometry):
 	if cleanup_geometry:
 		verts_unique, unique_indices, unique_inverse = np.unique(vertices, return_index=True, return_inverse=True, axis=0)
 		sorted_indices = np.sort(unique_indices)
@@ -210,12 +211,10 @@ def cleanup_mesh_data(material_indices, tris, vertices, cleanup_geometry):
 		i_rev = transsort.copy()
 		i_rev[transsort] = np.arange(len(i_rev))
 		unique_inverse = i_rev[unique_inverse]
-		tris_sorted = np.take(unique_inverse, tris)
-		material_indices_sorted = np.take(unique_inverse, material_indices)
+		tris_remapped = np.take(unique_inverse, tris)
 	else:
 		sorted_indices = np.arange(len(vertices))
 		verts_unique = vertices
-		tris_sorted = tris
-		material_indices_sorted = material_indices
-	return material_indices_sorted, sorted_indices, tris_sorted, verts_unique
+		tris_remapped = tris
+	return sorted_indices, tris_remapped, verts_unique
 
