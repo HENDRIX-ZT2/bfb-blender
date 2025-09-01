@@ -16,6 +16,7 @@ from common_bfb import create_empty, ensure_active_object, name_export
 from modules_export.armature import clear_pose, get_valid_bones, export_bones
 from modules_export.collision import export_bounding_box, export_sphere, export_capsule
 from modules_import.anim import get_rna_path
+from util.colors import color_indices, lin_to_srgb
 
 
 def flatten(mat):
@@ -290,8 +291,15 @@ def export_mesh(b_ob, bfb):
 	# use this to look up the index of the uv layer
 	# this is a little faster than
 	BFRVertex = 'PN'
-	if eval_me.vertex_colors:
+	if eval_me.color_attributes:
 		BFRVertex += 'D'
+		colors = np.empty(len(eval_me.loops) * 4, np.float32)
+		eval_me.color_attributes[0].data.foreach_get('color', colors)
+		colors = colors.reshape((len(eval_me.loops), 4))
+		# legacy vertex_colors api converted the color to srgb float
+		# attributes api must manually use lin_to_srgb
+		lin_to_srgb(colors)
+		colors = np.round(colors[:, color_indices] * 255)
 	for i in range(len(eval_me.uv_layers)):
 		if 'fx_wind' in b_ob.vertex_groups:
 			BFRVertex += f'T3{i}'
@@ -313,14 +321,11 @@ def export_mesh(b_ob, bfb):
 			no = eval_me.loops[loop_index].normal
 
 			bfb_vertex = [(co.x, co.y, co.z), (no.x, no.y, no.z), ]
-			if eval_me.vertex_colors:
-				# legacy vertex_colors api converts the color to srgb float
-				# migration to attributes api must manually use lin_to_srgb
-				col = eval_me.vertex_colors[0].data[loop_index].color
-				bfb_vertex += [(int(col[2] * 255), int(col[1] * 255), int(col[0] * 255), int(col[3] * 255)), ]
+			if eval_me.color_attributes:
+				bfb_vertex.append(tuple(colors[loop_index]))
 			for uv_layer in eval_me.uv_layers:
 				uv_coord = uv_layer.data[loop_index].uv
-				bfb_vertex += [(uv_coord.x, 1.0 - uv_coord.y), ]
+				bfb_vertex.append((uv_coord.x, 1.0 - uv_coord.y))
 				if 'T3' in BFRVertex:
 					try:
 						weight = vertex.groups[weight_group_index].weight

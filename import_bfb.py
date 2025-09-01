@@ -10,7 +10,7 @@ from modules_import.armature import import_bones, get_matrix, apply_rest_scale_c
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from modules_import.collision import attach_capsule, create_capsule, create_sphere, create_bounding_box
 from modules_import.materials import create_material
-from util.colors import srgb_to_lin
+from util.colors import srgb_to_lin, color_indices
 from util.fast_mesh import FastMesh
 from common_bfb import *
 
@@ -170,8 +170,8 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 				# color attributes must be set as linear color to blender
 				# https://blender.stackexchange.com/questions/286325/getting-and-using-the-selected-color-attribute
 				srgb_to_lin(rgba)
-				cols = b_me.attributes.new(f"RGBA", "FLOAT_COLOR", "CORNER")
-				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, (2, 1, 0, 3)]).flatten())
+				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
+				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, color_indices]).flatten())
 
 			if block.type_id == BlockType.MESH_SKINNED:
 				bone_names = b_armature_ob.data.bones.keys()
