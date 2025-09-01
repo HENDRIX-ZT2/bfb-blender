@@ -10,6 +10,7 @@ from modules_import.armature import import_bones, get_matrix, apply_rest_scale_c
 from modules_import.geometry import ob_postpro, set_auto_smooth_safe
 from modules_import.collision import attach_capsule, create_capsule, create_sphere, create_bounding_box
 from modules_import.materials import create_material
+from util.colors import srgb_to_lin
 from util.fast_mesh import FastMesh
 from common_bfb import *
 
@@ -165,7 +166,11 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 					uvs[:, 1] = 1.0 - uvs[:, 1]
 					b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
 			if "rgba" in verts.dtype.fields:
-				rgba = verts["rgba"].astype(float) / 255.0
+				rgba = (verts["rgba"].astype(float) / 255.0)
+				# strangely, color attributes must be set as linear color to blender
+				# export is fine, probably due to not using the attributes api
+				# https://blender.stackexchange.com/questions/286325/getting-and-using-the-selected-color-attribute
+				srgb_to_lin(rgba)
 				cols = b_me.attributes.new(f"RGBA", "BYTE_COLOR", "CORNER")
 				cols.data.foreach_set("color", per_loop(mesh_tris_flat, rgba[:, (2, 1, 0, 3)]).flatten())
 
