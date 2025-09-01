@@ -96,8 +96,8 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 	bfb = BfbFile()
 	bfb.load(filepath)
 	# print(bfb)
-	if bfb.header.version != 4295098369:
-		reporter.show_warning(f"Unsupported BFB version: {bfb.header.version}")
+	# if bfb.header.version != 4295098369:
+	# 	reporter.show_warning(f"Unsupported BFB version: {bfb.header.version}")
 	logging.debug(f"BFB Version: {bfb.header.version}")
 	logging.debug(f"BFB Author: {bfb.header.author}")
 	logging.info("Reading object blocks...")
