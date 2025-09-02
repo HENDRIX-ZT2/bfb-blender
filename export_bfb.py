@@ -387,7 +387,7 @@ def export_mesh(b_ob, bfb):
 	mesh_block.name = "mesh"
 	mesh_data_block.users.append(mesh_block)
 	mesh_data_block.vertex_lists.append(mesh_vertices)
-	mesh_data_block.chunks_lists.append(mesh_chunks)
+	mesh_data_block.chunks_lists.append([mesh_chunks[i] for i in sorted(mesh_chunks.keys())])
 	return mesh_block.id
 
 
@@ -475,7 +475,7 @@ def save(reporter, filepath='', author_name="HENDRIX", export_materials=True, cr
 
 		# fill in the meshData block
 		verts = join_lists(mesh_data_block.vertex_lists)
-		chunks = [join_lists(chunk.values()) for chunk in mesh_data_block.chunks_lists]
+		chunks = [join_lists(chunk) for chunk in mesh_data_block.chunks_lists]
 		mesh_data_block.data.verts.set_verts(verts)
 		mesh_data_block.data.vertex_count = len(verts)
 		mesh_data_block.data.num_tri_indices = sum(len(tris) for tris in chunks) * 3
@@ -488,7 +488,7 @@ def save(reporter, filepath='', author_name="HENDRIX", export_materials=True, cr
 			# create just 1 chunk
 			mesh_block.data.num_chunks = len(chunks_list)
 			mesh_block.data.reset_field("chunks")
-			for chunk, triangle_list in zip(mesh_block.data.chunks, chunks_list.values()):
+			for chunk, triangle_list in zip(mesh_block.data.chunks, chunks_list):
 				chunk.vertex_offset = vertex_offset
 				chunk.vertex_count = len(vertex_list)
 				chunk.num_tris = len(triangle_list)
