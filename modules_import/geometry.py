@@ -9,7 +9,7 @@ def set_auto_smooth_safe(b_me):
 		b_me.use_auto_smooth = True
 
 
-def ob_postpro(b_me, use_mirror_mesh):
+def ob_postpro(b_me, use_mirror_mesh, cleanup_geometry):
 	logging.debug("Postprocessing geometry")
 	bpy.ops.object.mode_set(mode='EDIT')
 	if use_mirror_mesh:
@@ -18,7 +18,8 @@ def ob_postpro(b_me, use_mirror_mesh):
 	if b_me.uv_layers:
 		bpy.ops.uv.select_all(action='SELECT')
 		bpy.ops.uv.seams_from_islands()
-	bpy.ops.mesh.tris_convert_to_quads(uvs=True, vcols=True, seam=True, sharp=True)
+	if cleanup_geometry:
+		bpy.ops.mesh.tris_convert_to_quads(uvs=True, vcols=True, seam=True, sharp=True)
 	bpy.ops.object.mode_set(mode='OBJECT')
 
 

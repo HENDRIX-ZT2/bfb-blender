@@ -190,7 +190,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 				mod = b_ob.modifiers.new('SkinDeform', 'ARMATURE')
 				mod.object = b_armature_ob
 
-			ob_postpro(b_me, use_mirror_mesh)
+			ob_postpro(b_me, use_mirror_mesh, cleanup_geometry)
 			logging.info(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name} flag {data.flag}')
 		# logging.debug(f'ID: {block.id} ({block.type_id}) End: {block.end}, Name: {block.name}')
 

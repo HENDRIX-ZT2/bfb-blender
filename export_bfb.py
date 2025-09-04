@@ -153,7 +153,7 @@ def attach_collision(bfb_node, new_collider_id):
 	bfb_node.collision_ids[:] = colliders
 
 
-def export_tree(reporter, b_ob, bfb, bfb_parent=None):
+def export_tree(reporter, b_ob, bfb, reuse_vertices, bfb_parent=None):
 	logging.debug(f'Gathering block data for {b_ob.name}')
 	if b_ob.type in ("EMPTY", "ARMATURE"):
 		if b_ob.name.startswith('lodgroup'):
@@ -184,7 +184,7 @@ def export_tree(reporter, b_ob, bfb, bfb_parent=None):
 			bfb_node.bone_name = bone_name
 			attach_collision(bfb_node, export_capsule(b_ob, bfb))
 		else:
-			mesh_id = export_mesh(b_ob, bfb)
+			mesh_id = export_mesh(b_ob, bfb, reuse_vertices)
 			if mesh_id is not None:
 				if b_ob.constraints:
 					bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
@@ -206,7 +206,7 @@ def export_tree(reporter, b_ob, bfb, bfb_parent=None):
 		# lamps etc, just ignore them
 		return None
 	for b_child in b_ob.children:
-		bfb_child = export_tree(reporter, b_child, bfb, bfb_node)
+		bfb_child = export_tree(reporter, b_child, bfb, reuse_vertices, bfb_node)
 		if bfb_child:
 			bfb_node.children.append(bfb_child)
 	return bfb_node
@@ -240,7 +240,7 @@ def apply_transform(reporter, ob, ):
 		reporter.show_warning(f"{ob.name} has had its transform applied to avoid ingame distortion!")
 
 
-def export_mesh(b_ob, bfb):
+def export_mesh(b_ob, bfb, reuse_vertices):
 	b_armature = b_ob.find_armature()
 	# we have an armature on one mesh, means we can't export meshes without armature
 	if has_armature and not b_armature:
@@ -333,8 +333,8 @@ def export_mesh(b_ob, bfb):
 						weight = 0
 					bfb_vertex.append(weight)
 			key = tuple(bfb_vertex)
-			if key not in dummy_vertices:
-				dummy_vertices[key] = len(dummy_vertices)
+			if not reuse_vertices or key not in dummy_vertices:
+				dummy_vertices[key] = len(mesh_vertices)
 				mesh_vertices.append(key)
 				if b_armature:
 					w = []
@@ -391,7 +391,7 @@ def export_mesh(b_ob, bfb):
 	return mesh_block.id
 
 
-def save(reporter, filepath='', author_name="HENDRIX", export_materials=True, create_lods=False,
+def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, export_materials=True, create_lods=False,
 		 num_lods=1, rate=1):
 	if create_lods:
 		logging.info('Adding LODs')
@@ -468,7 +468,7 @@ def save(reporter, filepath='', author_name="HENDRIX", export_materials=True, cr
 				# apply again just to be sure
 				apply_transform(reporter, b_ob)
 
-	bfb.tree = export_tree(reporter, b_root, bfb)
+	bfb.tree = export_tree(reporter, b_root, bfb, reuse_vertices)
 
 	for BFRVertex, mesh_data_block in BFRVertex_2_meshData.items():
 		logging.debug(f'Filling in BFRVertex{BFRVertex}')

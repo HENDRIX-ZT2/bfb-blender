@@ -43,6 +43,9 @@ class ExportBFB(ExportOp):
 	export_materials: BoolProperty(name="Export Materials",
 								   description="Should BFMAT materials be exported? Beware, they might not be identical to the existing material!",
 								   default=True)
+	reuse_vertices: BoolProperty(name="Reuse Vertices",
+								   description="Turn this off for skydomes only",
+								   default=True)
 	author_name: StringProperty(name="Author", description="A signature included in the BFB file.", default=author)
 	create_lods: BoolProperty(name="Create LODs", description="Adds Levels of Detail - overwrites existing LODs!",
 							  default=False)
