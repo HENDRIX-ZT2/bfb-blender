@@ -149,12 +149,20 @@ def store_transform_data(channel_storage, rest_data, matrix, name, frame):
 	euler.make_compatible(rest_data[name][EUL])
 	bone_storage[EUL_X][frame], bone_storage[EUL_Y][frame], bone_storage[EUL_Z][frame] = euler
 
-def write_nodes(dir_path, b_action, channel_storage, error_margins):
+def write_nodes(reporter, dir_path, b_action, channel_storage, error_margins):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
 	first_frame, last_frame = b_action.frame_range
-	duration = (last_frame - first_frame) / fps
+	frame_count = last_frame - first_frame
+	duration = frame_count / fps
+	# warn for locomotion sets if length is not a 'clean' fraction of a second
+	locomotion_sets = ["Walk", "Run", "Gallop", "Trot", "Swim", "Crawl"]
+	locomotion_list = [f"{s}_" for s in locomotion_sets] + [f"{s}Object_" for s in locomotion_sets]
+	if any(s in b_action.name for s in locomotion_list):
+		# todo - does it actually depend on the frame count or the length?
+		if (frame_count * 10) % fps:
+			reporter.show_warning(f"Change duration of {b_action.name} to enable wandering")
 	bf.header.version = bf.context.version = 2
 	bf.header.duration = duration
 	bf.header.num_nodes = len(channel_storage)
@@ -255,5 +263,5 @@ def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 		channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
 		logging.info(f"Exporting {b_action.name}")
 
-		write_nodes(dir_path, b_action, channel_storage, error_margins)
+		write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")
