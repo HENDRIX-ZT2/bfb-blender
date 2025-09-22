@@ -4,7 +4,6 @@ import os
 import time
 import bpy
 import mathutils
-import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -15,134 +14,12 @@ from bfb_gen.formats.bfb.enums.NodeType import NodeType
 from common_bfb import create_empty, ensure_active_object, name_export
 from modules_export.armature import clear_pose, get_valid_bones, export_bones
 from modules_export.collision import export_bounding_box, export_sphere, export_capsule
-from modules_import.anim import get_rna_path
+from modules_export.material import get_mat_names
 from util.colors import color_indices, lin_to_srgb
 
 
 def flatten(mat):
 	return [v for row in mat for v in row]
-
-
-def indent(elem, level=0):
-	i = "\n" + level * "	"
-	if len(elem):
-		if not elem.text or not elem.text.strip():
-			elem.text = i + "	"
-		if not elem.tail or not elem.tail.strip():
-			elem.tail = i
-		for elem in elem:
-			indent(elem, level + 1)
-		if not elem.tail or not elem.tail.strip():
-			elem.tail = i
-	else:
-		if level and (not elem.tail or not elem.tail.strip()):
-			elem.tail = i
-
-
-# little utility function for searching fcurves
-def find_fcurve(id_data, path, index=0):
-	anim_data = id_data.animation_data
-	if anim_data:
-		for fcurve in anim_data.action.fcurves:
-			if fcurve.data_path == path and fcurve.array_index == index:
-				return fcurve
-
-
-def write_bfmat(reporter, b_ob, b_mat, mat_name):
-	matoptions = [
-		("AlphaApplyMode", "dword", "4"),
-		("AlphaBlendEnable", "bool", "false"),
-		("AlphaFunc", "dword", "5"),
-		("AlphaRef", "dword", "127"),
-		("AlphaTestEnable", "bool", "true"),
-		("AmbientMaterialSource", "dword", "1"),
-		("ColorApplyMode", "dword", "4"),
-		("CullMode", "dword", "1"),
-		("DiffuseMaterialSource", "dword", "1"),
-		("EmissiveMaterialSource", "dword", "0"),
-		("MaterialAmbient", "vector4", "1, 1, 1, 1"),
-		("MaterialDiffuse", "vector4", "1, 1, 1, 1"),
-		("MaterialEmissive", "vector4", "0, 0, 0, 1"),
-		("MaterialPower", "float", "1"),
-		("ShadeMode", "dword", "2"),
-		("SpecularEnable", "bool", "false")]
-
-	logging.info(f"Exporting BFMAT file for {b_mat.name}")
-	mat_path = os.path.join(dir_path, "Materials")
-	if not os.path.exists(mat_path):
-		os.makedirs(mat_path)
-	bfmat = ET.Element('material')
-	fps = bpy.context.scene.render.fps
-
-	texture_nodes = []
-	for i in range(3):
-		texture_node = b_mat.node_tree.nodes.get(f"Texture{i}")
-		if texture_node:
-			texture_nodes.append(texture_node)
-			if texture_node.image:
-				image = texture_node.image.filepath
-				# fallback for generated images
-				if not image:
-					image = texture_node.image.name
-				# strip the extension and save it
-				matoptions.append((f"Texture{i}", "texture", os.path.splitext(os.path.basename(image))[0]))
-			else:
-				reporter.show_warning(f"Texture {texture_node.texture.name} in material {b_mat.name} contains no image!")
-		transform_node = b_mat.node_tree.nodes.get(f"TextureTransform{i}")
-		if transform_node:
-			# UV anim
-			dp = get_rna_path(transform_node.name, n_node_input=1)
-			u = find_fcurve(b_mat.node_tree, dp, 0)
-			v = find_fcurve(b_mat.node_tree, dp, 1)
-
-			if u:
-				animate = ET.SubElement(bfmat, "animate",{"name": f"TextureTransform{i}", "type":"UVTransform", "loop": "wrap", "length": str(max(u.range()[1],v.range()[1])/fps)})
-				offsetu = ET.SubElement(animate, "offsetu")
-				for k in u.keyframe_points:
-					ET.SubElement(offsetu, "key",{"time":str(k.co[0]/fps),"value":str(k.co[1])})
-				offsetv = ET.SubElement(animate, "offsetv")
-				for k in v.keyframe_points:
-					ET.SubElement(offsetv, "key",{"time":str(k.co[0]/fps),"value":str(-k.co[1])})
-				# not exactly sure what these are for? - not supported atm
-				tileu =  ET.SubElement(animate, "tileu")
-				ET.SubElement(tileu, "key",{"time":"0.0","value":"1.0"})
-				tilev =  ET.SubElement(animate, "tilev")
-				ET.SubElement(tilev, "key",{"time":"0.0","value":"1.0"})
-				rotw =  ET.SubElement(animate, "rotw")
-				ET.SubElement(rotw, "key",{"time":"0.0","value":"0.0"})
-
-			matoptions.append((f"AddressU{i}", "dword", "1"))
-			matoptions.append((f"AddressV{i}", "dword", "1"))
-		texcoord_node = b_mat.node_tree.nodes.get(f"TexCoordIndex{i}")
-		if texcoord_node:
-			# try to grab texcoord from node
-			try:
-				texcoord = str(int(texcoord_node.uv_map))
-			except:
-				logging.warning(f"{texcoord_node.name} does not follow the UV layer naming convention (numbers only), TexCoordIndex set to 0")
-				texcoord = "0"
-			matoptions.append((f"TexCoordIndex{i}", "dword", texcoord))
-
-	# todo: first try to get imported fx from output_node.label, then fall back
-	fx = "Base"
-	if len(texture_nodes) == 1:
-		matoptions.append(("LightingEnable", "bool", "true"))
-	elif len(texture_nodes) == 2:
-		fx += "Decal"
-	elif len(texture_nodes) == 3:
-		fx += "DecalDetail"
-	if b_ob in ob_2_fx_wind:
-		fx += ob_2_fx_wind[b_ob]
-	bfmat.set("fx", fx)
-	bfmat.set("name", mat_name)
-
-	for option in sorted(matoptions, key=lambda x: x[0]):
-		param = ET.SubElement(bfmat, "param", {"name": option[0], "type": option[1]})
-		param.text = str(option[2])
-
-	material_tree = ET.ElementTree(bfmat)
-	indent(bfmat)
-	material_tree.write(os.path.join(mat_path, f"{mat_name}.bfmat"))
 
 
 def attach_collision(bfb_node, new_collider_id):
@@ -153,7 +30,7 @@ def attach_collision(bfb_node, new_collider_id):
 	bfb_node.collision_ids[:] = colliders
 
 
-def export_tree(reporter, b_ob, bfb, reuse_vertices, bfb_parent=None):
+def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_dir, bfb_parent=None):
 	logging.debug(f'Gathering block data for {b_ob.name}')
 	if b_ob.type in ("EMPTY", "ARMATURE"):
 		if b_ob.name.startswith('lodgroup'):
@@ -185,49 +62,31 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, bfb_parent=None):
 			attach_collision(bfb_node, export_capsule(b_ob, bfb))
 		else:
 			mesh_id = export_mesh(b_ob, bfb, reuse_vertices)
-			if mesh_id is not None:
-				if b_ob.constraints:
-					bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
-					data = bfb_node.geometry
-					data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
-				else:
-					bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
-					bfb_node.unk_0 = 4
-					bfb_node.unk_1 = 0
-					bfb_node.name = "editable mesh"
-					# or 0, 2, or rarely 0, 0
-					data = bfb_node.geometry
-				data.object_ids[0] = mesh_id
-				mat_names = list(get_mat_names(reporter, b_ob))
-				data.num_materials = len(mat_names)
-				data.reset_field("materials")
-				data.materials[:] = mat_names
+			assert mesh_id is not None
+			if b_ob.constraints:
+				bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
+				data = bfb_node.geometry
+				data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
+			else:
+				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
+				bfb_node.unk_0 = 4
+				bfb_node.unk_1 = 0
+				bfb_node.name = "editable mesh"
+				# or 0, 2, or rarely 0, 0
+				data = bfb_node.geometry
+			data.object_ids[0] = mesh_id
+			mat_names = list(get_mat_names(reporter, b_ob, export_dir, export_materials))
+			data.num_materials = len(mat_names)
+			data.reset_field("materials")
+			data.materials[:] = mat_names
 	else:
 		# lamps etc, just ignore them
 		return None
 	for b_child in b_ob.children:
-		bfb_child = export_tree(reporter, b_child, bfb, reuse_vertices, bfb_node)
+		bfb_child = export_tree(reporter, b_child, bfb, reuse_vertices, export_materials, export_dir, bfb_node)
 		if bfb_child:
 			bfb_node.children.append(bfb_child)
 	return bfb_node
-
-
-def get_mat_names(reporter, b_ob):
-
-	if len(b_ob.data.materials):
-		# sometimes there will be empty slots before a material
-		for material in b_ob.data.materials:
-			if material:
-				mat_name = material.name.replace(".", "")
-				if write_materials:
-					try:
-						write_bfmat(reporter, b_ob, material, mat_name)
-					except:
-						logging.exception(f"Bfmat export failed")
-				yield mat_name
-	# else:
-	# log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
-	# mat_name = 'none'
 
 
 def apply_transform(reporter, ob, ):
@@ -284,10 +143,6 @@ def export_mesh(b_ob, bfb, reuse_vertices):
 	weights_list = []
 	if 'fx_wind' in b_ob.vertex_groups:
 		weight_group_index = b_ob.vertex_groups['fx_wind'].index
-		ob_2_fx_wind[b_ob] = "_wind"
-		# this is for some shaders to make sure the decal set uses the UV1
-		if len(eval_me.uv_layers) > 1:
-			ob_2_fx_wind[b_ob] += "_uv11"
 	# use this to look up the index of the uv layer
 	# this is a little faster than
 	BFRVertex = 'PN'
@@ -400,18 +255,15 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 	logging.info(f'Exporting {filepath}')
 	ensure_active_object()
 
-	global write_materials
-	write_materials = export_materials
-	global dir_path
-	dir_path = os.path.dirname(filepath)
+	export_dir = os.path.dirname(filepath)
+	if not os.path.exists(export_dir):
+		os.makedirs(export_dir)
 	bfb = BfbFile()
 
 	# if one model uses an armature, all have to. If they don't, they can't be exported.
 	global has_armature
 	has_armature = False
 	global b_scale_action
-	global ob_2_fx_wind
-	ob_2_fx_wind = {}
 	global BFRVertex_2_meshData
 	BFRVertex_2_meshData = {}
 
@@ -468,7 +320,7 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 				# apply again just to be sure
 				apply_transform(reporter, b_ob)
 
-	bfb.tree = export_tree(reporter, b_root, bfb, reuse_vertices)
+	bfb.tree = export_tree(reporter, b_root, bfb, reuse_vertices, export_materials, export_dir)
 
 	for BFRVertex, mesh_data_block in BFRVertex_2_meshData.items():
 		logging.debug(f'Filling in BFRVertex{BFRVertex}')
@@ -505,8 +357,6 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 	bfb.header.author = author_name
 	bfb.header.num_blocks = len(bfb.blocks)
 	bfb.header.num_nodes = len(bfb.tree.get_children([])) + 1
-	if not os.path.exists(dir_path):
-		os.makedirs(dir_path)
 	bfb.save(filepath)
 	# print(bfb)
 	logging.info(f'Finished BFB Export in {time.time() - start_time:.2f} seconds')

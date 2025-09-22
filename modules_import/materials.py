@@ -45,7 +45,7 @@ def create_material(b_ob, dir_path, mat_name, anim):
 				if texture is not None:
 					tex = node_util.load_tex_node(tree, bfmat.find_recursive(texture + ".dds"))
 					textures.append(tex)
-					tex.name = "Texture" + str(i)
+					tex.name = f"Texture{i}"
 					# e.g. African violets, but only in rendered view; but: glacier
 					tex.extension = "CLIP" if (cull_mode == "2" and not (
 							bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False)) else "REPEAT"
@@ -124,15 +124,16 @@ def create_material(b_ob, dir_path, mat_name, anim):
 					shader_diffuse = shader_add
 
 			# transparency
-			if bfmat.AlphaTestEnable is False and bfmat.AlphaBlendEnable is False:
-				b_mat.blend_method = "OPAQUE"
+			b_mat.use_transparent_shadow = False
+			if not bfmat.AlphaTestEnable and not bfmat.AlphaBlendEnable:
 				tree.links.new(shader_diffuse.outputs[0], output.inputs[0])
 			else:
 				if bfmat.AlphaTestEnable:
-					b_mat.blend_method = "CLIP"
-					b_mat.alpha_threshold = 1 - float(alpha_ref) / 255
+					b_mat.use_transparent_shadow = True
+					b_mat.surface_render_method = "DITHERED"
+					b_mat.alpha_threshold = 1.0 - float(alpha_ref) / 255.0
 				if bfmat.AlphaBlendEnable:
-					b_mat.blend_method = "BLEND"
+					b_mat.surface_render_method = "BLENDED"
 				transp = tree.nodes.new('ShaderNodeBsdfTransparent')
 				alpha_mixer = tree.nodes.new('ShaderNodeMixShader')
 

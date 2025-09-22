@@ -59,6 +59,8 @@ def set_b_collider(b_obj, bounds_type='BOX', display_type='BOX'):
 		b_obj.show_bounds = True
 		b_obj.display_type = 'BOUNDS'
 		b_obj.display_bounds_type = display_type
+	b_obj.visible_camera = False
+	b_obj.visible_shadow = False
 
 	# alternative
 	bpy.context.view_layer.objects.active = b_obj
