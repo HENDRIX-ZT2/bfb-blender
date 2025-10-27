@@ -149,8 +149,8 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 			if "w" in verts.dtype.fields:
 				logging.debug("Found fx_wind weights!")
 				b_ob.vertex_groups.new(name="fx_wind")
-				for i, vert in enumerate(verts["w"][sorted_indices]):
-					b_ob.vertex_groups["fx_wind"].add([i], vert[0], 'REPLACE')
+				for i, weight in enumerate(verts["w"][sorted_indices]):
+					b_ob.vertex_groups["fx_wind"].add([i], weight, 'REPLACE')
 
 			b_me.polygons.foreach_set('use_smooth', [True] * len(b_me.polygons))
 			b_me.polygons.foreach_set('material_index', material_indices)
