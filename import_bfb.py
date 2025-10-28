@@ -139,6 +139,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 
 			mesh_tris_flat = tris.flatten()
 			b_me = FastMesh.new(block.name)
+			b_me["BFRVertex"] = mesh_data.b_f_r_vertex
 			b_me.from_pydata(verts_unique, [], tris_remapped)
 			b_ob = create_ob(bpy.context.scene, block.name, b_me)
 			id2data[block.id] = b_ob
