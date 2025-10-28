@@ -36,7 +36,7 @@
 
     <compound name="Capsule">
         <add name="unk_0" type="ubyte" default="0"/>0
-        <add name="unk_1" type="ubyte" default="1"/>todo - apparently multiples of 8
+        <add name="unk_1" type="ubyte" default="8"/>todo - apparently multiples of 8
         <add name="start" type="Vector3" />
         <add name="end" type="Vector3" />
         <add name="radius" type="float" />
@@ -115,7 +115,6 @@
     </compound>
 
 	<compound name="MeshLink">
-        unk 1 - anky: lod0 = 0, other lods = 2, unsure about non-lod
         <add name="num_objects" type="uint" default="1"/>
         <add name="object_ids" type="uint" arr1="num_objects" />
         <add name="num_materials" type="uint" default="1"/>2 for zoopedia_redwoodtunnel
@@ -138,12 +137,16 @@
         <add name="type_id" type="NodeType"/>
         <add name="start_children" type="uint"/>
         <add name="start_sibling" type="uint"/>
-        <add name="unk_0" type="ubyte" />
-        anky: lod0 geom + node = 4, other lods = 0, unsure about rest
-        lodroup: 2 or 0
+        <add name="unk_0" type="ubyte" >
+            anky: lod0 geom + node = 4, other lods = 0, unsure about rest
+            lodgroup: 2 or 0
+        </add>
         <add name="name" type="FixedString" arg="64"/>
         <add name="matrix" type="Matrix44" />
-        <add name="unk_1" type="uint" />
+        <add name="unk_1" type="uint" >
+            zero unless
+            MeshLink on animals: lod0 = 0, other lods = 2
+        </add>
         <add name="num_children" type="uint"/>total including nested children
         <add name="num_colliders" type="uint"/>CrystalTunnel_df = 3
         <add name="collision_ids" type="uint" arr1="num_colliders"/>
@@ -159,8 +162,7 @@
 
 	<compound name="BfbHeader">
         <add name="magic" type="FixedString" arg="8" default="BFB!*000"/>
-        <add name="version" type="uint64" default="4295098369"/>
-<!--        <add name="version" type="ushort" arr1="4"/>latest: 1 2 1 0-->
+        <add name="version" type="ushort" arr1="4" />latest: 1 2 1 0, also seen 1 1 1 0
         <add name="author" type="FixedString" arg="64" />
         <add name="num_blocks" type="uint"/>
         <add name="num_nodes" type="uint"/>

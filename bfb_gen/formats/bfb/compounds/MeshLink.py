@@ -5,10 +5,6 @@ from bfb_gen.formats.bfb.imports import name_type_map
 
 class MeshLink(BaseStruct):
 
-	"""
-	unk 1 - anky: lod0 = 0, other lods = 2, unsure about non-lod
-	"""
-
 	__name__ = 'MeshLink'
 
 

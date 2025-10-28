@@ -19,9 +19,15 @@ class BfbNode(BaseStruct):
 		self.type_id = name_type_map['NodeType'](self.context, 0, None)
 		self.start_children = name_type_map['Uint'](self.context, 0, None)
 		self.start_sibling = name_type_map['Uint'](self.context, 0, None)
+
+		# anky: lod0 geom + node = 4, other lods = 0, unsure about rest
+		# lodgroup: 2 or 0
 		self.unk_0 = name_type_map['Ubyte'](self.context, 0, None)
 		self.name = name_type_map['FixedString'](self.context, 64, None)
 		self.matrix = name_type_map['Matrix44'](self.context, 0, None)
+
+		# zero unless
+		# MeshLink on animals: lod0 = 0, other lods = 2
 		self.unk_1 = name_type_map['Uint'](self.context, 0, None)
 		self.num_children = name_type_map['Uint'](self.context, 0, None)
 		self.num_colliders = name_type_map['Uint'](self.context, 0, None)

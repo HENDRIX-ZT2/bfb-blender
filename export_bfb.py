@@ -30,7 +30,7 @@ def attach_collision(bfb_node, new_collider_id):
 	bfb_node.collision_ids[:] = colliders
 
 
-def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_dir, bfb_parent=None):
+def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_dir, bfb_parent=None, lod_level=None):
 	logging.debug(f'Gathering block data for {b_ob.name}')
 	if b_ob.type in ("EMPTY", "ARMATURE"):
 		if b_ob.name.startswith('lodgroup'):
@@ -43,8 +43,12 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 			# node, with or without collision attached
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.NODE, bfb_parent)
 			# with collision: unk_0 and unk_1 both = 0 or 1
-			bfb_node.unk_0 = 0 # or 4 for lod0 nodes
-			bfb_node.unk_1 = 0
+			if lod_level in (0, 1):
+				bfb_node.unk_0 = 4
+				bfb_node.unk_1 = 0
+			else:
+				bfb_node.unk_0 = 0
+				bfb_node.unk_1 = 0
 	elif b_ob.type == "MESH":
 		if b_ob.name.startswith('sphere'):
 			attach_collision(bfb_parent, export_sphere(b_ob, bfb))
@@ -69,10 +73,14 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 				data.axis[:] = mathutils.Vector((1.0, 0.0, -1.0))
 			else:
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
-				bfb_node.unk_0 = 4
-				bfb_node.unk_1 = 0
-				bfb_node.name = "editable mesh"
 				# or 0, 2, or rarely 0, 0
+				if lod_level in (0, 1):
+					bfb_node.unk_0 = 4
+					bfb_node.unk_1 = 0
+				else:
+					bfb_node.unk_0 = 0
+					bfb_node.unk_1 = 0
+				bfb_node.name = "editable mesh" if "editable mesh" in b_ob.name else b_ob.name.replace(".", "")
 				data = bfb_node.geometry
 			data.object_ids[0] = mesh_id
 			mat_names = list(get_mat_names(reporter, b_ob, export_dir, export_materials))
@@ -82,8 +90,10 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 	else:
 		# lamps etc, just ignore them
 		return None
-	for b_child in b_ob.children:
-		bfb_child = export_tree(reporter, b_child, bfb, reuse_vertices, export_materials, export_dir, bfb_node)
+	for i, b_child in enumerate(b_ob.children):
+		if b_ob.name.startswith('lodgroup'):
+			lod_level = i
+		bfb_child = export_tree(reporter, b_child, bfb, reuse_vertices, export_materials, export_dir, bfb_node, lod_level=lod_level)
 		if bfb_child:
 			bfb_node.children.append(bfb_child)
 	return bfb_node
@@ -259,6 +269,7 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 	if not os.path.exists(export_dir):
 		os.makedirs(export_dir)
 	bfb = BfbFile()
+	bfb.header.version[:] = (1, 2, 1, 0)
 
 	# if one model uses an armature, all have to. If they don't, they can't be exported.
 	global has_armature
