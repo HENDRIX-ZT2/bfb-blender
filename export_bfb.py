@@ -151,13 +151,13 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 	dummy_vertices = {}
 
 	weights_list = []
-	if 'fx_wind' in b_ob.vertex_groups:
-		weight_group_index = b_ob.vertex_groups['fx_wind'].index
-	# use this to look up the index of the uv layer
-	# this is a little faster than
-	BFRVertex = 'PN'
+
+	weight_group_index = b_ob.vertex_groups['fx_wind'].index if 'fx_wind' in b_ob.vertex_groups else None
+	# get from property or guess if missing
+	BFRVertex = b_ob.data.get("BFRVertex")
+	if not BFRVertex:
+		BFRVertex = guess_bfr(b_ob, eval_me)
 	if eval_me.color_attributes:
-		BFRVertex += 'D'
 		colors = np.empty(len(eval_me.loops) * 4, np.float32)
 		eval_me.color_attributes[0].data.foreach_get('color', colors)
 		colors = colors.reshape((len(eval_me.loops), 4))
@@ -165,11 +165,6 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 		# attributes api must manually use lin_to_srgb
 		lin_to_srgb(colors)
 		colors = np.round(colors[:, color_indices] * 255)
-	for i in range(len(eval_me.uv_layers)):
-		if 'fx_wind' in b_ob.vertex_groups:
-			BFRVertex += f'T3{i}'
-		else:
-			BFRVertex += f'T{i}'
 	# select all verts without weights
 	unweighted_vertices = set()
 	group_map = {vg.index: bones_names.get(vg.name, -1) for vg in b_ob.vertex_groups}
@@ -191,12 +186,17 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 			for uv_layer in eval_me.uv_layers:
 				uv_coord = uv_layer.data[loop_index].uv
 				bfb_vertex.append((uv_coord.x, 1.0 - uv_coord.y))
-				if 'T3' in BFRVertex:
+				if weight_group_index is not None:
 					try:
 						weight = vertex.groups[weight_group_index].weight
 					except:
-						weight = 0
+						weight = 0.0
 					bfb_vertex.append(weight)
+			# unedited vertex normal
+			if 'T3D' in BFRVertex:
+				no2 = vertex.normal
+				bfb_vertex.append((no2.x, no2.y, no2.z))
+
 			key = tuple(bfb_vertex)
 			if not reuse_vertices or key not in dummy_vertices:
 				dummy_vertices[key] = len(mesh_vertices)
@@ -258,6 +258,19 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 	mesh_data_block.vertex_lists.append(mesh_vertices)
 	mesh_data_block.chunks_lists.append([mesh_chunks[i] for i in sorted(mesh_chunks.keys())])
 	return mesh_block.id
+
+
+def guess_bfr(b_ob, eval_me):
+	BFRVertex = 'PN'
+	if eval_me.color_attributes:
+		BFRVertex += 'D'
+	for i in range(len(eval_me.uv_layers)):
+		if 'fx_wind' in b_ob.vertex_groups:
+			BFRVertex += f'T3{i}'
+		else:
+			BFRVertex += f'T{i}'
+	logging.warning(f"Guessing BFRVertex for {b_ob.name} as {BFRVertex}")
+	return BFRVertex
 
 
 def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, export_materials=True, create_lods=False,

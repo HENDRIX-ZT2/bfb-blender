@@ -139,7 +139,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 
 			mesh_tris_flat = tris.flatten()
 			b_me = FastMesh.new(block.name)
-			b_me["BFRVertex"] = mesh_data.b_f_r_vertex
+			b_me["BFRVertex"] = mesh_data.b_f_r_vertex[9:]
 			b_me.from_pydata(verts_unique, [], tris_remapped)
 			b_ob = create_ob(bpy.context.scene, block.name, b_me)
 			id2data[block.id] = b_ob
@@ -158,10 +158,11 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 				set_auto_smooth_safe(b_me)
 				b_me.normals_split_custom_set(per_loop(mesh_tris_flat, verts["normal"]))
 
-			for uv_layer in ("u0", "u1", "u2"):
-				if uv_layer in verts.dtype.fields:
-					b_me.uv_layers.new(name=uv_layer[-1])
-					uvs = verts[uv_layer].copy()
+			for uv_i in range(4):
+				uv_name = f"u{uv_i}"
+				if uv_name in verts.dtype.fields:
+					b_me.uv_layers.new(name=str(uv_i))
+					uvs = verts[uv_name].copy()
 					uvs[:, 1] = 1.0 - uvs[:, 1]
 					b_me.uv_layers[-1].data.foreach_set("uv", per_loop(mesh_tris_flat, uvs).flatten())
 			if "rgba" in verts.dtype.fields:

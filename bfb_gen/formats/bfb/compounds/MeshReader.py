@@ -36,9 +36,8 @@ class MeshReader(BaseStruct):
 		return instance
 
 	def get_dtype_from_bfrvertex(self, set_vert_size=False):
-		# decodes the vertex format on the fly, should work on most if not all models. Some uncertainties about the last two, rare options.
+		# decodes the vertex format on the fly, should work on most if not all models.
 		self.formatstr = self.arg.b_f_r_vertex[9:]
-		# logging.info(self.formatstr)
 		dt_map = {
 			"P": [("pos", np.float32, (3,))],
 			"N": [("normal", np.float32, (3,))],
@@ -48,9 +47,8 @@ class MeshReader(BaseStruct):
 			"T2": [("u2", np.float32, (2,))],
 			"T30": [("u0", np.float32, (2,)), ("w", np.float32)],
 			"T31": [("u1", np.float32, (2,)), ("c", np.float32)],
-			"T3D1": [("u3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
-			"T3D2": [("u3", np.float32, (2,)), ("abcd", np.ubyte, (4,))],
-			# BFRVertexPNDT0T1T3D2 - CrystalTunnel_df, 56 bytes
+			"T3D1": [("face_normal", np.float32, (3,))], # verified on RedOatGrass_Savannah
+			"T3D2": [("face_normal", np.float32, (3,))], # BFRVertexPNDT0T1T3D2 - CrystalTunnel_df, 56 bytes, not tested
 		}
 		dt = []
 		cur = 0
