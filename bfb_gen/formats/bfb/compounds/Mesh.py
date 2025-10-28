@@ -14,6 +14,10 @@ class Mesh(BaseStruct):
 
 	def __init__(self, context, arg=0, template=None, set_default=True):
 		super().__init__(context, arg, template, set_default=False)
+
+		# 2 for lod0 when lods are used (meshdata flag: 10)
+		# otherwise:
+		# 0 (meshdata flag: 8)
 		self.flag = name_type_map['Ubyte'].from_value(0)
 		self.data_id = name_type_map['Uint'](self.context, 0, None)
 		self.num_chunks = name_type_map['Uint'].from_value(1)

@@ -65,7 +65,7 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 			bfb_node.bone_name = bone_name
 			attach_collision(bfb_node, export_capsule(b_ob, bfb))
 		else:
-			mesh_id = export_mesh(b_ob, bfb, reuse_vertices)
+			mesh_id = export_mesh(b_ob, bfb, reuse_vertices, lod_level)
 			assert mesh_id is not None
 			if b_ob.constraints:
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.BILLBOARD_LINK, bfb_parent)
@@ -109,7 +109,7 @@ def apply_transform(reporter, ob, ):
 		reporter.show_warning(f"{ob.name} has had its transform applied to avoid ingame distortion!")
 
 
-def export_mesh(b_ob, bfb, reuse_vertices):
+def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 	b_armature = b_ob.find_armature()
 	# we have an armature on one mesh, means we can't export meshes without armature
 	if has_armature and not b_armature:
@@ -225,17 +225,20 @@ def export_mesh(b_ob, bfb, reuse_vertices):
 	if unweighted_vertices:
 		raise AttributeError(
 			f'Found {len(unweighted_vertices)} unweighted vertices in {b_ob.name}! Add them to vertex groups!')
-
-	if BFRVertex not in BFRVertex_2_meshData:
+	
+	is_lod0 = lod_level == 0
+	vertex_key_tuple = (BFRVertex, is_lod0)
+	if vertex_key_tuple not in BFRVertex_2_meshData:
 		mesh_data_block = bfb.create_block(b_ob.data, bfb, BlockType.MESH_DATA)
 		mesh_data_block.name = "meshData"
 		mesh_data_block.data.b_f_r_vertex = f"BFRVertex{BFRVertex}"
+		mesh_data_block.data.flag = 10 if is_lod0 else 8
 		mesh_data_block.users = []
 		mesh_data_block.vertex_lists = []
 		mesh_data_block.chunks_lists = []
-		BFRVertex_2_meshData[BFRVertex] = mesh_data_block
+		BFRVertex_2_meshData[vertex_key_tuple] = mesh_data_block
 	else:
-		mesh_data_block = BFRVertex_2_meshData[BFRVertex]
+		mesh_data_block = BFRVertex_2_meshData[vertex_key_tuple]
 
 	b_armature = b_ob.find_armature()
 	if b_armature:
@@ -249,6 +252,7 @@ def export_mesh(b_ob, bfb, reuse_vertices):
 		mesh_block = bfb.create_block(b_ob, bfb, BlockType.MESH)
 
 	mesh_block.data.data_id = mesh_data_block.id
+	mesh_block.data.flag = 2 if is_lod0 else 0
 	mesh_block.name = "mesh"
 	mesh_data_block.users.append(mesh_block)
 	mesh_data_block.vertex_lists.append(mesh_vertices)
@@ -333,8 +337,8 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 
 	bfb.tree = export_tree(reporter, b_root, bfb, reuse_vertices, export_materials, export_dir)
 
-	for BFRVertex, mesh_data_block in BFRVertex_2_meshData.items():
-		logging.debug(f'Filling in BFRVertex{BFRVertex}')
+	for (BFRVertex, is_lod0), mesh_data_block in BFRVertex_2_meshData.items():
+		logging.debug(f'Filling in BFRVertex{BFRVertex} (is_lod0={is_lod0})')
 
 		# fill in the meshData block
 		verts = join_lists(mesh_data_block.vertex_lists)

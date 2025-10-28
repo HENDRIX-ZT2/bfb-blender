@@ -27,13 +27,18 @@ def walk_type(start_dir, extension=".ovl"):
 
 def explore_tree(node, bfb):
 	# if not node.num_colliders and node.type_id == NodeType.NODE:
-	if node.type_id == NodeType.LOD_GROUP:
-		print(rel_path, node.unk_0, node.unk_1)
+	# if node.type_id == NodeType.LOD_GROUP:
+	# 	print(rel_path, node.unk_0, node.unk_1)
+	if node.type_id == NodeType.MESH_LINK:
+		for object_id in node.geometry.object_ids:
+			ob = bmap[object_id]
+			mesh_data = bmap[ob.data.data_id]
+			print(rel_path, node.name, ob.data.flag, mesh_data.data.flag)
 	if node.type_id == NodeType.CAPSULE_LINK:
 		coll_id = node.collision_ids[0]
 		coll = bmap[coll_id]
 		# print(rel_path, coll.name, coll.data.unk_0, coll.data.unk_1 / 8, bfb.header.num_blocks, bfb.header.num_nodes)
-		print(rel_path, coll.name, coll.data.unk_0, coll.data.unk_1 / 8, node.id, coll_id)
+		# print(rel_path, coll.name, coll.data.unk_0, coll.data.unk_1 / 8, node.id, coll_id)
 		# print(node)
 		# for block in bfb.blocks:
 		# 	if block.type_id == BlockType.MESH_SKINNED:

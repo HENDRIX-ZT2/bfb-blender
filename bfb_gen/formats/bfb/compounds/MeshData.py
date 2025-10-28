@@ -10,6 +10,9 @@ class MeshData(BaseStruct):
 
 	def __init__(self, context, arg=0, template=None, set_default=True):
 		super().__init__(context, arg, template, set_default=False)
+
+		# 10 for lod0 when lods are used
+		# otherwise 8
 		self.flag = name_type_map['Ubyte'].from_value(8)
 		self.b_f_r_vertex = name_type_map['FixedString'](self.context, 64, None)
 		self.size_of_vertex = name_type_map['Uint'](self.context, 0, None)

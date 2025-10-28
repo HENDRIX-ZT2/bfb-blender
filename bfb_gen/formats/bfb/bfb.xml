@@ -46,7 +46,10 @@
     </compound>
 
     <compound name="MeshData">
-        <add name="flag" type="ubyte" default="8"/>or 10, unsure about the rule
+        <add name="flag" type="ubyte" default="8">
+            10 for lod0 when lods are used
+            otherwise 8
+        </add>
         <add name="BFRVertex" type="FixedString" arg="64"/>
         <add name="size_of_vertex" type="uint" />
         <add name="vertex_count" type="uint" />
@@ -68,7 +71,11 @@
 
     <compound name="Mesh">
         v 1: name may be junk bytes
-        <add name="flag" type="ubyte" default="0"/>0 (meshdata flag: 8) or 2 (meshdata flag: 10), not related to type_id or num_chunks, usually both pairs in bfb
+        <add name="flag" type="ubyte" default="0">
+            2 for lod0 when lods are used (meshdata flag: 10)
+            otherwise:
+            0 (meshdata flag: 8)
+        </add>
         <add name="data_id" type="uint" />
         <add name="num_chunks" type="uint" default="1"/>2 in DiscoveryKiosk_df
         <add name="chunks" type="Chunk" arr1="num_chunks"/>
@@ -104,7 +111,7 @@
         <add name="type_id" type="BlockType"/>
         <add name="flag" type="ushort" default="32768"/>
         <add name="end" type="uint"/>
-        <add name="name" type="FixedString" arg="64" />in version 4295032833, this filled with the following 64 bytes
+        <add name="name" type="FixedString" arg="64" />in version 1.1.1.0, this is filled with the following 64 bytes
 
         <add name="data" cond="type_id == 1" type="Sphere"/>
         <add name="data" cond="type_id == 3" type="BoundingBox"/>
