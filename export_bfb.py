@@ -382,7 +382,7 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 				tris_offset += chunk.num_tris
 			vertex_offset += chunk.vertex_count
 
-	bfb.header.author = author_name
+	bfb.header.author = author_name.strip()
 	bfb.header.num_blocks = len(bfb.blocks)
 	bfb.header.num_nodes = len(bfb.tree.get_children([])) + 1
 	bfb.blocks.sort(key=lambda block: sort_id(block))

@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from bfb_gen.formats.bfb import BfbFile
+from bfb_gen.formats.bfb.compounds.BillboardLink import BillboardLink
 from bfb_gen.formats.bfb.enums.BlockType import BlockType
 from bfb_gen.formats.bfb.enums.NodeType import NodeType
 
@@ -25,15 +26,24 @@ def walk_type(start_dir, extension=".ovl"):
 	return ret
 
 
-def explore_tree(node, bfb):
+def explore_tree(node, bfb, i=0):
 	# if not node.num_colliders and node.type_id == NodeType.NODE:
 	# if node.type_id == NodeType.LOD_GROUP:
 	# 	print(rel_path, node.unk_0, node.unk_1)
+	# if node.type_id == NodeType.BILLBOARD_LINK:
+	# 	print(node)
 	if node.type_id == NodeType.MESH_LINK:
 		for object_id in node.geometry.object_ids:
 			ob = bmap[object_id]
 			mesh_data = bmap[ob.data.data_id]
-			print(rel_path, node.name, ob.data.flag, mesh_data.data.flag)
+			# print(rel_path, node.name, node.id, object_id, ob.data.flag, mesh_data.data.flag)
+			print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, object_id)
+	else:
+		if len(node.collision_ids):
+			for object_id in node.collision_ids:
+				print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, object_id)
+		else:
+			print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, node.type_id)
 	if node.type_id == NodeType.CAPSULE_LINK:
 		coll_id = node.collision_ids[0]
 		coll = bmap[coll_id]
@@ -50,11 +60,13 @@ def explore_tree(node, bfb):
 	# if node.num_colliders:
 	# 	print(node)
 	for child in node.children:
-		explore_tree(child, bfb)
+		explore_tree(child, bfb, i+1)
 
 start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
 for bfb_path in walk_type(start_dir, extension=".bfb"):
 	rel_path = os.path.relpath(bfb_path, start_dir)
+	if not "palm" in rel_path.lower():
+		continue
 	try:
 		logging.info(f"Reading {rel_path}")
 		bfb = BfbFile()
@@ -64,7 +76,7 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		explore_tree(bfb.tree, bfb)
 		for block in bfb.blocks:
 			flag = f" Flag {block.data.flag}" if hasattr(block.data, 'flag') else ""
-			logging.info(f"Type {int(block.type_id)}{flag}")
+			# logging.info(f"Type {int(block.type_id)}{flag}")
 		# 	if block.type_id == BlockType.CAPSULE:
 		# 		print(bfb_path, block.name, block.data.unk_0, block.data.unk_1 // 8, block.data.unk_1 % 8)
 			# if block.type_id == BlockType.MESH:
