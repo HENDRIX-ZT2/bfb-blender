@@ -385,10 +385,21 @@ def save(reporter, filepath='', author_name="HENDRIX", reuse_vertices=True, expo
 	bfb.header.author = author_name
 	bfb.header.num_blocks = len(bfb.blocks)
 	bfb.header.num_nodes = len(bfb.tree.get_children([])) + 1
+	bfb.blocks.sort(key=lambda block: sort_id(block))
 	bfb.save(filepath)
 	# print(bfb)
 	logging.info(f'Finished BFB Export in {time.time() - start_time:.2f} seconds')
 
+def sort_id(block):
+	# mesh data first, rest in descending order of type_id
+	type_id = block.type_id
+	if type_id == 6:
+		type_id = -99
+	else:
+		type_id = -type_id
+	# sorting for flag is not consistent in original
+	flag = block.data.flag if hasattr(block.data, 'flag') else 0
+	return type_id, flag
 
 def join_lists(lists):
 	return list(itertools.chain(*lists))

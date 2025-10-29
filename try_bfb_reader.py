@@ -62,7 +62,9 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		logging.info(f"Version: {bfb.header.version}")
 		bmap = {block.id: block for block in bfb.blocks}
 		explore_tree(bfb.tree, bfb)
-		# for block in bfb.blocks:
+		for block in bfb.blocks:
+			flag = f" Flag {block.data.flag}" if hasattr(block.data, 'flag') else ""
+			logging.info(f"Type {int(block.type_id)}{flag}")
 		# 	if block.type_id == BlockType.CAPSULE:
 		# 		print(bfb_path, block.name, block.data.unk_0, block.data.unk_1 // 8, block.data.unk_1 % 8)
 			# if block.type_id == BlockType.MESH:
