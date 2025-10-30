@@ -83,7 +83,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			interp, data_type, k_size = info[modifier.key_type]
 			if data_type == "rotation_euler":
 				b_target.rotation_mode = "XYZ"
-			else:
+			elif data_type == "rotation_quaternion":
 				b_target.rotation_mode = "QUATERNION"
 
 			times = np.empty(len(modifier.keys), float)
