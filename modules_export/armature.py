@@ -6,8 +6,9 @@ from util.transforms import Corrector
 
 def clear_pose(b_armature_ob):
 	# clear pose to ensure no distorted pose is applied
-	for p_bone in b_armature_ob.pose.bones:
-		p_bone.matrix_basis = mathutils.Matrix().to_4x4()
+	if b_armature_ob:
+		for p_bone in b_armature_ob.pose.bones:
+			p_bone.matrix_basis = mathutils.Matrix().to_4x4()
 
 
 def get_valid_bones(b_armature):

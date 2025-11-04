@@ -70,7 +70,7 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 				logging.warning(f"Bone '{b_bone_name}' is not found in armature, skipping")
 				continue
 		else:
-			rest_inv = mathutils.Matrix().to_4x4()
+			rest_inv = mathutils.Matrix(Corrector.local_inv)
 			if b_bone_name in bpy.data.objects:
 				b_ob = bpy.data.objects[b_bone_name]
 			else:

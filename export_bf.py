@@ -75,14 +75,14 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 	last_frame = int(last_frame) + 1
 	frame_count = last_frame - first_frame
 	# create arrays for loc, rot, scale keys
-	channel_storage = {b_bone.name: {
+	channel_storage = {b_bone_name: {
 		ROT: np.zeros((frame_count, 4), float),
 		EUL_X: np.zeros((frame_count, 1), float),
 		EUL_Y: np.zeros((frame_count, 1), float),
 		EUL_Z: np.zeros((frame_count, 1), float),
 		LOC: np.zeros((frame_count, 3), float),
 		SCL: np.zeros((frame_count, 3), float),
-	} for b_bone in b_ob.data.bones}
+	} for b_bone_name in bones_data}
 	# store pose data for b_action
 	b_ob.animation_data.action = b_action
 	for trg_frame, src_frame in enumerate(range(first_frame, last_frame)):
@@ -90,8 +90,16 @@ def sample_action(b_ob, b_action, bones_data, rest_data):
 
 	# decide which channels to keyframe by determining if the keys are static
 	for bone_name, channels in tuple(channel_storage.items()):
+		if b_ob.type == "ARMATURE":
+			b_target = b_ob.pose.bones[bone_name]
+		elif bone_name == b_ob.name:
+			b_target = b_ob
+		else:
+			logging.warning(f"Unknown target {bone_name}, skipping")
+			channel_storage.pop(bone_name)
+			continue
 		# decide on rotation mode
-		if b_ob.pose.bones[bone_name].rotation_mode == "QUATERNION":
+		if b_target.rotation_mode == "QUATERNION":
 			channels.pop(EUL_X)
 			channels.pop(EUL_Y)
 			channels.pop(EUL_Z)
@@ -134,7 +142,9 @@ def store_pose_frame_info(b_ob, src_frame, trg_frame, bones_data, channel_storag
 			matrix = bones_data[b_name] @ b_ob.convert_space(
 				pose_bone=p_bone, matrix=p_bone.matrix, from_space='POSE', to_space='LOCAL')
 			store_transform_data(channel_storage, rest_data, matrix, b_name, trg_frame)
-
+	else:
+		matrix = bones_data[b_ob.name] @ b_ob.matrix_local
+		store_transform_data(channel_storage, rest_data, matrix, b_ob.name, trg_frame)
 
 def store_transform_data(channel_storage, rest_data, matrix, name, frame):
 	matrix = Corrector.export_keymat2(matrix)
@@ -252,16 +262,27 @@ def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 	else:
 		logging.info("There's no armature, but are there animations at all (docking)?")
 		for b_ob in bpy.data.objects:
-			bones_data[b_ob.name] = mathutils.Matrix().to_4x4()
+			b_rest = mathutils.Matrix(Corrector.local)
+			bones_data[b_ob.name] = b_rest
+			fill_in_rest_data(b_ob.name, Corrector.export_keymat2(b_rest), rest_data)
+			error_margins[b_ob.name] = error ** exp_power
 
-	for b_action in list(bpy.data.actions):
-		# do not export scale library
-		if "!scale!" in b_action.name:
-			continue
-		handle_legacy_name(b_action)
-		clear_pose(b_armature_ob)
-		channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
-		logging.info(f"Exporting {b_action.name}")
+	if b_armature_ob:
+		for b_action in list(bpy.data.actions):
+			# do not export scale library
+			if "!scale!" in b_action.name:
+				continue
+			handle_legacy_name(b_action)
+			clear_pose(b_armature_ob)
+			channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
+			logging.info(f"Exporting {b_action.name}")
 
-		write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
+			write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
+	else:
+		for b_ob in bpy.data.objects:
+			if b_ob.animation_data and b_ob.animation_data.action:
+				b_action = b_ob.animation_data.action
+				channel_storage = sample_action(b_ob, b_action, bones_data, rest_data)
+				logging.info(f"Exporting {b_action.name}")
+				write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")

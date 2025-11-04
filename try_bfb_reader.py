@@ -34,7 +34,7 @@ def explore_tree(node, bfb, i=0):
 	# 	print(node)
 	info = f"{rel_path[-8:]}"
 	info = f"{'  ' * i}{node.name} ID: {node.id:2d} {node.type_id.name} unk0 {node.unk_0} unk1 {node.unk_1}"
-	info = f"{'  ' * i}{node.name} ID: {node.id:2d} at {node.io_start} children {node.start_children} sibling {node.start_sibling}"
+	# info = f"{'  ' * i}{node.name} ID: {node.id:2d} at {node.io_start} children {node.start_children} sibling {node.start_sibling}"
 	if node.type_id == NodeType.MESH_LINK:
 		for object_id in node.geometry.object_ids:
 			ob = bmap[object_id]
@@ -97,13 +97,13 @@ bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/objects/foliage/DatePalm/DatePalm_
 # # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
 # # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
 # # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/scenery/zoopedia_redwoodtunnel/zoopedia_redwoodtunnel.bfb"
-bfb = BfbFile()
-try:
-	bfb.load(bfb_path)
-except:
-	logging.exception("failed")
-# print(bfb.tree)
-bfb.save(bfb_path+"_edit.bfb")
+# bfb = BfbFile()
+# try:
+# 	bfb.load(bfb_path)
+# except:
+# 	logging.exception("failed")
+# # print(bfb.tree)
+# bfb.save(bfb_path+"_edit.bfb")
 
 # logging.info("Done")
 
