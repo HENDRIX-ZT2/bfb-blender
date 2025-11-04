@@ -36,7 +36,7 @@ def import_scene_graph(b_parent, node, lod_level):
 			for collision_id in node.collision_ids:
 				id2data[collision_id].parent = b_ob
 	elif node.type_id == NodeType.LOD_GROUP:
-		b_ob = create_empty(b_parent, "lodgroup", matrix)
+		b_ob = create_empty(b_parent, node.name, matrix)
 	elif node.type_id in (NodeType.MESH_LINK, NodeType.BILLBOARD_LINK):
 		logging.info(f"geometries: {node.geometry.object_ids}")
 		assert len(node.geometry.object_ids) == 1

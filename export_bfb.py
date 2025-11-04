@@ -90,6 +90,8 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 	else:
 		# lamps etc, just ignore them
 		return None
+	children = list(b_ob.children)
+	children.sort(key=lambda c: (c.name))
 	for i, b_child in enumerate(b_ob.children):
 		if b_ob.name.startswith('lodgroup'):
 			lod_level = i

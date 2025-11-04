@@ -32,18 +32,21 @@ def explore_tree(node, bfb, i=0):
 	# 	print(rel_path, node.unk_0, node.unk_1)
 	# if node.type_id == NodeType.BILLBOARD_LINK:
 	# 	print(node)
+	info = f"{rel_path[-8:]}"
+	info = f"{'  ' * i}{node.name} ID: {node.id:2d} {node.type_id.name} unk0 {node.unk_0} unk1 {node.unk_1}"
+	info = f"{'  ' * i}{node.name} ID: {node.id:2d} at {node.io_start} children {node.start_children} sibling {node.start_sibling}"
 	if node.type_id == NodeType.MESH_LINK:
 		for object_id in node.geometry.object_ids:
 			ob = bmap[object_id]
 			mesh_data = bmap[ob.data.data_id]
 			# print(rel_path, node.name, node.id, object_id, ob.data.flag, mesh_data.data.flag)
-			print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, object_id)
+			print(info, object_id)
 	else:
 		if len(node.collision_ids):
 			for object_id in node.collision_ids:
-				print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, object_id)
+				print(info, object_id)
 		else:
-			print(rel_path[:5], f"{'  ' * i}{node.name}", node.id, node.type_id)
+			print(info)
 	if node.type_id == NodeType.CAPSULE_LINK:
 		coll_id = node.collision_ids[0]
 		coll = bmap[coll_id]
@@ -59,13 +62,13 @@ def explore_tree(node, bfb, i=0):
 
 	# if node.num_colliders:
 	# 	print(node)
-	for child in node.children:
+	for child in sorted(node.children, key=lambda x: x.name):
 		explore_tree(child, bfb, i+1)
 
 start_dir = "C:/Users/arnfi/Desktop/Coding/BFB"
 for bfb_path in walk_type(start_dir, extension=".bfb"):
 	rel_path = os.path.relpath(bfb_path, start_dir)
-	if not "palm" in rel_path.lower():
+	if not "foliage" in rel_path.lower():
 		continue
 	try:
 		logging.info(f"Reading {rel_path}")
@@ -73,6 +76,7 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 		bfb.load(bfb_path)
 		logging.info(f"Version: {bfb.header.version}")
 		bmap = {block.id: block for block in bfb.blocks}
+		print(f"Reading {rel_path}")
 		explore_tree(bfb.tree, bfb)
 		for block in bfb.blocks:
 			flag = f" Flag {block.data.flag}" if hasattr(block.data, 'flag') else ""
@@ -86,19 +90,20 @@ for bfb_path in walk_type(start_dir, extension=".bfb"):
 	except:
 		logging.exception(f"Failed {rel_path}")
 
-# bfb_path = "C:/Users/arnfi/Desktop/TyrannosaurusRex_Adult_F.bfb"
-# bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/SKYSPHERE_GRASSLANDSUNSET/skysphere_GrasslandSunset.bfb"
-# # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
-# # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
-# # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
-# # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/scenery/zoopedia_redwoodtunnel/zoopedia_redwoodtunnel.bfb"
-# bfb = BfbFile()
-# try:
-# 	bfb.load(bfb_path)
-# except:
-# 	logging.exception("failed")
+# # bfb_path = "C:/Users/arnfi/Desktop/TyrannosaurusRex_Adult_F.bfb"
+bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/objects/foliage/DatePalm/DatePalm_Desert.bfb"
+# # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/SKYSPHERE_GRASSLANDSUNSET/skysphere_GrasslandSunset.bfb"
+# # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/DiscoveryKiosk_df/DiscoveryKiosk_df.bfb"
+# # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/fences/ThemedTank_mm/themedtank_mm_top_curve135_long.bfb"
+# # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/buildings/CavePaintingHall/CavePaintingHall.bfb"
+# # # bfb_path = "C:/Users/arnfi/Desktop/Coding/BFB/bfb objects/objects/scenery/zoopedia_redwoodtunnel/zoopedia_redwoodtunnel.bfb"
+bfb = BfbFile()
+try:
+	bfb.load(bfb_path)
+except:
+	logging.exception("failed")
 # print(bfb.tree)
-# bfb.save(bfb_path+"_edit.bfb")
-#
+bfb.save(bfb_path+"_edit.bfb")
+
 # logging.info("Done")
 
