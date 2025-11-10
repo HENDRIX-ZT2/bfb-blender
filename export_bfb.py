@@ -39,6 +39,11 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 			bfb_node.unk_0 = 2
 			bfb_node.unk_1 = 0
 			bfb_node.lodgroup = "lodgroup"
+		elif "emitter" in b_ob:
+			bfb_node = bfb.create_node(b_ob, bfb, NodeType.PARTICLE_LINK, bfb_parent)
+			bfb_node.emitter = b_ob["emitter"]
+			bfb_node.unk_0 = 0
+			bfb_node.unk_1 = 0
 		else:
 			# node, with or without collision attached
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.NODE, bfb_parent)

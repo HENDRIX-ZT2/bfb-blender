@@ -67,6 +67,9 @@ def import_scene_graph(b_parent, node, lod_level):
 		for collision_id in node.collision_ids:
 			b_ob = id2data[collision_id]
 			attach_capsule(b_armature_ob, b_ob, bone_name)
+	elif node.type_id == NodeType.PARTICLE_LINK:
+		b_ob = create_empty(b_parent, node.name, matrix)
+		b_ob["emitter"] = node.emitter
 	# if we have children, the newly created empty is their parent
 	for child in node.children:
 		import_scene_graph(b_ob, child, lod_level)
