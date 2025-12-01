@@ -165,8 +165,10 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 	if not BFRVertex:
 		BFRVertex = guess_bfr(b_ob, eval_me)
 	if eval_me.color_attributes:
+		color_attribute = eval_me.color_attributes[0]
+		assert color_attribute.domain == "CORNER", f"Mesh '{eval_me.name}' uses vertex colors with the wrong domain - convert to 'Face Corner'"
 		colors = np.empty(len(eval_me.loops) * 4, np.float32)
-		eval_me.color_attributes[0].data.foreach_get('color', colors)
+		color_attribute.data.foreach_get('color', colors)
 		colors = colors.reshape((len(eval_me.loops), 4))
 		# legacy vertex_colors api converted the color to srgb float
 		# attributes api must manually use lin_to_srgb
