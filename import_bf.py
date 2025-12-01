@@ -112,12 +112,16 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			# Have we just read the Euler Z curve data?
 			elif modifier.key_type == 8:
 				# get all times and resample the keys
-				all_keys = set()
+				all_times = set()
 				for v in dict_times.values():
-					all_keys.update(v)
-				times = sorted(all_keys)
-				keys = np.stack(list(
-					np.interp(times, dict_times[x], dict_eulers[x].flat) for x in range(6, 9)), axis=1)
+					all_times.update(v)
+				times = sorted(all_times)
+				# handle missing key_types
+				keys = np.empty((len(times), 3), float)
+				keys[:] = rest_inv.inverted().to_euler()
+				for i, x in enumerate(range(6, 9)):
+					if x in dict_times:
+						keys[:, i] = np.interp(times, dict_times[x], dict_eulers[x].flat)
 				for i, key in enumerate(keys):
 					keys[i] = Corrector.import_keymat(rest_inv,
 										mathutils.Euler(key).to_matrix().to_4x4()).to_euler()
