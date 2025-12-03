@@ -1,5 +1,7 @@
-import time
+import bpy
 import mathutils
+
+import time
 import numpy as np
 
 from bfb_gen.formats.bfb import BfbFile
@@ -70,6 +72,8 @@ def import_scene_graph(b_parent, node, lod_level):
 	elif node.type_id == NodeType.PARTICLE_LINK:
 		b_ob = create_empty(b_parent, node.name, matrix)
 		b_ob["emitter"] = node.emitter
+	b_ob["unk_0"] = node.unk_0
+	b_ob["unk_1"] = node.unk_1
 	# if we have children, the newly created empty is their parent
 	for child in node.children:
 		import_scene_graph(b_ob, child, lod_level)
@@ -99,7 +103,7 @@ def load(reporter, filepath="", use_custom_normals=False, use_mirror_mesh=False,
 	logging.info(f"Importing {basename}")
 	bfb = BfbFile()
 	bfb.load(filepath)
-	print(bfb)
+	# print(bfb)
 	logging.debug(f"BFB Version: {bfb.header.version}")
 	logging.debug(f"BFB Author: {bfb.header.author}")
 	logging.info("Reading object blocks...")

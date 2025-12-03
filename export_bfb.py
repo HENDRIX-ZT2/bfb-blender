@@ -36,24 +36,24 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 		if b_ob.name.startswith('lodgroup'):
 			# LOD group
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.LOD_GROUP, bfb_parent)
-			bfb_node.unk_0 = 2
-			bfb_node.unk_1 = 0
+			bfb_node.unk_0 = b_ob.get("unk_0", 2)
+			bfb_node.unk_1 = b_ob.get("unk_1", 0)
 			bfb_node.lodgroup = "lodgroup"
 		elif "emitter" in b_ob:
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.PARTICLE_LINK, bfb_parent)
 			bfb_node.emitter = b_ob["emitter"]
-			bfb_node.unk_0 = 0
-			bfb_node.unk_1 = 0
+			bfb_node.unk_0 = b_ob.get("unk_0", 0)
+			bfb_node.unk_1 = b_ob.get("unk_1", 0)
 		else:
 			# node, with or without collision attached
 			bfb_node = bfb.create_node(b_ob, bfb, NodeType.NODE, bfb_parent)
 			# with collision: unk_0 and unk_1 both = 0 or 1
 			if lod_level in (0, 1):
-				bfb_node.unk_0 = 4
-				bfb_node.unk_1 = 0
+				bfb_node.unk_0 = b_ob.get("unk_0", 4)
+				bfb_node.unk_1 = b_ob.get("unk_1", 0)
 			else:
-				bfb_node.unk_0 = 0
-				bfb_node.unk_1 = 0
+				bfb_node.unk_0 = b_ob.get("unk_0", 0)
+				bfb_node.unk_1 = b_ob.get("unk_1", 0)
 	elif b_ob.type == "MESH":
 		if b_ob.name.startswith('sphere'):
 			attach_collision(bfb_parent, export_sphere(b_ob, bfb))
@@ -80,11 +80,11 @@ def export_tree(reporter, b_ob, bfb, reuse_vertices, export_materials, export_di
 				bfb_node = bfb.create_node(b_ob, bfb, NodeType.MESH_LINK, bfb_parent)
 				# or 0, 2, or rarely 0, 0
 				if lod_level in (0, 1):
-					bfb_node.unk_0 = 4
-					bfb_node.unk_1 = 0
+					bfb_node.unk_0 = b_ob.get("unk_0", 4)
+					bfb_node.unk_1 = b_ob.get("unk_1", 0)
 				else:
-					bfb_node.unk_0 = 0
-					bfb_node.unk_1 = 0
+					bfb_node.unk_0 = b_ob.get("unk_0", 0)
+					bfb_node.unk_1 = b_ob.get("unk_1", 0)
 				bfb_node.name = "editable mesh" if "editable mesh" in b_ob.name else b_ob.name.replace(".", "")
 				data = bfb_node.geometry
 			data.object_ids[0] = mesh_id
