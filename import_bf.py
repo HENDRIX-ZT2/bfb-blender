@@ -3,6 +3,7 @@ import time
 import bpy
 import mathutils
 import logging
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -140,7 +141,24 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			mod.mode_before = 'REPEAT_OFFSET'
 
 	for txtkey in bf.footer.txtkeys:
-		name = txtkey.string.strip()
-		if name not in ("start", "end"):
-			marker = b_action.pose_markers.new(name)
+		text = txtkey.string.strip()
+		if text not in ("start", "end"):
+			marker = b_action.pose_markers.new(text)
 			marker.frame = round(txtkey.time * fps)
+
+	# txtkeys
+	txtkeys_path = os.path.splitext(src_path)[0] + ".txtkeys"
+	if os.path.isfile(txtkeys_path):
+
+		first_frame, last_frame = b_action.frame_range
+		frame_count = last_frame - first_frame
+		root = ET.parse(txtkeys_path).getroot()
+		for key in root:
+			text = key.attrib["text"].strip()
+			marker = b_action.pose_markers.new(text)
+			if "frame" in key.attrib:
+				marker.frame = int(key.attrib["frame"])
+			elif "time" in key.attrib:
+				marker.frame = round(float(key.attrib["time"]) * fps)
+			elif "percent" in key.attrib:
+				marker.frame = round(float(key.attrib["percent"]) * frame_count)
