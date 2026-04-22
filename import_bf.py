@@ -135,7 +135,8 @@ def read_bf(dir_path, bf_name, b_armature, bones_data, fps):
 			anim_sys.add_keys(b_action, data_type, key_range, None, times, keys, interp, n_bone=b_bone_name)
 
 	if not "_2" in action_name:
-		for fcurve in b_action.fcurves:
+		# todo update set_extrapolation
+		for fcurve in anim_sys.iter_fcurves(b_action):
 			mod = fcurve.modifiers.new('CYCLES')
 			mod.mode_after = 'REPEAT_OFFSET'
 			mod.mode_before = 'REPEAT_OFFSET'
