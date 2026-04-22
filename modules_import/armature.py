@@ -110,7 +110,5 @@ def apply_rest_scale_correction(b_armature_ob, scales, anim, skinned_meshes):
 		# add scale back in as dummy action
 		scale_action = anim.create_action(b_armature_ob, "!scale!")
 		for bone_name, scale in scales.items():
-			fcurves = [scale_action.fcurves.new(data_path=f'pose.bones["{bone_name}"].scale', index=i,
-												action_group=bone_name) for i in range(3)]
-			for fcurve in fcurves:
+			for fcurve in anim.create_fcurves(scale_action, "scale", range(3), n_bone=bone_name):
 				fcurve.keyframe_points.insert(0, scale)
