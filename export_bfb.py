@@ -221,7 +221,7 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 					w_s = sorted(w, key=lambda x: x[1], reverse=True)[0:4]
 					# pad the weight list to 4 bones, i.e. add empty bones if missing
 					for i in range(0, 4 - len(w_s)):
-						w_s.append((-1, 0.0))
+						w_s.append((255, 0.0))
 					sw = w_s[0][1] + w_s[1][1] + w_s[2][1] + w_s[3][1]
 					if sw > 0.0:
 						weights_list.append((w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0],
