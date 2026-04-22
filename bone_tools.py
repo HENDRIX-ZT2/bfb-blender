@@ -1,9 +1,12 @@
 import bpy
 import mathutils
 
+from modules_import.anim import Animation
 from modules_import.armature import fix_bone_length
 from common_bfb import *
 from bake_clean_actions import *
+
+anim_sys = Animation()
 
 def uniquify(seq):
    seen = {}
@@ -41,7 +44,7 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 	
 	for action in bpy.data.actions:
 		arm.animation_data.action = action
-		for group in action.groups:
+		for group in anim_sys.get_data(action).groups:
 			for p_bone in p_limbs:
 				if group.name == p_bone.name:
 					frames = uniquify([v.co[0] for fcurve in group.channels for v in fcurve.keyframe_points])
@@ -94,7 +97,7 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 		bpy.ops.object.mode_set(mode='POSE')
 
 		for action in bpy.data.actions:
-			for group in action.groups:
+			for group in anim_sys.get_data(action).groups:
 				if group.name in bone_names:
 					#rotate the translation so the movement of the bone remains identical
 					for data_type in ("location", "quaternion"):
@@ -114,7 +117,7 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 									key = mat.to_quaternion()
 								for a in range(0, len(curves)):
 									curves[a].keyframe_points[i].co[1] = key[a]
-			for fcurve in action.fcurves:
+			for fcurve in anim_sys.get_data(action).fcurves:
 				fcurve.update()
 		#call the tangent function
 		loop_fcurve_tangents()

@@ -223,13 +223,6 @@ def create_txtkey(bf, key_time, name):
 	bf.footer.txtkeys.append(txtkey)
 
 
-def keys_iter(fcurves):
-	num_keys = len(fcurves[0].keyframe_points)
-	for i in range(0, num_keys):
-		frame = fcurves[0].keyframe_points[i].co[0]
-		yield frame, [fcurve.keyframe_points[i].co[1] for fcurve in fcurves]
-
-
 def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 	start_time = time.time()
 	if fix_tangents:

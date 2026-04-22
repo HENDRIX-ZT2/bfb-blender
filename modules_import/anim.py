@@ -88,15 +88,13 @@ class Animation:
 			fcurves = [create_fcurve(data_path=rna_path, index=i, action_group=action_group) for i in drange]
 		return fcurves
 
-	def iter_fcurves(self, b_action):
+	def get_data(self, b_action):
 		if bpy.app.version >= (5, 0, 0):
 			action_slot = b_action.slots[0]
 			channelbag = anim_utils.action_ensure_channelbag_for_slot(b_action, action_slot)
-			for fcurve in channelbag.fcurves:
-				yield fcurve
+			return channelbag
 		else:
-			for fcurve in b_action.fcurves:
-				yield fcurve
+			return b_action
 
 	@staticmethod
 	def set_extrapolation(extend_type, fcurves):

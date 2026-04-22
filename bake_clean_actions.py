@@ -5,12 +5,14 @@ import math
 import time
 
 from common_bfb import create_ob
+from modules_import.anim import Animation
 
 # references
 # https://technology.riotgames.com/news/compressing-skeletal-animation-data
 # https://takinginitiative.net/2020/03/07/an-idiots-guide-to-animation-compression/
 # https://animcoding.com/post/animation-tech-intro-part-2-compression/
 
+anim_sys = Animation()
 
 def find_in_group(group, t, i):
 	for fcurve in group.channels:
@@ -57,7 +59,7 @@ def loop_fcurve_tangents():
 			aft = after[action]
 		except:
 			continue
-		for group in action.groups:
+		for group in anim_sys.get_data(action).groups:
 			# set or create the other groups
 			try:
 				bgroup = bef.groups[group.name]
