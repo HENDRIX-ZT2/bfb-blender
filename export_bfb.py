@@ -130,7 +130,7 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 	for b_mod in b_ob.modifiers:
 		if b_mod.type in ('TRIANGULATE',):
 			b_ob.modifiers.remove(b_mod)
-		if b_mod.type in ('ARMATURE',):
+		elif b_mod.type in ('ARMATURE',):
 			if not b_mod.object:
 				raise AttributeError(f"{b_ob.name} has an armature modifier without object reference")
 	b_ob.modifiers.new('Triangulate', 'TRIANGULATE')
