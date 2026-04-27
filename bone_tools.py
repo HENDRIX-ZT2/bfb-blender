@@ -2,7 +2,7 @@ import bpy
 import mathutils
 
 from modules_import.anim import Animation
-from modules_import.armature import fix_bone_length
+from modules_import.armature import fix_bone_lengths
 from common_bfb import *
 from bake_clean_actions import *
 
@@ -77,9 +77,9 @@ def toggle_link_ik_controllers(operator, context, layers=(), root_name="Bip01", 
 				
 def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):
 
-	#say we want to rotate 180° around Y in bone's local space, as if it was posed with this euler
+	# say we want to rotate 180° around Y in bone's local space, as if it was posed with this euler
 	rot_mat = rotation.to_matrix().to_4x4()
-	#when no object exists, or when we are in edit mode when script is run
+	# when no object exists, or when we are in edit mode when script is run
 	armature = get_armature()
 	if armature:
 		bpy.context.scene.objects.active = armature
@@ -93,7 +93,7 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 			b1.head = locally_rotated.to_translation()
 			b1.tail = tail + b1.head
 			b1.roll = roll
-			fix_bone_length(b1)
+		fix_bone_lengths(armature.data)
 		bpy.ops.object.mode_set(mode='POSE')
 
 		for action in bpy.data.actions:
@@ -119,57 +119,44 @@ def reorient_bone(operator, context, fixed_items, layers=(), location=mathutils.
 									curves[a].keyframe_points[i].co[1] = key[a]
 			for fcurve in anim_sys.get_data(action).fcurves:
 				fcurve.update()
-		#call the tangent function
+		# call the tangent function
 		loop_fcurve_tangents()
 		bpy.context.view_layer.update()
 	return {'FINISHED'}
 	
 	
-def add_correction_bone(operator, context, layers=(), location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)) ):
-	#location and rotation of the new bone in bonespace	
+def add_correction_bone(operator, context, layers=(), location=mathutils.Vector((0,0,1)), rotation=mathutils.Euler((0,0,1)), **kwargs):
+	# location and rotation of the new bone in bonespace
 	c_bspace = rotation.to_matrix().to_4x4()
 	#c_bspace.translation = location
 	p_bone = bpy.context.active_bone
-	
+	armature = bpy.context.active_object.data
 	parent = None
 	for bone in bpy.context.selected_bones:
 		parent = bone.parent
 		
 	if parent:
 		p_aspace = parent.matrix
-		cc_bspace = p_aspace * c_bspace
-		cbone = bpy.context.active_object.data.edit_bones.new("Test")
+		cc_bspace = p_aspace @ c_bspace
+		cbone = armature.edit_bones.new("Test")
 		cbone.head = location+mathutils.Vector((0,0,0))
 		cbone.tail = location+mathutils.Vector((0,1,0))
 		cbone.parent = parent
 		cbone.transform(cc_bspace)
 		cbone.roll = cbone.parent.roll
 		
-		#rotation about the cbone head
-		mat = (mathutils.Matrix.Translation(cbone.head) * c_bspace * mathutils.Matrix.Translation(-cbone.head))
-		dir = cbone.head-cbone.parent.head
+		# rotation about the cbone head
+		mat = (mathutils.Matrix.Translation(cbone.head) @ c_bspace @ mathutils.Matrix.Translation(-cbone.head))
+		direction = cbone.head-cbone.parent.head
 		
-	for bone in bpy.context.selected_bones:
-		bone.parent = cbone
+		for bone in bpy.context.selected_bones:
+			bone.parent = cbone
 	
-	#transform all children, first translation, then rotation
-	for a in cbone.children_recursive:
-		a.translate(dir)
-		a.transform(mat)
-		
-	#fix the bone length
-	for bone in bpy.context.active_object.data.edit_bones:
-		#don't change Bip01
-		if bone.parent:
-			childheads = mathutils.Vector()
-			for child in bone.children:
-				childheads += child.head
-			if bone.children:
-				bone.length = (bone.head - childheads/len(bone.children)).length
-				if bone.length < 0.01:
-					bone.length = 0.25
-			# end of a chain
-			else:
-				bone.length = bone.parent.length
+		# transform all children, first translation, then rotation
+		for a in cbone.children_recursive:
+			a.translate(direction)
+			a.transform(mat)
+
+		fix_bone_lengths(armature)
 				
 	return {'FINISHED'}
