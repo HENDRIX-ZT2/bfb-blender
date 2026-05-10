@@ -17,6 +17,8 @@ from modules_export.collision import export_bounding_box, export_sphere, export_
 from modules_export.material import get_mat_names
 from util.colors import color_indices, lin_to_srgb
 
+MAX_BONE = 255
+
 
 def flatten(mat):
 	return [v for row in mat for v in row]
@@ -176,7 +178,7 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 		colors = np.round(colors[:, color_indices] * 255)
 	# select all verts without weights
 	unweighted_vertices = set()
-	group_map = {vg.index: bones_names.get(vg.name, -1) for vg in b_ob.vertex_groups}
+	group_map = {vg.index: bones_names.get(vg.name, MAX_BONE) for vg in b_ob.vertex_groups}
 	for polygon in eval_me.polygons:
 		# split by material index
 		if polygon.material_index not in mesh_chunks:
@@ -213,15 +215,14 @@ def export_mesh(b_ob, bfb, reuse_vertices, lod_level):
 				if b_armature:
 					w = []
 					for vertex_group in vertex.groups:
-						try:
-							w.append((group_map[vertex_group.group], vertex_group.weight))
-						# dummy vertex groups without corresponding bones
-						except:
-							pass
+						# skip vertex groups without corresponding bones
+						bone_index = group_map[vertex_group.group]
+						if bone_index != MAX_BONE:
+							w.append((bone_index, vertex_group.weight))
 					w_s = sorted(w, key=lambda x: x[1], reverse=True)[0:4]
 					# pad the weight list to 4 bones, i.e. add empty bones if missing
 					for i in range(0, 4 - len(w_s)):
-						w_s.append((255, 0.0))
+						w_s.append((MAX_BONE, 0.0))
 					sw = w_s[0][1] + w_s[1][1] + w_s[2][1] + w_s[3][1]
 					if sw > 0.0:
 						weights_list.append((w_s[0][0], w_s[1][0], w_s[2][0], w_s[3][0],
