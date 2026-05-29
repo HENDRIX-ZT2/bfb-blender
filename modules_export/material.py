@@ -140,7 +140,7 @@ def write_bfmat(reporter, b_ob, b_mat, export_dir, mat_name):
 	# sort children by name
 	bfmat[:] = sorted(bfmat, key=lambda child: child.get("name"))
 	material_tree = ET.ElementTree(bfmat)
-	indent(bfmat)
+	ET.indent(bfmat, space='\t', level=0)
 	material_dir = os.path.join(export_dir, "Materials")
 	if not os.path.exists(material_dir):
 		os.makedirs(material_dir)
@@ -163,22 +163,6 @@ def get_mat_names(reporter, b_ob, export_dir, export_materials):
 	# else:
 		# log_error(f'Mesh {b_ob.name} has no Material, no BFMAT was exported!')
 		# mat_name = 'none'
-
-
-def indent(elem, level=0):
-	i = "\n" + level * "	"
-	if len(elem):
-		if not elem.text or not elem.text.strip():
-			elem.text = i + "	"
-		if not elem.tail or not elem.tail.strip():
-			elem.tail = i
-		for elem in elem:
-			indent(elem, level + 1)
-		if not elem.tail or not elem.tail.strip():
-			elem.tail = i
-	else:
-		if level and (not elem.tail or not elem.tail.strip()):
-			elem.tail = i
 
 
 def find_fcurve(id_data, path, index=0):
