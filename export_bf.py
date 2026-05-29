@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import xml.etree.ElementTree as ET
 
 import bpy
 import mathutils
@@ -159,7 +160,7 @@ def store_transform_data(channel_storage, rest_data, matrix, name, frame):
 	euler.make_compatible(rest_data[name][EUL])
 	bone_storage[EUL_X][frame], bone_storage[EUL_Y][frame], bone_storage[EUL_Z][frame] = euler
 
-def write_nodes(reporter, dir_path, b_action, channel_storage, error_margins):
+def write_nodes(reporter, dir_path, b_action, channel_storage, error_margins, write_txtkeys_files):
 	file_path = os.path.join(dir_path, f"{b_action.name}.bf")
 	bf = BfFile()
 	fps = bpy.context.scene.render.fps
@@ -209,9 +210,17 @@ def write_nodes(reporter, dir_path, b_action, channel_storage, error_margins):
 					bf_key.time = t
 					bf_key.scale = key[0]
 	create_txtkey(bf, 0.0, "start")
-	# export any custom txtkeys
-	for marker in b_action.pose_markers:
-		create_txtkey(bf, marker.frame / fps, marker.name)
+	if write_txtkeys_files:
+		root = ET.Element('TEXTKEY')
+		for marker in b_action.pose_markers:
+			ET.SubElement(root, "key", {"frame": str(marker.frame), "text": marker.name})
+		ET.indent(root, space='\t', level=0)
+		tree = ET.ElementTree(root)
+		tree.write(os.path.join(dir_path, f"{b_action.name}.txtkeys"))
+	else:
+		# export any custom txtkeys
+		for marker in b_action.pose_markers:
+			create_txtkey(bf, marker.frame / fps, marker.name)
 	create_txtkey(bf, duration, "end")
 	bf.save(file_path)
 
@@ -223,7 +232,7 @@ def create_txtkey(bf, key_time, name):
 	bf.footer.txtkeys.append(txtkey)
 
 
-def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
+def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2, write_txtkeys_files=True):
 	start_time = time.time()
 	if fix_tangents:
 		bake_clean_actions.loop_fcurve_tangents()
@@ -270,12 +279,12 @@ def save(reporter, filepath='', fix_tangents=False, error=0.25, exp_power=2):
 			channel_storage = sample_action(b_armature_ob, b_action, bones_data, rest_data)
 			logging.info(f"Exporting {b_action.name}")
 
-			write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
+			write_nodes(reporter, dir_path, b_action, channel_storage, error_margins, write_txtkeys_files)
 	else:
 		for b_ob in bpy.data.objects:
 			if b_ob.animation_data and b_ob.animation_data.action:
 				b_action = b_ob.animation_data.action
 				channel_storage = sample_action(b_ob, b_action, bones_data, rest_data)
 				logging.info(f"Exporting {b_action.name}")
-				write_nodes(reporter, dir_path, b_action, channel_storage, error_margins)
+				write_nodes(reporter, dir_path, b_action, channel_storage, error_margins, write_txtkeys_files)
 	logging.info(f"Finished BF Export in {time.time() - start_time:.2f} seconds")

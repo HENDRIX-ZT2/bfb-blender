@@ -74,6 +74,10 @@ class ExportBF(ExportOp):
 	bl_label = 'Export BF'
 	filename_ext = ".bf"
 	filter_glob: StringProperty(default="*.bf", options={'HIDDEN'})
+
+	write_txtkeys_files: BoolProperty(name="Write Txtkeys",
+									  description="Write annotation to .txtkeys file, otherwise attach to .bf file.",
+									  default=True)
 	fix_tangents: BoolProperty(name="Fix Tangents",
 							   description="Smoothes tangents between actions",
 							   default=True)
