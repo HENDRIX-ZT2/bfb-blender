@@ -211,12 +211,13 @@ def write_nodes(reporter, dir_path, b_action, channel_storage, error_margins, wr
 					bf_key.scale = key[0]
 	create_txtkey(bf, 0.0, "start")
 	if write_txtkeys_files:
-		root = ET.Element('TEXTKEY')
-		for marker in b_action.pose_markers:
-			ET.SubElement(root, "key", {"frame": str(marker.frame), "text": marker.name})
-		ET.indent(root, space='\t', level=0)
-		tree = ET.ElementTree(root)
-		tree.write(os.path.join(dir_path, f"{b_action.name}.txtkeys"))
+		if b_action.pose_markers:
+			root = ET.Element('TEXTKEY')
+			for marker in b_action.pose_markers:
+				ET.SubElement(root, "key", {"frame": str(marker.frame), "text": marker.name})
+			ET.indent(root, space='\t', level=0)
+			tree = ET.ElementTree(root)
+			tree.write(os.path.join(dir_path, f"{b_action.name}.txtkeys"))
 	else:
 		# export any custom txtkeys
 		for marker in b_action.pose_markers:
